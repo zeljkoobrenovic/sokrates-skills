@@ -1,0 +1,14 @@
+.github/workflows/pages.yml
+  h_32d60cd4daf66e 1-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "d6481f452e1a25497db72515f94228a5ed9f0adb",
+  "prompts": {},
+  "humans": {
+    "h_32d60cd4daf66e": {
+      "author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

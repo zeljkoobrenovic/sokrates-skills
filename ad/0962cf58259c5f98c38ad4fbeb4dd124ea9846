@@ -1,0 +1,101 @@
+.gitignore
+  s_3786983bc6bd72::t_cd24410f53535a 1-6
+skills/README.md
+  s_3786983bc6bd72::t_c92a43b24b71cb 1-10
+skills/config/README.md
+  s_3786983bc6bd72::t_cf0610dcfb9449 1-16
+skills/config/sokrates-decompositions/SKILL.md
+  s_3786983bc6bd72::t_a703df2e08c0f1 1-52
+skills/config/sokrates-decompositions/scripts/propose_decompositions.py
+  s_3786983bc6bd72::t_1c5695b0993b10 1-534
+skills/config/sokrates-features-of-interest/SKILL.md
+  s_3786983bc6bd72::t_6c5374f0514404 1-41
+skills/config/sokrates-features-of-interest/scripts/propose_concerns.py
+  s_3786983bc6bd72::t_5b0d08a10d9f29 1-306
+skills/config/sokrates-landscape-config/scripts/check_landscape.py
+  s_3786983bc6bd72::t_d0eef9364f686f 1-437
+skills/config/sokrates-people-config/scripts/build_people_config.py
+  s_3786983bc6bd72::t_154d981c6cb04d 1-439
+skills/config/sokrates-repo-config/references/config-reference.md
+  s_3786983bc6bd72::t_fa88af5e379418 1-148
+skills/config/sokrates-repo-config/scripts/preview_config.py
+  s_3786983bc6bd72::t_5e62838a89086c 1-498
+skills/config/sokrates-virtual-landscapes/SKILL.md
+  s_3786983bc6bd72::t_b637a5aebafd10 1-44
+skills/config/sokrates-virtual-landscapes/scripts/propose_virtual_landscapes.py
+  s_3786983bc6bd72::t_2678ce97aff95c 1-454
+skills/scanners/README.md
+  s_3786983bc6bd72::t_84cd2a24789286 1-39
+skills/scanners/architecture-scan/SKILL.md
+  s_3786983bc6bd72::t_0967e088455d0c 1-69
+skills/scanners/cicd-scan/SKILL.md
+  s_3786983bc6bd72::t_83dc6a28378600 1-57
+skills/scanners/domain-map-scan/SKILL.md
+  s_3786983bc6bd72::t_d0b2479647829f 1-59
+skills/scanners/evolution-scan/SKILL.md
+  s_3786983bc6bd72::t_dd14a214119cd6 1-71
+skills/scanners/evolution-scan/scripts/evolution_timeline.py
+  s_3786983bc6bd72::t_c5732ad3818b02 1-534
+skills/scanners/full-scan/SKILL.md
+  s_3786983bc6bd72::t_2fabff265cb5e5 1-44
+skills/scanners/observability-scan/SKILL.md
+  s_3786983bc6bd72::t_4f17fda814a85a 1-51
+skills/scanners/security-design-scan/SKILL.md
+  s_3786983bc6bd72::t_66aa806257acd9 1-65
+skills/scanners/security-scan/SKILL.md
+  s_3786983bc6bd72::t_d55aafe7ac4742 1-60
+skills/scanners/sokrates-scan-core/SKILL.md
+  s_3786983bc6bd72::t_d3a11601216393 1-129
+skills/scanners/sokrates-scan-core/scripts/diff_findings.py
+  s_3786983bc6bd72::t_0fb7cdbf300b07 1-124
+skills/scanners/sokrates-scan-core/scripts/merge_findings.py
+  s_3786983bc6bd72::t_ea06900e468d94 1-144
+skills/scanners/sokrates-scan-core/scripts/render_findings.py
+  s_3786983bc6bd72::t_444d14489e08fc 1-141
+skills/scanners/sokrates-scan-core/scripts/validate_findings.py
+  s_3786983bc6bd72::t_c0773c26d412c9 1-211
+skills/scanners/sokrates-scan-core/templates/icons/README.md
+  s_3786983bc6bd72::t_c8aabe1cc2eecb 1-6
+skills/scanners/sokrates-scan-core/templates/scanners.json
+  s_3786983bc6bd72::t_3788657061dc58 1-132
+skills/scanners/tech-stack-scan/SKILL.md
+  s_3786983bc6bd72::t_3a2ddb5f3d9a3d 1-67
+LICENSE
+  s_3786983bc6bd72::t_0f1d7c3a2a644f 1-21
+README.md
+  s_3786983bc6bd72::t_b3ca4f81d8770b 1-68
+skills/config/sokrates-landscape-config/SKILL.md
+  s_3786983bc6bd72::t_3c22b63acdccaf 1-37
+skills/config/sokrates-landscape-config/references/landscape-reference.md
+  s_3786983bc6bd72::t_53ccaa50125e84 1-133
+skills/config/sokrates-people-config/SKILL.md
+  s_3786983bc6bd72::t_c92247530f4eae 1-47
+skills/config/sokrates-repo-config/SKILL.md
+  s_3786983bc6bd72::t_e2a74ac4c35a6a 1-41
+skills/scanners/risk-synthesis-scan/SKILL.md
+  s_3786983bc6bd72::t_815eabf5b9174b 1-53
+skills/scanners/risk-synthesis-scan/scripts/select_hotspots.py
+  s_3786983bc6bd72::t_4a1f6eb939eade 1-317
+skills/scanners/sokrates-scan-core/references/sokrates-data-guide.md
+  s_3786983bc6bd72::t_80fff247c27752 1-45
+skills/scanners/sokrates-scan-core/schema/findings.schema.json
+  s_3786983bc6bd72::t_7ca3dd59eab68c 1-116
+skills/scanners/sokrates-scan-core/templates/insights-explorer.html
+  s_3786983bc6bd72::t_a5e7467e5f25c9 1-929
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "ad0962cf58259c5f98c38ad4fbeb4dd124ea9846",
+  "prompts": {},
+  "sessions": {
+    "s_3786983bc6bd72": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a1f85628-6910-42bd-a09c-cda8952fefb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

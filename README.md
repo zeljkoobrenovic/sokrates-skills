@@ -45,6 +45,10 @@ Every finding carries file + line + verbatim snippet evidence that a script veri
 
 The field references under `skills/config/*/references/` were read from the Sokrates Java source, including the places where the documentation and the code disagree.
 
+## Example
+
+`examples/codex/ai-insights/index.html` is the explorer for [openai/codex](https://github.com/openai/codex) with all nine scanners (191 verified findings) — open it in a browser to see what the output looks like.
+
 ## Install
 
 Link the skills you want into your tool's skills folder (Claude Code shown):

@@ -1,0 +1,1341 @@
+{
+  "scanner": "evolution-scan",
+  "scanner_version": "1.0",
+  "analyzed_at": "2026-08-25",
+  "target": {
+    "name": "Codex",
+    "src_root": "../../.."
+  },
+  "summary": "Codex's history is 491 days and 9545 commits in which the project changed shape three times. It began in April 2025 as an open-source TypeScript CLI with a 95-author community burst, imported a parallel Rust implementation eight days later, and deleted the TypeScript code by August 2025. From August 2025 to March 2026 it became a pure Rust workspace where the TUI was the product and the app-server JSON-RPC API was born (2025-09-30); a forked tui2 experiment was abandoned after six weeks, and in March 2026 a second rewrite succeeded in twelve days, moving the TUI on top of the app-server and deleting the legacy TUI. Since April 2026, the busiest month (1060 commits), the work is decomposing the core into crates and building an extension and plugin platform (ext/, core-plugins, codex-mcp, features, state), all broad-based rather than single-owner. Velocity is a high plateau (2818 commits in the last 90 days versus 2856 before) with a growing, now 95% in-house team of about 195 active authors; ownership of the core moved from the original author to a contributor who arrived in September 2025. Attention items are modest: the core still takes 46% of recent commits despite the extraction programme, the external-agent-migration crate is effectively single-owner, and the deprecated mcp-server crate still ships.",
+  "stats": {
+    "history_source": "_input/codex/git-history.txt",
+    "history_span": {
+      "first_commit": "2025-04-16",
+      "last_commit": "2026-08-20",
+      "days": 491
+    },
+    "period_mode": "month",
+    "area_depth": 2,
+    "commits": 9545,
+    "authors": 581,
+    "files_seen_in_history": 10763,
+    "busiest_period": {
+      "period": "2026-04",
+      "commits": 1060
+    },
+    "messages_available": true,
+    "current_inventory_available": true,
+    "themes_overall": {
+      "other": 3247,
+      "feature": 2559,
+      "fix": 1658,
+      "deps-chore": 802,
+      "refactor": 486,
+      "test": 317,
+      "security": 259,
+      "docs": 124,
+      "perf": 48,
+      "revert": 45
+    },
+    "theme_trend_last_year": {
+      "deps-chore": {
+        "older_half_pct": 12.4,
+        "recent_half_pct": 5.6
+      },
+      "docs": {
+        "older_half_pct": 2.0,
+        "recent_half_pct": 0.7
+      },
+      "feature": {
+        "older_half_pct": 29.6,
+        "recent_half_pct": 25.0
+      },
+      "fix": {
+        "older_half_pct": 23.3,
+        "recent_half_pct": 11.7
+      },
+      "other": {
+        "older_half_pct": 24.6,
+        "recent_half_pct": 41.7
+      },
+      "perf": {
+        "older_half_pct": 0.4,
+        "recent_half_pct": 0.6
+      },
+      "refactor": {
+        "older_half_pct": 3.7,
+        "recent_half_pct": 6.1
+      },
+      "revert": {
+        "older_half_pct": 0.5,
+        "recent_half_pct": 0.5
+      },
+      "security": {
+        "older_half_pct": 1.6,
+        "recent_half_pct": 3.6
+      },
+      "test": {
+        "older_half_pct": 1.9,
+        "recent_half_pct": 4.4
+      }
+    },
+    "activity_trend": {
+      "commits_last_90d": 2818,
+      "commits_prev_90d": 2856,
+      "commits_last_365d": 8668,
+      "authors_last_90d": 195,
+      "authors_prev_90d": 156
+    },
+    "active_authors_now": 195,
+    "arrivals_last_365d": 443,
+    "departures": 0,
+    "timeline_params": {
+      "depth": 2,
+      "period": "month",
+      "top": 8
+    },
+    "history_data": "present",
+    "findings": 23,
+    "findings_by_group": {
+      "eras": 4,
+      "growth": 3,
+      "focus-shift": 3,
+      "people": 4,
+      "lifecycle": 6,
+      "trajectory": 3
+    }
+  },
+  "findings": [
+    {
+      "id": "evolution-scan/eras/typescript-cli-and-rust-import",
+      "group": "eras",
+      "title": "Era 1 (2025-04 to 2025-08): the TypeScript CLI, with a Rust rewrite growing beside it",
+      "description": "From the first commit on 2025-04-16 to early August 2025 the project was an **open-source TypeScript CLI** under `codex-cli/`, which took 60% of the 256 commits of April 2025 from 95 different authors. Eight days after the initial commit, on 2025-04-24, the **Rust implementation was imported** into `codex-rs/` in a single 71-file, 14099-line commit, and from May on `codex-rs/core` and `codex-rs/tui` already dominated the monthly activity. The era is a community burst followed by a lull: 157 commits in May, 44 in June with only 5 authors, 128 in July. The Rust CLI was declared the released product in July 2025 (`docs: update documentation to reflect Rust CLI release`). The era left behind the `codex-cli/` npm wrapper, the `codex-rs/execpolicy` and `mcp-types` crates, and the sandboxing work (Landlock/seccomp) that still frames the product.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 9361,
+          "end_line": 9361,
+          "snippet": "feat: initial import of Rust implementation of Codex CLI in codex-rs/ (#629)",
+          "note": "2025-04-24, 71 files, +14099 lines"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 9088,
+          "end_line": 9088,
+          "snippet": "docs: update documentation to reflect Rust CLI release (#1440)",
+          "note": "2025-07-02"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 9545,
+          "end_line": 9545,
+          "snippet": "Initial commit",
+          "note": "2025-04-16, first line of history"
+        }
+      ],
+      "tags": [
+        "era",
+        "typescript",
+        "rust"
+      ],
+      "sokrates_refs": [
+        "metric:commits",
+        "metric:contributors",
+        "component:codex_rs"
+      ],
+      "attributes": {
+        "from": "2025-04",
+        "to": "2025-08",
+        "commits": 585
+      }
+    },
+    {
+      "id": "evolution-scan/eras/rust-consolidation",
+      "group": "eras",
+      "title": "Era 2 (2025-08 to 2025-11): one Rust codebase, the TUI as the product, the app-server born",
+      "description": "After the **TypeScript code was deleted** on 2025-08-09 (216 files, 35960 lines removed), the repository became a pure Rust workspace and activity jumped from 128 commits in July to 426 in August 2025. The TUI was the center of the product: `codex-rs/tui` had its highest share ever in August (47% of commits) with the markdown-streaming work (landed, reverted, re-landed) and the animation frames of September. The `codex-rs/protocol` crate appears in 2025-08 and the **`codex app-server` split from `codex mcp`** on 2025-09-30 opened the JSON-RPC API that everything later builds on. October brought the first large refactors by the contributor who would become the top committer (`refactor tool handling`, `unify config crates`) and the Windows sandbox alpha. The era closed with the `execpolicy2` cutover and the first `app-server-protocol` crate in November.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 8818,
+          "end_line": 8818,
+          "snippet": "chore: remove the TypeScript code from the repository (#2048)",
+          "note": "2025-08-09, 216 files, -35960 lines"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 8153,
+          "end_line": 8153,
+          "snippet": "fix: separate `codex mcp` into `codex mcp-server` and `codex app-server` (#4471)",
+          "note": "2025-09-30, birth of app-server"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 7787,
+          "end_line": 7787,
+          "snippet": "chore: unify config crates (#5958)",
+          "note": "2025-10-30"
+        }
+      ],
+      "tags": [
+        "era",
+        "rust",
+        "app-server"
+      ],
+      "sokrates_refs": [
+        "metric:commits",
+        "component:codex_rs"
+      ],
+      "attributes": {
+        "from": "2025-08",
+        "to": "2025-11",
+        "commits": 1586
+      }
+    },
+    {
+      "id": "evolution-scan/eras/platform-and-tui-rewrite",
+      "group": "eras",
+      "title": "Era 3 (2025-12 to 2026-03): the app-server becomes the platform and the TUI is rebuilt on it",
+      "description": "From December 2025 activity accelerated month over month (427, 641, 887, 835 commits) and the **app-server became the architectural center**: its share of commits rose from 16% to 24% while `codex-rs/core` peaked at 63% in March 2026. Two frontend experiments define the era, told in detail in the lifecycle group: the `tui2` copy-and-improve experiment (December to January, retired) and the **`tui_app_server` rewrite** that moved the TUI on top of the app-server and replaced the legacy TUI within twelve days in March 2026. In parallel the core started to be decomposed (`codex-config` extracted in February, `codex-command` split out) and the protocol got a vendored JSON schema fixture tree of 91513 lines. The era closed with the TUI rename on 2026-03-28, after which every UI is an app-server client.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 4984,
+          "end_line": 4984,
+          "snippet": "Move TUI on top of app server (parallel code) (#14717)",
+          "note": "2026-03-16, 1109 files, +134243 lines"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 5964,
+          "end_line": 5964,
+          "snippet": "Extract `codex-config` from `codex-core` (#11389)",
+          "note": "2026-02"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 6286,
+          "end_line": 6286,
+          "snippet": "feat: vendor app-server protocol schema fixtures (#10371)",
+          "note": "2026-02-02, 570 files, +91513 lines"
+        }
+      ],
+      "tags": [
+        "era",
+        "app-server",
+        "tui"
+      ],
+      "sokrates_refs": [
+        "metric:commits",
+        "component:codex_rs"
+      ],
+      "attributes": {
+        "from": "2025-12",
+        "to": "2026-03",
+        "commits": 2790
+      }
+    },
+    {
+      "id": "evolution-scan/eras/extension-platform",
+      "group": "eras",
+      "title": "Era 4 (2026-04 to now): peak volume, core decomposition and an extension ecosystem",
+      "description": "April 2026 was the **busiest month ever** (1060 commits, 89 authors) and the following four months stayed between 779 and 938 commits with 87 to 119 authors each. The dominant theme is restructuring what the previous era piled into the core: `codex.rs` moved under `session/` and was split, the models manager was extracted, the app-server request processors and transport were split into crates, and shared HTTP transport went to `codex-http-client`. New areas were born in quick succession: `codex-rs/core-plugins` (2026-04), `codex-rs/codex-mcp` (2026-04), `codex-rs/features` and `codex-rs/tools` (2026-03), and above all **`codex-rs/ext/`** (2026-05), a directory of first-party extensions (skills, guardian-v2, memories, mcp, git-attribution) behind an `extension-api`. The recent commit stream is about plugins, Guardian approval routing, exec-server tracing and MCP hardening, which is where the trajectory points.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 4087,
+          "end_line": 4087,
+          "snippet": "Move codex module under session (#18249)",
+          "note": "2026-04-17, 110 files"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 66,
+          "end_line": 66,
+          "snippet": "Consolidate Guardian extensions into `codex-guardian-v2` (#39474)",
+          "note": "2026-08-19"
+        },
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 58,
+          "end_line": 58,
+          "snippet": "\"ext/extension-api\",",
+          "note": "ext/ crates are workspace members today"
+        }
+      ],
+      "tags": [
+        "era",
+        "extensions",
+        "plugins"
+      ],
+      "sokrates_refs": [
+        "metric:commits",
+        "metric:contributors",
+        "component:codex_rs"
+      ],
+      "attributes": {
+        "from": "2026-04",
+        "to": "2026-08",
+        "commits": 4584
+      }
+    },
+    {
+      "id": "evolution-scan/growth/growth-curve",
+      "group": "growth",
+      "title": "Growth curve: 91% of all commits landed in the last twelve months, peaking in April 2026",
+      "description": "The history spans 491 days (2025-04-16 to 2026-08-20) with **9545 commits by 581 authors**, but the curve is far from flat. Monthly commits went 256, 157, 44, 128 in the first four months (the June 2025 trough had 5 active authors), then climbed almost monotonically to 1060 in April 2026. **8668 of 9545 commits (91%) fall in the last 365 days** and 2818 in the last 90 days. Lines added per month grew from 41k in April 2025 to 731k in March 2026 (the TUI rewrite month, which also removed 516k) and 271k in August 2026. The codebase today is mostly a product of the last three quarters of work.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 9545,
+          "end_line": 9545,
+          "snippet": "Initial commit",
+          "note": "first commit, 2025-04-16"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "Trace MCP runtime refresh coordination (#39667)",
+          "note": "last commit, 2026-08-20"
+        }
+      ],
+      "tags": [
+        "growth",
+        "velocity"
+      ],
+      "sokrates_refs": [
+        "metric:commits",
+        "metric:commits_365d",
+        "metric:commits_90d",
+        "metric:churn"
+      ],
+      "attributes": {
+        "commits_by_month": {
+          "2025-04": 256,
+          "2025-05": 157,
+          "2025-06": 44,
+          "2025-07": 128,
+          "2025-08": 426,
+          "2025-09": 391,
+          "2025-10": 390,
+          "2025-11": 379,
+          "2025-12": 427,
+          "2026-01": 641,
+          "2026-02": 887,
+          "2026-03": 835,
+          "2026-04": 1060,
+          "2026-05": 938,
+          "2026-06": 931,
+          "2026-07": 876,
+          "2026-08": 779
+        }
+      }
+    },
+    {
+      "id": "evolution-scan/growth/bulk-imports",
+      "group": "growth",
+      "title": "Where the bulk came from: five bulk landings account for a large share of lines ever added",
+      "description": "Most growth is organic feature work in `core`, `tui` and `app-server`, but the line counts are inflated by a handful of **bulk landings**: the Rust import (14099 lines, 2025-04), the vendored **app-server protocol schema fixtures** (570 files, 91513 lines, 2026-02-02), the `tui2` copy of the TUI crate (742 files, 53559 lines, 2025-12-10), the `tui_app_server` parallel TUI (1109 files, 134243 lines, 2026-03-16) and the MCP client conformance gates that added 17104 lines mostly to `pnpm-lock.yaml` in 2026-08. Other visible non-code volume is the TUI animation frame set (291 files in 2025-09) and generated JSON schema under `codex-rs/app-server-protocol/schema/json/` (1003 current files in that area, the most-committed schema file has 527 commits). Readers of the Sokrates size numbers should discount `app-server-protocol` schema output and lockfiles as generated.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 6286,
+          "end_line": 6286,
+          "snippet": "feat: vendor app-server protocol schema fixtures (#10371)",
+          "note": "+91513 lines"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 7190,
+          "end_line": 7190,
+          "snippet": "feat(tui2): copy tui crate and normalize snapshots (#7833)",
+          "note": "+53559 lines"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 732,
+          "end_line": 732,
+          "snippet": "Add MCP client conformance regression gates (#36810)",
+          "note": "+17104 lines, mostly pnpm-lock.yaml"
+        }
+      ],
+      "tags": [
+        "growth",
+        "generated",
+        "vendored"
+      ],
+      "sokrates_refs": [
+        "metric:loc",
+        "metric:churn",
+        "component:codex_rs"
+      ]
+    },
+    {
+      "id": "evolution-scan/growth/survival-and-rewrite",
+      "group": "growth",
+      "title": "Survival: 44% of files ever seen are gone, and the TUI's central files have been rewritten in place",
+      "description": "Of **10763 files seen in history, 6028 exist today**; 4735 (44%) were deleted or renamed. The deletions are concentrated in the replaced frontends: `codex-rs/tui_app_server` (1124 files), `codex-rs/tui2` (796), and the old `codex-cli/src` TypeScript tree (108 plus 79 tests). The median current file is 157 days old and 90% are younger than 339 days. The most rewritten surviving files are the TUI's `chatwidget.rs` (32004 lines added, 29935 removed over 786 commits), `chatwidget/tests.rs` and `app.rs`, which have effectively been rewritten many times over while keeping their path. `codex-rs/core/src/codex.rs` was the most-committed source file (833 commits) until it was moved under `session/` on 2026-04-17 and no longer exists at its old path.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 4087,
+          "end_line": 4087,
+          "snippet": "Move codex module under session (#18249)",
+          "note": "codex.rs moved; old path gone"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 4584,
+          "end_line": 4584,
+          "snippet": "Refactor chatwidget tests into topical modules (#16361)",
+          "note": "+14221 -14133 lines in one commit"
+        }
+      ],
+      "tags": [
+        "growth",
+        "lifecycle"
+      ],
+      "sokrates_refs": [
+        "metric:file_age",
+        "metric:churn",
+        "file:codex-rs/tui/src/chatwidget.rs",
+        "file:codex-rs/core/src/config/mod.rs"
+      ]
+    },
+    {
+      "id": "evolution-scan/focus-shift/core-app-server-over-tui",
+      "group": "focus-shift",
+      "title": "Center of gravity: core and app-server have grown while the TUI's share halved",
+      "description": "Across the eight largest areas the shares moved in one direction. `codex-rs/core` went from 7% of commits in April 2025 to a peak of 63% in March 2026 and 47% in August 2026 (1287 commits in the last 90 days). **`codex-rs/app-server` did not exist before 2025-09-30** and now takes 23% to 29% of monthly commits (731 in 90 days), with `app-server-protocol` adding another 7% to 13%. **`codex-rs/tui` fell from 47% (2025-08) to 18% (2026-08)** even though it remains the second-largest area by files. `codex-rs/exec` and `codex-rs/cli` dropped out of the monthly top areas after 2025-10 and 2026-04. The activity distribution now describes a server-and-engine project with a thin terminal client, matching the architecture scan's 'UI = app-server client' style.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 8153,
+          "end_line": 8153,
+          "snippet": "fix: separate `codex mcp` into `codex mcp-server` and `codex app-server` (#4471)",
+          "note": "app-server area begins"
+        },
+        {
+          "file": "codex-rs/tui/Cargo.toml",
+          "start_line": 30,
+          "end_line": 30,
+          "snippet": "codex-app-server-client = { workspace = true }",
+          "note": "the TUI is an app-server client today"
+        }
+      ],
+      "tags": [
+        "focus-shift"
+      ],
+      "sokrates_refs": [
+        "metric:commits_90d",
+        "metric:commits_365d",
+        "component:codex_rs"
+      ],
+      "attributes": {
+        "share_pct_by_period": {
+          "2025-04": {
+            "codex-rs/core": 7.0,
+            "codex-rs/tui": 0.0,
+            "codex-rs/app-server": 0.0,
+            "codex-rs": 6.2,
+            "codex-rs/app-server-protocol": 0.0,
+            "codex-rs/protocol": 0.0,
+            "codex-rs/cli": 3.5,
+            "codex-rs/exec": 0.0
+          },
+          "2025-05": {
+            "codex-rs/core": 35.7,
+            "codex-rs/tui": 28.7,
+            "codex-rs/app-server": 0.0,
+            "codex-rs": 25.5,
+            "codex-rs/app-server-protocol": 0.0,
+            "codex-rs/protocol": 0.0,
+            "codex-rs/cli": 0.0,
+            "codex-rs/exec": 15.3
+          },
+          "2025-06": {
+            "codex-rs/core": 36.4,
+            "codex-rs/tui": 34.1,
+            "codex-rs/app-server": 0.0,
+            "codex-rs": 34.1,
+            "codex-rs/app-server-protocol": 0.0,
+            "codex-rs/protocol": 0.0,
+            "codex-rs/cli": 0.0,
+            "codex-rs/exec": 13.6
+          },
+          "2025-07": {
+            "codex-rs/core": 49.2,
+            "codex-rs/tui": 36.7,
+            "codex-rs/app-server": 0.0,
+            "codex-rs": 28.1,
+            "codex-rs/app-server-protocol": 0.0,
+            "codex-rs/protocol": 0.0,
+            "codex-rs/cli": 11.7,
+            "codex-rs/exec": 14.1
+          },
+          "2025-08": {
+            "codex-rs/core": 38.0,
+            "codex-rs/tui": 47.4,
+            "codex-rs/app-server": 0.0,
+            "codex-rs": 16.2,
+            "codex-rs/app-server-protocol": 0.0,
+            "codex-rs/protocol": 5.6,
+            "codex-rs/cli": 0.0,
+            "codex-rs/exec": 10.3
+          },
+          "2025-09": {
+            "codex-rs/core": 45.5,
+            "codex-rs/tui": 42.5,
+            "codex-rs/app-server": 0.0,
+            "codex-rs": 17.6,
+            "codex-rs/app-server-protocol": 0.0,
+            "codex-rs/protocol": 13.6,
+            "codex-rs/cli": 0.0,
+            "codex-rs/exec": 10.0
+          },
+          "2025-10": {
+            "codex-rs/core": 48.5,
+            "codex-rs/tui": 33.3,
+            "codex-rs/app-server": 11.3,
+            "codex-rs": 16.2,
+            "codex-rs/app-server-protocol": 0.0,
+            "codex-rs/protocol": 11.5,
+            "codex-rs/cli": 9.2,
+            "codex-rs/exec": 11.5
+          },
+          "2025-11": {
+            "codex-rs/core": 48.5,
+            "codex-rs/tui": 24.5,
+            "codex-rs/app-server": 16.4,
+            "codex-rs": 15.0,
+            "codex-rs/app-server-protocol": 11.6,
+            "codex-rs/protocol": 7.9,
+            "codex-rs/cli": 0.0,
+            "codex-rs/exec": 0.0
+          },
+          "2025-12": {
+            "codex-rs/core": 47.3,
+            "codex-rs/tui": 26.7,
+            "codex-rs/app-server": 16.4,
+            "codex-rs": 16.2,
+            "codex-rs/app-server-protocol": 9.1,
+            "codex-rs/protocol": 8.4,
+            "codex-rs/cli": 0.0,
+            "codex-rs/exec": 0.0
+          },
+          "2026-01": {
+            "codex-rs/core": 55.9,
+            "codex-rs/tui": 32.0,
+            "codex-rs/app-server": 16.7,
+            "codex-rs": 10.9,
+            "codex-rs/app-server-protocol": 8.9,
+            "codex-rs/protocol": 11.7,
+            "codex-rs/cli": 0.0,
+            "codex-rs/exec": 6.4
+          },
+          "2026-02": {
+            "codex-rs/core": 62.3,
+            "codex-rs/tui": 23.7,
+            "codex-rs/app-server": 19.6,
+            "codex-rs": 12.1,
+            "codex-rs/app-server-protocol": 10.4,
+            "codex-rs/protocol": 7.9,
+            "codex-rs/cli": 0.0,
+            "codex-rs/exec": 5.4
+          },
+          "2026-03": {
+            "codex-rs/core": 63.1,
+            "codex-rs/tui": 21.9,
+            "codex-rs/app-server": 24.1,
+            "codex-rs": 12.0,
+            "codex-rs/app-server-protocol": 13.3,
+            "codex-rs/protocol": 12.9,
+            "codex-rs/cli": 0.0,
+            "codex-rs/exec": 0.0
+          },
+          "2026-04": {
+            "codex-rs/core": 53.0,
+            "codex-rs/tui": 28.3,
+            "codex-rs/app-server": 29.0,
+            "codex-rs": 12.3,
+            "codex-rs/app-server-protocol": 10.4,
+            "codex-rs/protocol": 9.4,
+            "codex-rs/cli": 6.6,
+            "codex-rs/exec": 0.0
+          },
+          "2026-05": {
+            "codex-rs/core": 44.1,
+            "codex-rs/tui": 23.7,
+            "codex-rs/app-server": 23.7,
+            "codex-rs": 11.1,
+            "codex-rs/app-server-protocol": 10.1,
+            "codex-rs/protocol": 6.8,
+            "codex-rs/cli": 0.0,
+            "codex-rs/exec": 0.0
+          },
+          "2026-06": {
+            "codex-rs/core": 46.6,
+            "codex-rs/tui": 16.5,
+            "codex-rs/app-server": 27.6,
+            "codex-rs": 12.0,
+            "codex-rs/app-server-protocol": 12.8,
+            "codex-rs/protocol": 10.3,
+            "codex-rs/cli": 0.0,
+            "codex-rs/exec": 0.0
+          },
+          "2026-07": {
+            "codex-rs/core": 44.7,
+            "codex-rs/tui": 20.7,
+            "codex-rs/app-server": 28.5,
+            "codex-rs": 12.0,
+            "codex-rs/app-server-protocol": 12.0,
+            "codex-rs/protocol": 9.4,
+            "codex-rs/cli": 0.0,
+            "codex-rs/exec": 0.0
+          },
+          "2026-08": {
+            "codex-rs/core": 47.2,
+            "codex-rs/tui": 17.8,
+            "codex-rs/app-server": 22.8,
+            "codex-rs": 9.2,
+            "codex-rs/app-server-protocol": 7.3,
+            "codex-rs/protocol": 8.7,
+            "codex-rs/cli": 0.0,
+            "codex-rs/exec": 0.0
+          }
+        }
+      }
+    },
+    {
+      "id": "evolution-scan/focus-shift/emerging-ext-plugins-mcp",
+      "group": "focus-shift",
+      "title": "Emerging and accelerating: ext/, core-plugins, codex-mcp, features, state and config",
+      "description": "Six areas are flagged emerging or accelerating by the timeline script, and reading the commits confirms them as real new fronts. **`codex-rs/ext/`** (first commit 2026-05-11) has 353 commits, 316 of them in the last 90 days, and holds the extension crates (skills, guardian-v2, memories, mcp, agent, git-attribution). **`codex-rs/core-plugins`** (2026-04-16, 216 commits, 158 in 90 days) is the plugin manager and marketplace. `codex-rs/codex-mcp` (2026-04-02) took over MCP client concerns from core. `codex-rs/features` (feature-flag registry), `codex-rs/state` (SQLite state, 108 of 253 commits in 90 days) and `codex-rs/config` (134 of 277) all accelerate. `codex-rs/exec-server` (2025-11) is also accelerating (163 of 292 commits in 90 days) with tracing and remote-auth work. These areas are broad-based (36 to 59 authors each), so the acceleration is not a single-owner risk.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 378,
+          "end_line": 378,
+          "snippet": "Add Guardian V2 extension scaffold (#38336)",
+          "note": "ext/ growth, 2026-08"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 699,
+          "end_line": 699,
+          "snippet": "Move the host skills service into the skills extension (#36921)",
+          "note": "core to ext migration"
+        },
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 44,
+          "end_line": 44,
+          "snippet": "\"core-plugins\",",
+          "note": "workspace member"
+        }
+      ],
+      "tags": [
+        "focus-shift",
+        "emerging"
+      ],
+      "sokrates_refs": [
+        "metric:commits_90d",
+        "metric:contributors",
+        "component:codex_rs"
+      ],
+      "attributes": {
+        "areas": [
+          {
+            "area": "codex-rs/ext",
+            "commits": 353,
+            "commits_90d": 316,
+            "authors": 49,
+            "first_commit": "2026-05-11",
+            "flags": [
+              "emerging",
+              "accelerating"
+            ]
+          },
+          {
+            "area": "codex-rs/exec-server",
+            "commits": 292,
+            "commits_90d": 163,
+            "authors": 44,
+            "first_commit": "2025-11-19",
+            "flags": [
+              "accelerating"
+            ]
+          },
+          {
+            "area": "codex-rs/config",
+            "commits": 277,
+            "commits_90d": 134,
+            "authors": 59,
+            "first_commit": "2026-02-11",
+            "flags": [
+              "accelerating"
+            ]
+          },
+          {
+            "area": "codex-rs/state",
+            "commits": 253,
+            "commits_90d": 108,
+            "authors": 48,
+            "first_commit": "2026-01-28",
+            "flags": [
+              "accelerating"
+            ]
+          },
+          {
+            "area": "codex-rs/core-plugins",
+            "commits": 216,
+            "commits_90d": 158,
+            "authors": 46,
+            "first_commit": "2026-04-16",
+            "flags": [
+              "emerging",
+              "accelerating"
+            ]
+          },
+          {
+            "area": "codex-rs/codex-mcp",
+            "commits": 192,
+            "commits_90d": 133,
+            "authors": 54,
+            "first_commit": "2026-04-02",
+            "flags": [
+              "emerging",
+              "accelerating"
+            ]
+          },
+          {
+            "area": "codex-rs/features",
+            "commits": 192,
+            "commits_90d": 106,
+            "authors": 51,
+            "first_commit": "2026-03-20",
+            "flags": [
+              "emerging",
+              "accelerating"
+            ]
+          },
+          {
+            "area": "codex-rs/tools",
+            "commits": 178,
+            "commits_90d": 67,
+            "authors": 36,
+            "first_commit": "2026-03-27",
+            "flags": [
+              "emerging"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "evolution-scan/focus-shift/cooling-docs-mcp-server-exec",
+      "group": "focus-shift",
+      "title": "Cooling: docs/ went silent by design, mcp-server is deprecated, exec and cli are settled",
+      "description": "The script flags `docs` as cooling (219 commits in the last year, 0 in the last 90 days) and shows 0 current files for it. Both facts have benign explanations: Sokrates ignores `docs/` by configuration, and `AGENTS.md` instructs contributors not to add product documentation there because the official docs live elsewhere, so the silence is **finished, not neglected**. `codex-rs/mcp-server` (the original way to embed Codex, created 2025-05-03) has 39 commits in 90 days versus 271 in the year and the CLI now prints a deprecation warning when it starts, so its cooling is a planned retirement. `codex-rs/exec` (76 of 423 yearly commits in 90 days) and `codex-rs/cli` are mature thin frontends that dropped out of the monthly top-5 areas; neither is dormant.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "AGENTS.md",
+          "start_line": 32,
+          "end_line": 32,
+          "snippet": "Do not add general product or user-facing documentation to the `docs/` folder. The official Codex documentation lives elsewhere.",
+          "note": "why docs/ went quiet"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 1183,
+          "end_line": 1183,
+          "snippet": "\"warning: `codex mcp-server` is deprecated and will be removed in a future release.\"",
+          "note": "mcp-server retirement"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 9,
+          "end_line": 9,
+          "snippet": "Warn when launching the deprecated MCP server (#39657)",
+          "note": "2026-08-20"
+        }
+      ],
+      "tags": [
+        "focus-shift",
+        "cooling"
+      ],
+      "sokrates_refs": [
+        "metric:commits_90d",
+        "metric:commits_365d"
+      ]
+    },
+    {
+      "id": "evolution-scan/people/team-size-and-composition",
+      "group": "people",
+      "title": "Team over time: from a 95-author open-source burst to a 100+ engineer in-house team",
+      "description": "The contributor base changed character twice. April 2025 had **95 authors in one month**, most of them one-off external contributors to the TypeScript CLI; by June 2025 only 5 authors were active. From August 2025 the team grew steadily: 38, 43, 47, 70 authors per month in late 2025 and 87 to 119 per month in 2026, with **195 distinct authors in the last 90 days** (up from 156 in the previous 90). Of 581 authors all-time, 329 have a single commit and 421 have three or fewer, so the effective team is far smaller than the headline. The share of commits from `@openai.com` addresses rose from 68% (Apr to Jul 2025) to 81% (Aug to Dec 2025) to 95% in 2026: the project is now developed almost entirely in-house, with external contributions marginal.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 9545,
+          "end_line": 9545,
+          "snippet": "Initial commit",
+          "note": "2025-04-16"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 9145,
+          "end_line": 9145,
+          "snippet": "feat: initial import of experimental GitHub Action (#1170)",
+          "note": "example of a 2025 contribution by the then-lead"
+        }
+      ],
+      "tags": [
+        "people",
+        "team-size"
+      ],
+      "sokrates_refs": [
+        "metric:contributors",
+        "metric:contributor_share"
+      ],
+      "attributes": {
+        "authors_last_90d": 195,
+        "authors_prev_90d": 156,
+        "one_commit_authors": 329,
+        "openai_share_2026_pct": 95.2
+      }
+    },
+    {
+      "id": "evolution-scan/people/ownership-shift-bolin-to-jif",
+      "group": "people",
+      "title": "Ownership of the core moved from the original author to a contributor who arrived in September 2025",
+      "description": "`mbolin@openai.com` authored the Rust import and 1044 commits (11% of all), leading every month of 2025, and the tenure of 469 days is the longest in the project. `jif@openai.com` arrived on 2025-09-04, is now the **top contributor with 1442 commits (15%)** and 530 of the last 2818 commits (19%), with top areas `core`, `app-server` and `tui` and the leading hand in the new `ext/` directory (148 of 353 commits) and `codex-mcp` (64 of 192). Over the same window the original author's activity fell from 353 commits in the previous 90 days to 92 in the last 90 (last commit 2026-07-30). **Ownership of the core has moved**, but not to a single person: the five most active authors of the last 90 days together hold 38% of commits, and `anp@openai.com`, arriving 2026-05-20, already has 200 commits. No contributor with a meaningful share has left (the script's departures list is empty).",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 9361,
+          "end_line": 9361,
+          "snippet": "feat: initial import of Rust implementation of Codex CLI in codex-rs/ (#629)",
+          "note": "Michael Bolin, 2025-04-24"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 7787,
+          "end_line": 7787,
+          "snippet": "chore: unify config crates (#5958)",
+          "note": "jif-oai, 2025-10-30, first large refactor"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 66,
+          "end_line": 66,
+          "snippet": "Consolidate Guardian extensions into `codex-guardian-v2` (#39474)",
+          "note": "jif, 2026-08-19"
+        }
+      ],
+      "tags": [
+        "people",
+        "ownership"
+      ],
+      "sokrates_refs": [
+        "metric:contributors",
+        "metric:contributor_share"
+      ],
+      "attributes": {
+        "top_contributor_share_pct": 15.1,
+        "top5_share_last_90d_pct": 38.5
+      }
+    },
+    {
+      "id": "evolution-scan/people/arrivals-security-and-sandbox",
+      "group": "people",
+      "title": "Arrivals of the last year brought the sandboxing, network-proxy and Windows fronts",
+      "description": "443 of 581 authors first appeared within the last 365 days, and among the substantial arrivals the script lists eight with more than 130 commits each. Several brought entire areas with them: `iceweasel@openai.com` (arrived 2025-09-24, 173 commits) owns `codex-rs/windows-sandbox-rs` and landed the **Windows Sandbox alpha**; `viyatb@openai.com` (2026-01-09, 173 commits) introduced the **network sandbox proxy** and the vendored bubblewrap Linux sandbox; `owenlin0@gmail.com` (2025-10-20, 181 commits) works almost only on `app-server` and its protocol; `xl@openai.com` (2025-12-04) is the top author of `core-plugins`. The arrivals map onto the areas that are emerging, which is healthy: new areas came with new owners rather than being spread thinner over the existing team.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 7777,
+          "end_line": 7777,
+          "snippet": "Windows Sandbox - Alpha version (#4905)",
+          "note": "iceweasel-oai, 2025-10-30"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 6517,
+          "end_line": 6517,
+          "snippet": "feat: introducing a network sandbox proxy (#8442)",
+          "note": "viyatb-oai, 2026-01-24"
+        }
+      ],
+      "tags": [
+        "people",
+        "arrivals"
+      ],
+      "sokrates_refs": [
+        "metric:contributors"
+      ],
+      "attributes": {
+        "arrivals_last_365d": 443
+      }
+    },
+    {
+      "id": "evolution-scan/people/external-agent-migration-single-owner",
+      "group": "people",
+      "title": "The external-agent-migration crate is young and effectively single-owner",
+      "description": "`codex-rs/external-agent-migration` was born on 2026-04-29 and moved into its own crate on 2026-07-16. It has 39 commits from 10 authors, but **22 of them (56%) are by one person** (`charlesgong@openai.com`) and the next contributor has 4. This is the only emerging area where a single contributor carries the majority of the history; the risk-synthesis scan reached the same conclusion from current-file ownership. The area is a migration tool (importing state from other agents), so a departure would strand a user-facing import path rather than the engine.",
+      "severity": "medium",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 1334,
+          "end_line": 1334,
+          "snippet": "Move external agent migration into its crate (#33456)",
+          "note": "charlesgong-openai, 2026-07-16"
+        },
+        {
+          "file": "codex-rs/external-agent-migration/Cargo.toml",
+          "start_line": 2,
+          "end_line": 2,
+          "snippet": "name = \"codex-external-agent-migration\"",
+          "note": "crate exists today"
+        }
+      ],
+      "recommendation": "Pair a second regular contributor on `codex-rs/external-agent-migration` reviews and changes before the next adapter is added; keep its adapter contract documented in the crate.",
+      "tags": [
+        "people",
+        "single-owner"
+      ],
+      "sokrates_refs": [
+        "metric:contributors",
+        "metric:contributor_share",
+        "component:codex_rs"
+      ],
+      "attributes": {
+        "commits": 39,
+        "authors": 10,
+        "top_author_share_pct": 56
+      }
+    },
+    {
+      "id": "evolution-scan/lifecycle/typescript-to-rust",
+      "group": "lifecycle",
+      "title": "Rewrite 1: TypeScript CLI replaced by Rust, old code deleted within four months",
+      "description": "The **TypeScript CLI in `codex-cli/src` lived from 2025-04-16 to 2025-08-09**. The Rust implementation was imported on 2025-04-24 as a parallel path (`codex-rs/`), became the released CLI in July 2025, and on 2025-08-09 the TypeScript code was removed in one commit (216 files, 35960 lines). The migration is complete: `codex-cli/` today contains only `bin/`, `scripts/` and a `package.json` whose only shipped file is `bin/codex.js`, the npm wrapper around the Rust binary. Nothing of the TypeScript CLI survives; the TypeScript that exists now is the separate SDK under `sdk/`.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 9361,
+          "end_line": 9361,
+          "snippet": "feat: initial import of Rust implementation of Codex CLI in codex-rs/ (#629)",
+          "note": "2025-04-24"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 8818,
+          "end_line": 8818,
+          "snippet": "chore: remove the TypeScript code from the repository (#2048)",
+          "note": "2025-08-09, 216 files removed"
+        },
+        {
+          "file": "codex-cli/package.json",
+          "start_line": 13,
+          "end_line": 14,
+          "snippet": "\"files\": [",
+          "note": "wrapper package ships only bin/codex.js"
+        }
+      ],
+      "tags": [
+        "lifecycle",
+        "rewrite",
+        "completed"
+      ],
+      "sokrates_refs": [
+        "metric:file_age",
+        "file:codex-cli/package.json"
+      ]
+    },
+    {
+      "id": "evolution-scan/lifecycle/tui2-experiment-retired",
+      "group": "lifecycle",
+      "title": "Rewrite 2 (abandoned): the tui2 copy-and-improve experiment lived six weeks",
+      "description": "On 2025-12-10 the TUI crate was **copied wholesale into `codex-rs/tui2`** (742 files, 53559 lines) behind a feature flag, kept in sync with dual-run glue, and given a burst of transcript-selection, scrolling and rendering work (28 `tui2` commits in December and January, 17% of January's commits). On 2026-01-22 the experiment was **retired in a single commit removing 808 files and 82801 lines**. `codex-rs/tui2` no longer exists. The lesson the history records is that a forked copy of a 1500-file crate diverged too fast to keep in sync; the next TUI rewrite (below) used a different strategy and succeeded.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 7190,
+          "end_line": 7190,
+          "snippet": "feat(tui2): copy tui crate and normalize snapshots (#7833)",
+          "note": "2025-12-10, +53559 lines"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 7134,
+          "end_line": 7134,
+          "snippet": "Sync tui2 with tui and keep dual-run glue (#7965)",
+          "note": "2025-12-13"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 6559,
+          "end_line": 6559,
+          "snippet": "feat(tui): retire the tui2 experiment (#9640)",
+          "note": "2026-01-22, 808 files, -82801 lines"
+        }
+      ],
+      "tags": [
+        "lifecycle",
+        "rewrite",
+        "abandoned"
+      ],
+      "sokrates_refs": [
+        "metric:churn",
+        "component:codex_rs"
+      ]
+    },
+    {
+      "id": "evolution-scan/lifecycle/tui-on-app-server-rewrite",
+      "group": "lifecycle",
+      "title": "Rewrite 3 (completed in 12 days): the TUI was moved on top of the app-server and the legacy TUI removed",
+      "description": "On 2026-03-16 a **parallel `tui_app_server` crate** (1109 files, 134243 lines) landed that drove the TUI through the app-server JSON-RPC API instead of calling `codex-core` directly. Over the next eleven days a stream of `tui_app_server` fix commits removed the remaining core events and legacy auth handling, the feature was enabled by default, and on 2026-03-27 the **legacy TUI was removed** (856 files, 130858 lines). On 2026-03-28 the crate was renamed back to `tui` (1968 files touched). This is the turning point that made 'every UI is an app-server client' true; the 1124 deleted files under `tui_app_server` in the lifecycle numbers are this rename, not lost work. Today `codex-rs/tui` depends on `codex-app-server-client`, and no `tui_app_server` directory remains.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 4984,
+          "end_line": 4984,
+          "snippet": "Move TUI on top of app server (parallel code) (#14717)",
+          "note": "2026-03-16"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 4703,
+          "end_line": 4703,
+          "snippet": "Enable `tui_app_server` feature by default (#15661)"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 4649,
+          "end_line": 4649,
+          "snippet": "Remove the legacy TUI split (#15922)",
+          "note": "2026-03-27, -130858 lines"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 4633,
+          "end_line": 4633,
+          "snippet": "Rename tui_app_server to tui (#16104)",
+          "note": "2026-03-28"
+        }
+      ],
+      "tags": [
+        "lifecycle",
+        "rewrite",
+        "completed",
+        "turning-point"
+      ],
+      "sokrates_refs": [
+        "metric:churn",
+        "component:codex_rs",
+        "file:codex-rs/tui/Cargo.toml"
+      ]
+    },
+    {
+      "id": "evolution-scan/lifecycle/core-decomposition-in-progress",
+      "group": "lifecycle",
+      "title": "Migration in progress: the core is being carved into crates, but still takes half of all activity",
+      "description": "Since February 2026 there is a continuous programme of **extracting crates out of `codex-core`**: `codex-config` (2026-02, with config types and loading moved in April), `codex-command` (2026-02), the models manager (2026-04), `codex.rs` split into `session/` modules (2026-04), `codex-http-client` (2026-07), and in 2026-08 the host skills service moved into the `ext/skills` extension. `AGENTS.md` codifies the goal ('resist adding code to codex-core'). The history shows the migration is real but far from done: `codex-rs/core` still received 1287 of the last 2818 commits (46%) and holds 649 files / 261k LOC, and `core/src/config/mod.rs` still has 515 commits and is the largest merge magnet. Both halves are alive by design; the risk is the pace of inflow exceeding the pace of extraction.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 5964,
+          "end_line": 5964,
+          "snippet": "Extract `codex-config` from `codex-core` (#11389)",
+          "note": "2026-02"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 4103,
+          "end_line": 4103,
+          "snippet": "Split codex session modules (#18244)",
+          "note": "2026-04-17"
+        },
+        {
+          "file": "AGENTS.md",
+          "start_line": 76,
+          "end_line": 76,
+          "snippet": "resist adding code to codex-core",
+          "note": "the stated goal"
+        }
+      ],
+      "recommendation": "Track the extraction programme explicitly (a list of what still lives in core and its target crate) and watch `core`'s share of monthly commits; it has stayed between 44% and 63% for a year despite the extractions.",
+      "tags": [
+        "lifecycle",
+        "migration",
+        "core"
+      ],
+      "sokrates_refs": [
+        "metric:commits_90d",
+        "metric:loc",
+        "component:codex_rs",
+        "file:codex-rs/core/src/config/mod.rs"
+      ]
+    },
+    {
+      "id": "evolution-scan/lifecycle/mcp-server-deprecated-still-present",
+      "group": "lifecycle",
+      "title": "Completed-but-lingering: codex mcp-server is deprecated while the crate still ships",
+      "description": "`codex-rs/mcp-server` was the original integration surface (crate introduced 2025-05-03) and was split from the app-server on 2025-09-30. Its replacement is the app-server; on 2026-08-20 the CLI began printing a **deprecation warning** when `codex mcp-server` starts. The crate is still in the workspace with 22 files and 39 commits in the last 90 days, which is the pattern the skill calls a completed migration whose old path lingers. Nothing in the history suggests it is diverging, so this is low: a scheduled removal, not a stalled rewrite.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 9279,
+          "end_line": 9279,
+          "snippet": "feat: introduce mcp-server crate (#792)",
+          "note": "2025-05-03"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 9,
+          "end_line": 9,
+          "snippet": "Warn when launching the deprecated MCP server (#39657)",
+          "note": "2026-08-20"
+        },
+        {
+          "file": "codex-rs/mcp-server/Cargo.toml",
+          "start_line": 2,
+          "end_line": 2,
+          "snippet": "name = \"codex-mcp-server\"",
+          "note": "crate still present"
+        }
+      ],
+      "recommendation": "Set a removal milestone for `codex-rs/mcp-server` and route remaining fixes to the app-server path so the deprecated crate stops accumulating commits.",
+      "tags": [
+        "lifecycle",
+        "deprecated"
+      ],
+      "sokrates_refs": [
+        "metric:commits_90d",
+        "component:codex_rs"
+      ]
+    },
+    {
+      "id": "evolution-scan/lifecycle/oldest-surviving-code",
+      "group": "lifecycle",
+      "title": "The oldest surviving files are packaging, not code: nothing from the first week is load-bearing",
+      "description": "The files that survive from the first days are `.gitignore`, `README.md`, `codex-cli/package.json`, `codex-cli/scripts/run_in_container.sh`, `package.json`, `CHANGELOG.md` and `flake.nix`, all from 2025-04-16 to 2025-04-19. The oldest surviving source code is the 2025-04-24 Rust import, and `CHANGELOG.md` is a one-line pointer to the GitHub releases page, so the repository holds no in-tree change history to cite. The 90th percentile of current file age is 339 days: almost nothing predates the Rust era.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "CHANGELOG.md",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "The changelog can be found on the [releases page](https://github.com/openai/codex/releases).",
+          "note": "no in-tree changelog"
+        },
+        {
+          "file": "codex-cli/package.json",
+          "start_line": 7,
+          "end_line": 7,
+          "snippet": "\"codex\": \"bin/codex.js\"",
+          "note": "oldest surviving manifest is a wrapper"
+        }
+      ],
+      "tags": [
+        "lifecycle",
+        "file-age"
+      ],
+      "sokrates_refs": [
+        "metric:file_age"
+      ]
+    },
+    {
+      "id": "evolution-scan/trajectory/velocity-plateau",
+      "group": "trajectory",
+      "title": "Velocity: a high plateau, not acceleration, with a broadening team",
+      "description": "The 90-day comparison is flat: **2818 commits in the last 90 days versus 2856 in the previous 90**, after the April 2026 peak of 1060 commits in a month. Monthly volume has settled between 779 and 938 since May. Authors are still growing (195 active in 90 days versus 156), so the plateau is not a shrinking team but a steady one producing at the same rate with more hands, which typically means more reviewers and smaller commits. The project is neither accelerating nor decelerating; it is running at the highest sustained rate in its history.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "Trace MCP runtime refresh coordination (#39667)",
+          "note": "last commit 2026-08-20"
+        }
+      ],
+      "tags": [
+        "trajectory",
+        "velocity"
+      ],
+      "sokrates_refs": [
+        "metric:commits_90d",
+        "metric:contributors"
+      ],
+      "attributes": {
+        "commits_last_90d": 2818,
+        "commits_prev_90d": 2856,
+        "commits_last_365d": 8668,
+        "authors_last_90d": 195,
+        "authors_prev_90d": 156
+      }
+    },
+    {
+      "id": "evolution-scan/trajectory/work-mix-restructuring-and-hardening",
+      "group": "trajectory",
+      "title": "Work mix now: restructuring and hardening replace bug-fixing, and the messages stopped saying 'fix'",
+      "description": "The script's commit-theme classifier shows `fix` falling from 23% of commits in the older half of the last year to 12% in the recent half, `feature` from 30% to 25%, `refactor` rising from 4% to 6%, `security` from 1.6% to 3.6%, `test` from 1.9% to 4.4%, and `other` rising from 25% to 42%. Reading the recent messages, the `other` growth is largely a **house style change**: 2026 commit titles are imperative verbs without conventional prefixes (`Harden`, `Restrict`, `Isolate`, `Trace`, `Consolidate`), so the classifier under-counts fixes and refactors. Reading them, the recent quarter is dominated by **hardening and restructuring**: plugin isolation, Guardian approval routing, exec-server tracing, MCP process cleanup, and crate extractions, with feature work concentrated in extensions and plugins. Feature work has not stopped, so this is a healthy maturing mix rather than a fixes-only drift.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "git-commits.txt",
+          "start_line": 46,
+          "end_line": 46,
+          "snippet": "Harden plugin manifest handling during installation (#39590)",
+          "note": "hardening, unprefixed style"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 53,
+          "end_line": 53,
+          "snippet": "Isolate automatic plugin Git operations (#39520)"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 158,
+          "end_line": 158,
+          "snippet": "Trace exec-server requests from receipt through completion (#39098)"
+        }
+      ],
+      "tags": [
+        "trajectory",
+        "work-mix"
+      ],
+      "sokrates_refs": [
+        "metric:commits_90d"
+      ],
+      "attributes": {
+        "theme_trend_last_year": {
+          "deps-chore": {
+            "older_half_pct": 12.4,
+            "recent_half_pct": 5.6
+          },
+          "docs": {
+            "older_half_pct": 2.0,
+            "recent_half_pct": 0.7
+          },
+          "feature": {
+            "older_half_pct": 29.6,
+            "recent_half_pct": 25.0
+          },
+          "fix": {
+            "older_half_pct": 23.3,
+            "recent_half_pct": 11.7
+          },
+          "other": {
+            "older_half_pct": 24.6,
+            "recent_half_pct": 41.7
+          },
+          "perf": {
+            "older_half_pct": 0.4,
+            "recent_half_pct": 0.6
+          },
+          "refactor": {
+            "older_half_pct": 3.7,
+            "recent_half_pct": 6.1
+          },
+          "revert": {
+            "older_half_pct": 0.5,
+            "recent_half_pct": 0.5
+          },
+          "security": {
+            "older_half_pct": 1.6,
+            "recent_half_pct": 3.6
+          },
+          "test": {
+            "older_half_pct": 1.9,
+            "recent_half_pct": 4.4
+          }
+        }
+      }
+    },
+    {
+      "id": "evolution-scan/trajectory/direction-extension-platform",
+      "group": "trajectory",
+      "title": "Direction: from a terminal agent to an extensible agent platform, with the risks that implies",
+      "description": "The facts above point one way. Activity moved from the TUI to the app-server and core; the last quarter's births are all platform machinery (`ext/`, `core-plugins`, `codex-mcp`, `features`, `state`); the top contributor's recent work is the extension registry and Guardian; and the README now offers the CLI, an IDE integration, a desktop app and a cloud agent as peers. Codex is **turning into an agent platform** whose terminal UI is one client. The trajectory implies three risks already visible in the history: the core keeps absorbing half of all commits while being decomposed (lifecycle), one young crate is single-owner (people), and a deprecated crate still ships (lifecycle). None is acute today; the sustained 90-day velocity and broad ownership of the emerging areas are the strongest positive signals.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "README.md",
+          "start_line": 6,
+          "end_line": 6,
+          "snippet": "If you want Codex in your code editor (VS Code, Cursor, Windsurf)",
+          "note": "the product is now several clients"
+        },
+        {
+          "file": "README.md",
+          "start_line": 7,
+          "end_line": 7,
+          "snippet": "If you want the desktop app experience, run <code>codex app</code>"
+        },
+        {
+          "file": "git-commits.txt",
+          "start_line": 360,
+          "end_line": 360,
+          "snippet": "Expose conversation history to tool lifecycle extensions (#38403)",
+          "note": "platform work, 2026-08"
+        }
+      ],
+      "tags": [
+        "trajectory",
+        "direction"
+      ],
+      "sokrates_refs": [
+        "metric:commits_90d",
+        "component:codex_rs"
+      ]
+    }
+  ]
+}

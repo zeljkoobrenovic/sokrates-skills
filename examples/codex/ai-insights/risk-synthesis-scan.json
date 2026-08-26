@@ -1,0 +1,614 @@
+{
+  "scanner": "risk-synthesis-scan",
+  "scanner_version": "1.0",
+  "analyzed_at": "2026-08-24",
+  "target": {
+    "name": "Codex",
+    "src_root": "../../.."
+  },
+  "summary": "Codex's risk concentrates in a handful of large, fast-churning Rust files that act as central switchboards: the app-server thread request processor, the plugin manager's hand-rolled cache-refresh state machine, the TUI slash-command dispatcher, and the tool-registry assembly in core. Most flagged complexity is structural (giant match/if chains that grow with every feature) rather than algorithmic; two units stand out as genuinely fragile - the plugin cache-refresh coalescing logic (McCabe 32 of interleaved dedup rules under a lock) and a string-matching error classifier in the TUI that keys user guidance off remote error message substrings. Knowledge risk is modest at project level (top contributor 15% of 9k+ commits, 581 contributors), but the external-agent-migration subsystem and the security-sensitive workload-identity token exchange are each effectively single-owner. Change coupling shows one real cross-crate ripple (protocol EnvironmentConfig <-> core validation/selection, 100% co-change); the other flagged couplings are benign artifacts of one type split across files. Two top-ranked hotspots were examined and found acceptable (the TS schema export guard test, the resume picker whose bulk is test code).",
+  "stats": {
+    "shortlist_params": {
+      "top": 10
+    },
+    "main_files_analyzed": 2307,
+    "units_analyzed": 10000,
+    "contributors_total": 581
+  },
+  "findings": [
+    {
+      "id": "risk-synthesis-scan/hotspots/thread-processor",
+      "group": "hotspots",
+      "title": "app-server thread request processor is the top churn x complexity hotspot",
+      "description": "thread_processor.rs implements the JSON-RPC 'thread/*' API surface of the app server: thread create/resume/fork/list/revert, dynamic tool validation, pagination cursors, and persisted resume settings, all in one 5,161-LOC file (plus embedded test modules from line 5798). It is the highest-scoring hotspot: 131 commits total, 48 in the last 90 days, 43 contributors (metric:hotspot_score, metric:commits_90d). The flagged units are validation gauntlets - validate_dynamic_tools (McCabe 23) checks name/namespace rules against Responses API constraints, collect_resume_override_mismatches (McCabe 23) compares each resume override field against the active config snapshot. Their complexity is essential rule-per-branch logic and individually readable; the risk is the container: every thread-related protocol change lands in this one file touched by 43 people, so unrelated features collide here and reviewers must hold a 5k-line context.",
+      "severity": "high",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/app-server/src/request_processors/thread_processor.rs",
+          "start_line": 277,
+          "end_line": 277,
+          "snippet": "fn validate_dynamic_tools(tools: &[DynamicToolSpec]) -> Result<(), String> {",
+          "note": "McCabe 23 validation gauntlet"
+        },
+        {
+          "file": "codex-rs/app-server/src/request_processors/thread_processor.rs",
+          "start_line": 89,
+          "end_line": 89,
+          "snippet": "fn collect_resume_override_mismatches(",
+          "note": "McCabe 23 field-by-field mismatch collector"
+        }
+      ],
+      "recommendation": "Continue the split already started with persisted_resume_settings/thread_enrichment: move self-contained request families (revert, sections, pagination + cursor codec, dynamic-tool validation) into sibling modules so a typical change touches a few hundred lines instead of a 5k-line file.",
+      "tags": [
+        "rust",
+        "app-server",
+        "churn"
+      ],
+      "sokrates_refs": [
+        "file:codex-rs/app-server/src/request_processors/thread_processor.rs",
+        "metric:mccabe",
+        "metric:commits_90d"
+      ]
+    },
+    {
+      "id": "risk-synthesis-scan/hotspots/core-plugins-manager",
+      "group": "hotspots",
+      "title": "Plugin manager cache-refresh coalescing is hand-rolled concurrent state logic (McCabe 32)",
+      "description": "core-plugins/src/manager.rs (2,985 LOC, 77 commits, 37 in 90 days, 22 contributors) is the plugin subsystem's central manager: marketplaces, curated/non-curated caches, remote plugins, git upgrades. The worst unit, schedule_non_curated_plugin_cache_refresh (McCabe 32, 157 LOC), builds a refresh request and then, inside a poisoned-lock-tolerant write block, applies four interleaved rules to decide whether to escalate the mode to ForceReinstall, deduplicate against the pending request, or skip entirely - including a three-way structural comparison against last_refreshed with special-casing for git_mode Manual vs Automatic. The paired worker loop run_non_curated_plugin_cache_refresh_loop re-reads state and loops until requested==request. This is accidental complexity: a bespoke coalescing job queue expressed as nested boolean conditions over shared mutable state, exactly the kind of code where a subtle predicate change causes missed or duplicated refreshes, and it is being edited weekly.",
+      "severity": "high",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core-plugins/src/manager.rs",
+          "start_line": 2491,
+          "end_line": 2491,
+          "snippet": "fn schedule_non_curated_plugin_cache_refresh(",
+          "note": "McCabe 32 scheduling/coalescing unit"
+        },
+        {
+          "file": "codex-rs/core-plugins/src/manager.rs",
+          "start_line": 2600,
+          "end_line": 2600,
+          "snippet": "if state.requested.as_ref().is_some_and(|requested| {",
+          "note": "nested dedup predicate over shared state"
+        }
+      ],
+      "recommendation": "Extract the request-coalescing decision (given current state + incoming request, return Skip / Replace / Escalate) into a pure function on a small state struct and unit-test its rule table; keep the lock handling and thread spawn as a thin shell around it.",
+      "tags": [
+        "rust",
+        "plugins",
+        "concurrency"
+      ],
+      "sokrates_refs": [
+        "file:codex-rs/core-plugins/src/manager.rs",
+        "metric:mccabe",
+        "metric:commits_90d"
+      ]
+    },
+    {
+      "id": "risk-synthesis-scan/hotspots/slash-dispatch",
+      "group": "hotspots",
+      "title": "TUI slash-command dispatcher: one 294-line match arm per command (McCabe 39)",
+      "description": "slash_dispatch.rs routes parsed slash commands to chat-widget behavior. dispatch_prepared_command_with_args (McCabe 39, 294 LOC) is a single match over SlashCommand where each arm mixes argument parsing, usage-error messages, telemetry, and event emission inline - /plan alone embeds byte-range fixups for prefixed text elements. Sokrates shows the growth pattern: 59 commits, 21 in the last 90 days, 15 contributors, because every new slash command or argument form adds an arm here. The companion guard slash_command_blocked_by_active_task (McCabe 11 in 12 lines) is a dense boolean expression encoding per-command availability rules. The complexity is structural, not algorithmic: the dispatcher works, but it taxes every command addition and makes per-command behavior hard to test in isolation.",
+      "severity": "medium",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/tui/src/chatwidget/slash_dispatch.rs",
+          "start_line": 685,
+          "end_line": 685,
+          "snippet": "fn dispatch_prepared_command_with_args(",
+          "note": "McCabe 39, one arm per command"
+        },
+        {
+          "file": "codex-rs/tui/src/chatwidget/slash_dispatch.rs",
+          "start_line": 134,
+          "end_line": 134,
+          "snippet": "fn slash_command_blocked_by_active_task(&self, cmd: SlashCommand) -> bool {",
+          "note": "McCabe 11 availability predicate"
+        }
+      ],
+      "recommendation": "Move per-command argument parsing and usage strings into small handler functions (or a table keyed by SlashCommand carrying parse + execute + availability), leaving the match as a one-line-per-command jump table; fold the availability predicate into the same per-command declaration.",
+      "tags": [
+        "rust",
+        "tui"
+      ],
+      "sokrates_refs": [
+        "file:codex-rs/tui/src/chatwidget/slash_dispatch.rs",
+        "metric:mccabe",
+        "metric:commits_90d"
+      ]
+    },
+    {
+      "id": "risk-synthesis-scan/hotspots/spec-plan-tool-registry",
+      "group": "hotspots",
+      "title": "Tool registry assembly accretes a feature-flag branch per tool",
+      "description": "core/src/tools/spec_plan.rs decides which tools a turn exposes to the model. add_core_utility_tools (McCabe 19, 95 LOC) is a run of conditional registry.add calls, each gated on some combination of feature flags, config fields, model_info.experimental_supported_tools string matching, session source, and environment mode; register_code_mode_executors (McCabe 14) and apply_mcp_tool_exposure_policy (McCabe 10) follow the same shape. With 121 commits (42 in 90 days, 24 contributors - metric:commits_90d), this file is where every new tool and every tool-gating experiment lands. The complexity is essential in the sense that the product genuinely has this many conditional tools, but the gating vocabulary is inconsistent (Feature enum vs config booleans vs substring checks on experimental_supported_tools), which makes it easy to gate a new tool subtly differently from intent.",
+      "severity": "medium",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/tools/spec_plan.rs",
+          "start_line": 1035,
+          "end_line": 1035,
+          "snippet": "fn add_core_utility_tools(context: &CoreToolPlanContext<'_>, registry: &mut ToolRegistry) {",
+          "note": "McCabe 19 conditional registration run"
+        },
+        {
+          "file": "codex-rs/core/src/tools/spec_plan.rs",
+          "start_line": 1118,
+          "end_line": 1122,
+          "snippet": "if turn_context\n        .model_info\n        .experimental_supported_tools\n        .iter()\n        .any(|tool| tool == \"test_sync_tool\")",
+          "note": "string-typed tool gating alongside Feature-enum gating"
+        }
+      ],
+      "recommendation": "Normalize the gating vocabulary: represent each tool's availability as data (tool id -> required feature / config predicate) so registration is a loop over declarations, and replace raw substring checks on experimental_supported_tools with named helpers.",
+      "tags": [
+        "rust",
+        "core",
+        "tools"
+      ],
+      "sokrates_refs": [
+        "file:codex-rs/core/src/tools/spec_plan.rs",
+        "metric:mccabe",
+        "metric:commits_90d"
+      ]
+    },
+    {
+      "id": "risk-synthesis-scan/hotspots/app-server-protocol-export",
+      "group": "hotspots",
+      "title": "Schema export generator: flagged complexity lives in guard tests and a small lexer - acceptable",
+      "description": "app-server-protocol/src/export.rs generates the TypeScript/JSON schema bindings for the app-server protocol (its output carries a GENERATED CODE header). The top-ranked unit by McCabe (50) is generated_ts_optional_nullable_fields_only_in_params - a #[test] that sweeps the generated fixture tree and asserts invariants like '?: T | null' appearing only in *Params types; long, but linear assertion lists whose failure mode is a precise CI error, not a runtime bug. The next units are ScanState::observe (McCabe 15), a compact hand-rolled lexer tracking strings/comments/bracket depth in generated TS, and build_schema_bundle (16), mechanical ref-rewriting. 53 commits (14 in 90 days) simply track protocol evolution. Examined and found acceptable: the complexity is proportionate to what the file does and is fenced by strong guard tests; no action needed.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/app-server-protocol/src/export.rs",
+          "start_line": 2137,
+          "end_line": 2137,
+          "snippet": "fn generated_ts_optional_nullable_fields_only_in_params() -> Result<()> {",
+          "note": "McCabe-50 unit is a guard test"
+        },
+        {
+          "file": "codex-rs/app-server-protocol/src/export.rs",
+          "start_line": 43,
+          "end_line": 43,
+          "snippet": "pub(crate) const GENERATED_TS_HEADER: &str = \"// GENERATED CODE! DO NOT MODIFY BY HAND!\\n\\n\";",
+          "note": "file's role: codegen for protocol bindings"
+        }
+      ],
+      "tags": [
+        "rust",
+        "codegen",
+        "acceptable"
+      ],
+      "sokrates_refs": [
+        "file:codex-rs/app-server-protocol/src/export.rs",
+        "metric:mccabe"
+      ]
+    },
+    {
+      "id": "risk-synthesis-scan/hotspots/core-config-mod",
+      "group": "hotspots",
+      "title": "core config/mod.rs: low per-unit complexity but the repo's biggest merge magnet",
+      "description": "core/src/config/mod.rs is the most-committed file in the shortlist by far: 515 commits all-time, 57 in the last 90 days, 81 distinct contributors (metric:commits_90d, metric:contributors), across 3,837 LOC. Reading shows why: it is the funnel where every feature's configuration gets resolved - the flagged units (resolve_rollout_budget_config, validate_multi_agent_v2_tool_namespace, resolve_permission_config_syntax, all McCabe 9) are well-shaped, self-contained resolver/validator functions with clear error messages. Per-unit complexity is fine; the risk is the container's centrality: with a new resolver appended per feature, 81 contributors editing one file guarantees merge conflicts, and the file's sheer size hides which config surface belongs to which subsystem.",
+      "severity": "medium",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/config/mod.rs",
+          "start_line": 2747,
+          "end_line": 2750,
+          "snippet": "fn resolve_rollout_budget_config(\n    config_toml: &ConfigToml,\n    features: &ManagedFeatures,\n) -> std::io::Result<Option<RolloutBudgetConfig>> {",
+          "note": "representative per-feature resolver appended to the central file"
+        }
+      ],
+      "recommendation": "Adopt a rule that per-feature resolve_*/validate_* functions live in the owning feature's module (config/rollout_budget.rs etc.) with mod.rs only orchestrating; migrate opportunistically as functions are next touched to bleed off the merge pressure.",
+      "tags": [
+        "rust",
+        "core",
+        "config",
+        "churn"
+      ],
+      "sokrates_refs": [
+        "file:codex-rs/core/src/config/mod.rs",
+        "metric:commits_90d",
+        "metric:contributors"
+      ]
+    },
+    {
+      "id": "risk-synthesis-scan/hotspots/background-requests-error-classifier",
+      "group": "hotspots",
+      "title": "TUI classifies remote plugin errors by substring-matching message text (McCabe 29)",
+      "description": "tui/src/app/background_requests.rs handles async fetches for the TUI (plugin catalogs, MCP inventory). Its dominant unit, plugin_remote_section_error_next_step (McCabe 29 in 37 lines), chooses the user-facing 'next step' hint by lowercasing the error string and probing it with a dozen substring chains like err.contains(\"authentication required\") || err.contains(\"not signed in\"), with ordering subtleties (the catch-all 'request'/'status' branch precedes the more specific 'disabled by admin' checks, making some later branches unreachable in practice). This couples UI guidance to the exact wording of errors produced elsewhere; a reworded server or client error silently degrades the hint. The file is active (39 commits, 22 in 90 days, 18 contributors), so the pattern will keep accreting branches.",
+      "severity": "medium",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/tui/src/app/background_requests.rs",
+          "start_line": 994,
+          "end_line": 994,
+          "snippet": "fn plugin_remote_section_error_next_step(label: &str, err: &str) -> &'static str {",
+          "note": "McCabe 29 substring classifier"
+        },
+        {
+          "file": "codex-rs/tui/src/app/background_requests.rs",
+          "start_line": 998,
+          "end_line": 1001,
+          "snippet": "} else if err.contains(\"authentication required\")\n        || err.contains(\"not signed in\")\n        || err.contains(\"not logged in\")\n    {",
+          "note": "guidance keyed to error message wording"
+        }
+      ],
+      "recommendation": "Have the plugin/remote layer return a typed error kind (enum) alongside the message and match on that in the TUI; keep the substring fallback only for legacy paths, and reorder so specific checks precede the broad 'request'/'status' catch-all.",
+      "tags": [
+        "rust",
+        "tui",
+        "error-handling"
+      ],
+      "sokrates_refs": [
+        "file:codex-rs/tui/src/app/background_requests.rs",
+        "metric:mccabe",
+        "metric:commits_90d"
+      ]
+    },
+    {
+      "id": "risk-synthesis-scan/hotspots/config-requirements-tryfrom",
+      "group": "hotspots",
+      "title": "ConfigRequirements TryFrom is a 383-line manual conversion that every new requirement must thread through",
+      "description": "config/src/config_requirements.rs (4,001 LOC, 56 commits, 23 in 90 days, 25 contributors) defines the managed-requirements model. Its centerpiece, impl TryFrom<ConfigRequirementsWithSources> for ConfigRequirements::try_from (383 LOC, McCabe 22), exhaustively destructures a ~40-field struct - explicitly discarding some fields with `field: _` - then validates and re-assembles each requirement inline (model-slug validation, MCP server requirement checks, nested plugin requirements). The exhaustive destructure is a deliberate safety net (adding a field forces this function to be revisited), but the price is that all validation for unrelated requirement families is interleaved in one giant function, and at 23 commits per quarter people pay that price often.",
+      "severity": "medium",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/config/src/config_requirements.rs",
+          "start_line": 1557,
+          "end_line": 1557,
+          "snippet": "fn try_from(toml: ConfigRequirementsWithSources) -> Result<Self, Self::Error> {",
+          "note": "383-LOC, McCabe 22 conversion"
+        },
+        {
+          "file": "codex-rs/config/src/config_requirements.rs",
+          "start_line": 1562,
+          "end_line": 1562,
+          "snippet": "let ConfigRequirementsWithSources {",
+          "note": "exhaustive ~40-field destructure"
+        }
+      ],
+      "recommendation": "Keep the exhaustive destructure, but delegate each requirement family to a named helper (convert_auto_review(...), convert_mcp_servers(...)) so try_from reads as a table of one-liners and family validation is testable in isolation.",
+      "tags": [
+        "rust",
+        "config"
+      ],
+      "sokrates_refs": [
+        "file:codex-rs/config/src/config_requirements.rs",
+        "metric:mccabe",
+        "metric:loc"
+      ]
+    },
+    {
+      "id": "risk-synthesis-scan/hotspots/tui-debug-config",
+      "group": "hotspots",
+      "title": "/debug-config renderer repeats a stanza per requirement field",
+      "description": "tui/src/debug_config.rs renders the /debug-config diagnostic view. render_debug_config_lines (250 LOC, McCabe 29) walks the config layer stack and then emits one copy-pasted stanza per requirement field - 'if let Some(x) = requirements.x.as_ref() { requirement_lines.push(requirement_line(\"x\", ...)) }' repeated for sqlite_home, log_dir, model_catalog_json, check_for_update_on_startup, allow_login_shell, feedback, and so on. The churn (70 commits, 22 in 90 days, 23 contributors) is mechanical fallout from the requirements surface growing in config_requirements.rs: every new requirement needs a matching stanza here, or the debug view silently omits it. Low direct risk (it is a diagnostics screen), but it is a standing shotgun-edit partner to the requirements model and an easy place for drift.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/tui/src/debug_config.rs",
+          "start_line": 122,
+          "end_line": 122,
+          "snippet": "fn render_debug_config_lines(",
+          "note": "McCabe 29, 250-LOC renderer"
+        },
+        {
+          "file": "codex-rs/tui/src/debug_config.rs",
+          "start_line": 159,
+          "end_line": 159,
+          "snippet": "if let Some(sqlite_home) = requirements.sqlite_home.as_ref() {",
+          "note": "first of many copy-pasted per-field stanzas"
+        }
+      ],
+      "recommendation": "Drive the view from data: a slice of (label, extractor) pairs - or a small macro over the requirements struct - so adding a requirement adds one table row, and a unit test can assert every requirements field has a renderer.",
+      "tags": [
+        "rust",
+        "tui",
+        "duplication"
+      ],
+      "sokrates_refs": [
+        "file:codex-rs/tui/src/debug_config.rs",
+        "metric:mccabe",
+        "metric:commits_90d"
+      ]
+    },
+    {
+      "id": "risk-synthesis-scan/hotspots/resume-picker",
+      "group": "hotspots",
+      "title": "resume_picker.rs is the largest TUI file, but over half is tests and the render code is sound",
+      "description": "tui/src/resume_picker.rs is nominally the biggest shortlisted file (6,298 LOC, 103 commits, 27 in 90 days, 31 contributors), implementing the session-resume picker: filtering, pagination, expansion, density modes. Reading tempers the number: the #[cfg(test)] module starts at line 3438, so roughly 45% is production code. The flagged units are unproblematic - render_list (McCabe 17) is careful but straightforward viewport math with saturating arithmetic for the more-above/more-below chrome; footer_hint_lines and matches_query (McCabe 12 each) are similar. The real cost is navigational: picker state, rendering, query matching, and pagination all share one file, so the module would benefit from a split, but nothing here is fragile.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/tui/src/resume_picker.rs",
+          "start_line": 2658,
+          "end_line": 2658,
+          "snippet": "fn render_list(frame: &mut crate::custom_terminal::Frame, area: Rect, state: &PickerState) {",
+          "note": "top unit - readable viewport rendering"
+        },
+        {
+          "file": "codex-rs/tui/src/resume_picker.rs",
+          "start_line": 3438,
+          "end_line": 3438,
+          "snippet": "#[cfg(test)]",
+          "note": "tests begin here - over half the file's 6,298 lines"
+        }
+      ],
+      "recommendation": "When next touched substantially, split into a resume_picker/ module (state, render, query, pagination) and move the test module alongside; no urgent action.",
+      "tags": [
+        "rust",
+        "tui",
+        "file-size"
+      ],
+      "sokrates_refs": [
+        "file:codex-rs/tui/src/resume_picker.rs",
+        "metric:loc"
+      ]
+    },
+    {
+      "id": "risk-synthesis-scan/knowledge-risk/bus-factor-overview",
+      "group": "knowledge-risk",
+      "title": "Project-level bus factor is healthy: top contributor holds 15% of commits",
+      "description": "Contribution is well spread for a project of this size: 581 contributors total, with the top committer at 1,442 commits (15% share, last commit 2026-08-20), the second at 10% (last active 2026-07-30), and the next three at 5-6% each, all active within the last month (metric:contributors, sokrates contributors.json). No single person's departure would strand the codebase as a whole; concentration risk is local (see the single-owner findings) rather than global. This is contextual information derived from the Sokrates contributor metrics, so it carries no file evidence.",
+      "severity": "info",
+      "confidence": "possible",
+      "evidence": [],
+      "tags": [
+        "bus-factor"
+      ],
+      "sokrates_refs": [
+        "metric:contributors",
+        "metric:commits_365d"
+      ]
+    },
+    {
+      "id": "risk-synthesis-scan/knowledge-risk/external-agent-migration",
+      "group": "knowledge-risk",
+      "title": "External-agent migration subsystem is effectively single-owner",
+      "description": "The feature that imports sessions, skills, and plugins from other coding agents spans at least three single-contributor files across two crates: app-server/src/external_agent_migration/protocol.rs (349 LOC, 5 commits, all in the last 90 days), external-agent-migration/src/detect/sessions/connectors_cla.rs (213 LOC, heuristic detection of connector usage in foreign session files, McCabe 13), and external-agent-migration/src/service_tests/plugins/marketplaces.rs (718 LOC of tests, updated 2026-08-20). One person wrote and maintains the whole area (metric:contributors). The code itself is clean - protocol.rs is mechanical core-to-protocol type mapping - but migration logic encodes hard-won knowledge about competitors' on-disk formats that is documented nowhere else. The owner is still active (latest commit 2026-08-20), which keeps this at medium rather than high; it should not ship a major migration wave with a bus factor of one.",
+      "severity": "medium",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/app-server/src/external_agent_migration/protocol.rs",
+          "start_line": 67,
+          "end_line": 67,
+          "snippet": "fn protocol_migration_details(details: CoreMigrationDetails) -> MigrationDetails {",
+          "note": "single-owner protocol mapping layer"
+        },
+        {
+          "file": "codex-rs/external-agent-migration/src/detect/sessions/connectors_cla.rs",
+          "start_line": 103,
+          "end_line": 103,
+          "snippet": "fn detect_connector_names_by_key<'a, Key>(",
+          "note": "format-specific detection heuristics, one contributor"
+        }
+      ],
+      "recommendation": "Route the next few migration changes through a second reviewer as deliberate knowledge transfer, and add a short doc of the foreign-format assumptions (which files are read, which keys matter) next to the detect/ module.",
+      "tags": [
+        "bus-factor",
+        "rust",
+        "migration"
+      ],
+      "sokrates_refs": [
+        "file:codex-rs/app-server/src/external_agent_migration/protocol.rs",
+        "file:codex-rs/external-agent-migration/src/detect/sessions/connectors_cla.rs",
+        "metric:contributors"
+      ]
+    },
+    {
+      "id": "risk-synthesis-scan/knowledge-risk/workload-identity-exchange",
+      "group": "knowledge-risk",
+      "title": "Security-sensitive workload-identity token exchange has one contributor",
+      "description": "workload-identity/src/exchange.rs (287 LOC, 4 commits, all within the last 90 days, single contributor) implements OAuth JWT-bearer token exchange for workload identity: it caches short-lived access tokens in memory, retries transient failures, and enforces token-URL hygiene in validate_token_url (McCabe 9) - rejecting URLs with credentials/query/fragment and allowing http only for loopback hosts. This is exactly the kind of code where the security reasoning behind each check matters more than the code itself, and today that reasoning lives with one person (metric:contributors). The file was updated 2026-08-15, so the owner is active; the concern is continuity and review depth for future changes, not current quality - the checks read carefully considered.",
+      "severity": "medium",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/workload-identity/src/exchange.rs",
+          "start_line": 224,
+          "end_line": 224,
+          "snippet": "fn validate_token_url(url: &Url) -> Result<bool, WorkloadIdentityError> {",
+          "note": "security-critical URL validation, single owner"
+        },
+        {
+          "file": "codex-rs/workload-identity/src/exchange.rs",
+          "start_line": 28,
+          "end_line": 28,
+          "snippet": "pub struct WorkloadIdentityExchange {",
+          "note": "in-memory token exchange/cache"
+        }
+      ],
+      "recommendation": "Add a second maintainer for the workload-identity crate and require security-aware review on changes to validate_token_url and the caching/retry logic; a brief threat-model comment block would preserve the intent behind each rejection rule.",
+      "tags": [
+        "bus-factor",
+        "security",
+        "auth"
+      ],
+      "sokrates_refs": [
+        "file:codex-rs/workload-identity/src/exchange.rs",
+        "metric:contributors"
+      ]
+    },
+    {
+      "id": "risk-synthesis-scan/knowledge-risk/release-pipeline-script",
+      "group": "knowledge-risk",
+      "title": "Release mirroring to Cloudflare R2 depends on a single-owner script",
+      "description": ".github/scripts/publish_r2_release.py (467 LOC, one contributor, 5 commits) mirrors GitHub releases to Cloudflare R2: it verifies checksums, writes versioned release.json metadata, advances the latest/prerelease channel pointers, and updates the mutable install.sh/install.ps1 bootstrap aliases. Its main() (147 LOC, McCabe 21) and get_release_metadata (McCabe 18) concentrate the orchestration. The module docstring is genuinely good documentation of the flow, which softens the risk, and the script is release tooling rather than product code - but it sits on the distribution path (what 'codex install' fetches), and only one person has ever touched it (metric:contributors).",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": ".github/scripts/publish_r2_release.py",
+          "start_line": 2,
+          "end_line": 2,
+          "snippet": "\"\"\"Mirror a Codex GitHub Release to Cloudflare R2.",
+          "note": "single-owner release distribution script"
+        },
+        {
+          "file": ".github/scripts/publish_r2_release.py",
+          "start_line": 377,
+          "end_line": 377,
+          "snippet": "def main() -> int:",
+          "note": "147-LOC, McCabe 21 orchestration"
+        }
+      ],
+      "recommendation": "Have a second release engineer run one release end-to-end with this script and note any tribal steps in the docstring; consider splitting channel-pointer advancement out of main() so a partial failure's blast radius is obvious.",
+      "tags": [
+        "bus-factor",
+        "python",
+        "release"
+      ],
+      "sokrates_refs": [
+        "file:.github/scripts/publish_r2_release.py",
+        "metric:contributors"
+      ]
+    },
+    {
+      "id": "risk-synthesis-scan/knowledge-risk/peripheral-single-owner-files",
+      "group": "knowledge-risk",
+      "title": "Assorted peripheral single-owner files: small, simple, owners active",
+      "description": "The remaining single-contributor files the selection surfaced are small, low-complexity, and recently maintained: the Python SDK facade sdk/python/src/openai_codex/api.py (676 LOC but max McCabe 5 - a thin typed wrapper whose class Codex mostly delegates), path rendering in utils/path-uri/src/api_path_string.rs (282 LOC, Windows-path edge cases, McCabe 10), and TUI leaf modules chatwidget/usage.rs and app/thread_goal_actions.rs (max McCabe 2-3). All were updated between 2026-07 and 2026-08, so their owners are active (metric:contributors). Individually none justifies action; collectively they are ordinary for a 581-contributor codebase where leaf features start with one author. Worth revisiting only if an owner goes quiet - the Windows path-encoding rules in api_path_string.rs would be the first to become archaeology.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "sdk/python/src/openai_codex/api.py",
+          "start_line": 75,
+          "end_line": 75,
+          "snippet": "class Codex:",
+          "note": "thin SDK facade, single owner, low complexity"
+        },
+        {
+          "file": "codex-rs/utils/path-uri/src/api_path_string.rs",
+          "start_line": 208,
+          "end_line": 208,
+          "snippet": "fn render_windows_opaque_fallback(path_bytes: &[u8]) -> Option<String> {",
+          "note": "Windows path edge-case logic, single owner"
+        }
+      ],
+      "recommendation": "No immediate action; fold these into normal review rotation and prioritize a co-reviewer for api_path_string.rs if its owner becomes inactive.",
+      "tags": [
+        "bus-factor"
+      ],
+      "sokrates_refs": [
+        "file:sdk/python/src/openai_codex/api.py",
+        "file:codex-rs/utils/path-uri/src/api_path_string.rs",
+        "metric:contributors"
+      ]
+    },
+    {
+      "id": "risk-synthesis-scan/change-coupling/environment-config",
+      "group": "change-coupling",
+      "title": "protocol EnvironmentConfig co-changes 100% with core validation and selection code",
+      "description": "codex-rs/protocol/src/environment.rs changed in the same commit as codex-rs/core/src/environment_selection.rs in 8 of its 8 commits (ratio 1.0), and nearly as often with core/src/session/environment.rs (6/8) and session/session.rs (7/8) (metric:temporal_coupling). Reading explains the ripple: the protocol file defines EnvironmentConfig / EnvironmentConfigState as plain data, while all semantics live in core - session/environment.rs hand-validates each field (rejecting network_policy with 'not supported yet', capping capability roots, forbidding exec-policy allow rules) and environment_selection.rs (1,777 LOC) plumbs ownership via EnvironmentConfigOrigin. So every field added to the protocol struct forces coordinated edits in at least two core files. This is a deliberate protocol/implementation split for an in-flight feature (the struct doc comments even state which restrictions core will reject), so the boundary is not wrong - but while the feature is under construction, changes here are shotgun edits across a crate boundary with validation far from the type it guards.",
+      "severity": "medium",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/protocol/src/environment.rs",
+          "start_line": 24,
+          "end_line": 24,
+          "snippet": "pub struct EnvironmentConfig {",
+          "note": "protocol data type at the center of the coupling"
+        },
+        {
+          "file": "codex-rs/core/src/session/environment.rs",
+          "start_line": 40,
+          "end_line": 43,
+          "snippet": "if config.network_policy.is_some() {\n        return Err(CodexErr::InvalidRequest(\n            \"attachment-owned network policy is not supported yet\".to_string(),\n        ));",
+          "note": "field-by-field semantics maintained in core, far from the type"
+        }
+      ],
+      "recommendation": "While the environment-attachment feature stabilizes, keep a single validation entry point (validate_environment_config) as the required companion to any protocol field addition - a checklist comment on the struct pointing at it would prevent missed edits; once stable, consider moving structural invariants (max roots, no allow rules) onto constructors in the protocol crate so only policy checks remain in core.",
+      "tags": [
+        "rust",
+        "coupling",
+        "protocol"
+      ],
+      "sokrates_refs": [
+        "file:codex-rs/protocol/src/environment.rs",
+        "file:codex-rs/core/src/environment_selection.rs",
+        "metric:temporal_coupling"
+      ]
+    },
+    {
+      "id": "risk-synthesis-scan/change-coupling/mcp-connection-manager",
+      "group": "change-coupling",
+      "title": "codex-mcp connection_manager couplings are one type split across files - cohesive by design",
+      "description": "Three flagged pairs sit inside codex-rs/codex-mcp: connection_manager.rs with required.rs (ratio 1.0) and tool_catalog.rs (0.76), and binding.rs with tool_catalog.rs (0.78) (metric:temporal_coupling). Reading shows connection_manager.rs declares required.rs, tool_catalog.rs, startup.rs, and resources.rs as #[path] submodules that hold impl blocks of the same McpConnectionSet type - so 'files that change together' here is literally one component whose source is split for readability. tool_catalog.rs imports McpBinding/PreparedMcpCall from binding.rs, the call-preparation seam of the same subsystem. Examined and found acceptable: the co-change is what a well-factored multi-file module looks like in commit data, not a leaky boundary. No boundary change is warranted.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/codex-mcp/src/connection_manager.rs",
+          "start_line": 8,
+          "end_line": 9,
+          "snippet": "#[path = \"connection_manager/required.rs\"]\nmod required;",
+          "note": "coupled files are submodules of one type"
+        },
+        {
+          "file": "codex-rs/codex-mcp/src/connection_manager.rs",
+          "start_line": 14,
+          "end_line": 15,
+          "snippet": "#[path = \"connection_manager/tool_catalog.rs\"]\nmod tool_catalog;",
+          "note": "tool_catalog is part of the same McpConnectionSet impl"
+        }
+      ],
+      "tags": [
+        "rust",
+        "coupling",
+        "acceptable"
+      ],
+      "sokrates_refs": [
+        "file:codex-rs/codex-mcp/src/connection_manager.rs",
+        "metric:temporal_coupling"
+      ]
+    },
+    {
+      "id": "risk-synthesis-scan/change-coupling/skills-loader-facade",
+      "group": "change-coupling",
+      "title": "ext/skills loader facade forces three-file edits for each new loader capability",
+      "description": "codex-rs/ext/skills/src/loader/mod.rs co-changed with lib.rs and with host_service.rs in 7 of its 10 commits (ratio 0.7 each) (metric:temporal_coupling). The mechanism is visible in the code: loader/mod.rs is a facade that re-exports selected pub(crate) items from its submodules (discovery, host, host_merge, ...) plus a block of shared limit constants, lib.rs re-exports the crate's public API from those internals, and host_service.rs is the primary consumer of the loader entry points. Each new loader capability therefore edits the submodule, the loader facade's use lines, and usually lib.rs or the host service - mechanical but reliable three-file commits. The layering itself is sound (limits and names are defined once); the friction is modest and mostly inherent to keeping a narrow public API over a deep module tree.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/ext/skills/src/loader/mod.rs",
+          "start_line": 15,
+          "end_line": 15,
+          "snippet": "pub(crate) use host_merge::load_and_merge_host_skill_roots;",
+          "note": "facade re-export layer that grows with each capability"
+        },
+        {
+          "file": "codex-rs/ext/skills/src/lib.rs",
+          "start_line": 35,
+          "end_line": 37,
+          "snippet": "pub use host_service::HostSkillsLoadInput;\npub use host_service::HostSkillsRequest;\npub use host_service::HostSkillsService;",
+          "note": "second re-export layer coupled to the same changes"
+        }
+      ],
+      "recommendation": "Acceptable as-is; if the churn grows, collapse one hop - either let host_service import loader submodules directly or re-export loader items wholesale (pub use loader::host_merge::*) so a new entry point is declared in one place.",
+      "tags": [
+        "rust",
+        "coupling",
+        "skills"
+      ],
+      "sokrates_refs": [
+        "file:codex-rs/ext/skills/src/loader/mod.rs",
+        "file:codex-rs/ext/skills/src/lib.rs",
+        "metric:temporal_coupling"
+      ]
+    }
+  ]
+}

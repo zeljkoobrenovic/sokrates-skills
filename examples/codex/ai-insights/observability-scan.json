@@ -1,0 +1,523 @@
+{
+  "scanner": "observability-scan",
+  "scanner_version": "1.0",
+  "analyzed_at": "2026-08-24",
+  "target": {
+    "name": "Codex",
+    "src_root": "../../.."
+  },
+  "summary": "Codex has a deliberately layered, privacy-conscious observability stack centered on the Rust tracing ecosystem bridged into OpenTelemetry by a dedicated codex-otel crate. Roughly 2,000 log call sites (warn! dominant), 81 #[instrument] spans and ~190 metric call sites feed per-binary subscriber stacks: an opt-in 0600 file log and a local SQLite log database for the TUI, stderr for exec and app-server, an in-memory feedback ring buffer, and OTLP log/trace/metric exporters. Defaults are conservative and asymmetric: log and trace export are off unless configured, while the metrics exporter defaults to Statsig - an OTLP-HTTP push to ab.chatgpt.com with an embedded client key - in release builds when analytics is enabled (the TUI passes default_analytics_enabled=true). User prompts are redacted by default ([REDACTED] unless otel.log_user_prompt=true), metric tags are sanitized and low-cardinality, and a curated disable-list keeps token-usage/API metrics off the built-in Statsig route. Crash reporting is consent-based: no sentry::init anywhere; panic hooks restore the terminal and log via tracing, and Sentry envelopes are only uploaded when the user explicitly submits feedback (with a 4 MiB in-memory log ring attached). codex doctor provides a redacted, read-mostly diagnostic report. The main gaps: a local operator sees almost nothing by default (metrics go to OpenAI, not to the user; file logging is opt-in; exec filters at error), the TypeScript/Python SDKs emit no telemetry of their own, and rollout flush errors are discarded at session-seed call sites (mitigated by recorder-internal warn+retry).",
+  "stats": {
+    "log_call_sites": 1995,
+    "log_call_sites_by_level": {
+      "trace": 98,
+      "debug": 203,
+      "info": 266,
+      "warn": 1175,
+      "error": 253
+    },
+    "instrumented_fns": 81,
+    "metric_call_sites_outside_otel_crate": 189,
+    "panic_hooks": 2,
+    "exporters": [
+      "otlp-http",
+      "otlp-grpc",
+      "statsig",
+      "sentry-feedback-envelopes"
+    ],
+    "telemetry_default": "logs/traces off; metrics -> Statsig (release builds, analytics enabled)",
+    "named_metrics": 60
+  },
+  "findings": [
+    {
+      "id": "observability-scan/logging/tracing-framework-per-binary-sinks",
+      "group": "logging",
+      "title": "Structured tracing logging (~2,000 call sites) with per-binary sinks; file logging is opt-in and 0600",
+      "description": "All Rust crates log through the tracing ecosystem (~1,995 macro call sites; warn! dominates at 1,175 vs 253 error!, a deliberate 'observable but non-fatal' style). Each binary assembles its own subscriber stack: the TUI writes a file log only when log_dir is explicitly configured in config.toml (created append-only with mode 0600, default filter codex_core=info,codex_tui=info,codex_rmcp_client=info, overridable via RUST_LOG); codex exec logs to stderr with a default filter of 'error' (OTel SDK noise explicitly silenced); the app-server logs to stderr honoring RUST_LOG with an optional LOG_FORMAT=json mode. So log destinations and verbosity are consistent in mechanism but intentionally different per surface.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/tui/src/startup_orchestration.rs",
+          "start_line": 468,
+          "end_line": 468,
+          "snippet": "EnvFilter::new(\"codex_core=info,codex_tui=info,codex_rmcp_client=info\")",
+          "note": "TUI default file-log filter; file layer only built when log_dir is configured (line 450)"
+        },
+        {
+          "file": "codex-rs/exec/src/lib.rs",
+          "start_line": 168,
+          "end_line": 168,
+          "snippet": "const EXEC_DEFAULT_LOG_FILTER: &str = \"error,opentelemetry_sdk=off,opentelemetry_otlp=off\";",
+          "note": "headless exec stderr default"
+        },
+        {
+          "file": "codex-rs/app-server/src/lib.rs",
+          "start_line": 661,
+          "end_line": 661,
+          "snippet": "// control the log level with `RUST_LOG` and switch to JSON logs with",
+          "note": "app-server stderr subscriber, RUST_LOG + LOG_FORMAT=json"
+        }
+      ],
+      "tags": [
+        "rust",
+        "tracing",
+        "logging"
+      ],
+      "sokrates_refs": [
+        "component:codex_rs"
+      ]
+    },
+    {
+      "id": "observability-scan/logging/sqlite-log-db",
+      "group": "logging",
+      "title": "Logs are additionally persisted to a local SQLite 'logs' database at TRACE level",
+      "description": "Both the TUI and app-server attach a log_db layer that ships tracing events through a bounded queue into a dedicated 'logs' SQLite database in the state store. Its default filter is TRACE with noisy targets (hyper_util, sqlx internals) capped or off, and the OTel export targets (codex_otel.log_only / codex_otel.trace_safe) explicitly excluded so exported telemetry events are not double-written locally. This gives post-hoc local debuggability even when no file log is configured.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/state/src/log_db.rs",
+          "start_line": 5,
+          "end_line": 5,
+          "snippet": "//! queue. The background task inserts into the dedicated `logs` SQLite database",
+          "note": "log-to-SQLite pipeline"
+        },
+        {
+          "file": "codex-rs/state/src/log_db.rs",
+          "start_line": 55,
+          "end_line": 55,
+          "snippet": ".with_default(LevelFilter::TRACE)",
+          "note": "default capture level"
+        },
+        {
+          "file": "codex-rs/state/src/log_db.rs",
+          "start_line": 62,
+          "end_line": 62,
+          "snippet": ".with_target(\"codex_otel.log_only\", LevelFilter::OFF)",
+          "note": "OTel export targets excluded from local DB"
+        }
+      ],
+      "tags": [
+        "rust",
+        "logging",
+        "sqlite"
+      ]
+    },
+    {
+      "id": "observability-scan/logging/prompt-redaction-identity-fields",
+      "group": "logging",
+      "title": "User prompts are redacted by default; exported log events carry account id/email, trace events do not",
+      "description": "Telemetry events are emitted through two tracing targets: codex_otel.log_only and codex_otel.trace_safe. The log_event! macro attaches user.account_id and user.email to every event, while the trace_safe variant omits them - a deliberate two-tier privacy split between the log export path and the span/trace path. Prompt content is redacted by default: otel.log_user_prompt defaults to false, in which case the codex.user_prompt event logs the literal string [REDACTED] plus only the prompt length; the trace event never carries the prompt at all. These identity fields only leave the machine if a log exporter is configured (off by default, see telemetry-pipeline).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/config/otel.rs",
+          "start_line": 13,
+          "end_line": 13,
+          "snippet": "let log_user_prompt = config.log_user_prompt.unwrap_or(false);",
+          "note": "prompt logging opt-in"
+        },
+        {
+          "file": "codex-rs/otel/src/events/session_telemetry.rs",
+          "start_line": 990,
+          "end_line": 990,
+          "snippet": "\"[REDACTED]\"",
+          "note": "default prompt value in the exported event"
+        },
+        {
+          "file": "codex-rs/otel/src/events/shared.rs",
+          "start_line": 15,
+          "end_line": 16,
+          "snippet": "user.account_id = $self.metadata.account_id,\n            user.email = $self.metadata.account_email,",
+          "note": "identity fields on log_only events (absent from trace_safe macro)"
+        }
+      ],
+      "tags": [
+        "privacy",
+        "redaction",
+        "logging"
+      ]
+    },
+    {
+      "id": "observability-scan/metrics/centralized-metric-catalog",
+      "group": "metrics",
+      "title": "Centralized metric catalog (~60 named counters/histograms) covering turns, tools, API, transport and startup",
+      "description": "All metric names live in one names.rs module (~60 constants under the codex.* prefix): tool call counts/durations, API request counts/durations, SSE/WebSocket event timings, turn end-to-end/TTFT/token-usage, guardian reviews, goals, plugins, hooks, and startup phases. About 190 call sites outside the otel crate emit through a shared best-effort metrics client (errors returned, never panicking the caller). Cardinality is actively managed: tag values pass sanitize_metric_tag_value (charset-restricted, 256-char cap) and comments mark tags as low-cardinality by design, so the catalog is safe to aggregate downstream.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/otel/src/metrics/names.rs",
+          "start_line": 8,
+          "end_line": 8,
+          "snippet": "pub const API_CALL_COUNT_METRIC: &str = \"codex.api_request\";"
+        },
+        {
+          "file": "codex-rs/otel/src/metrics/names.rs",
+          "start_line": 27,
+          "end_line": 27,
+          "snippet": "pub const TURN_E2E_DURATION_METRIC: &str = \"codex.turn.e2e_duration_ms\";"
+        },
+        {
+          "file": "codex-rs/utils/string/src/lib.rs",
+          "start_line": 30,
+          "end_line": 31,
+          "snippet": "pub fn sanitize_metric_tag_value(value: &str) -> String {\n    const MAX_LEN: usize = 256;",
+          "note": "tag-value sanitization guarding cardinality and payload"
+        }
+      ],
+      "tags": [
+        "metrics",
+        "cardinality",
+        "rust"
+      ]
+    },
+    {
+      "id": "observability-scan/tracing/spans-w3c-propagation",
+      "group": "tracing",
+      "title": "81 #[instrument] spans plus W3C traceparent propagation in and out of the process",
+      "description": "Span instrumentation is selective (81 #[instrument] attributes, concentrated in core client/session and MCP paths, mostly level=trace with skip_all to avoid capturing arguments). Cross-process context propagation is first-class: a TRACEPARENT environment variable is read once at startup so an external orchestrator can parent Codex spans, and inject_span_w3c_trace_headers writes traceparent/tracestate headers onto outbound HTTP requests. Configurable span_attributes and tracestate entries are validated at config-load time. Trace export is off unless otel.trace_exporter is configured, and deliberately independent from the log exporter so enabling logs cannot accidentally send spans.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/otel/src/trace_context.rs",
+          "start_line": 20,
+          "end_line": 20,
+          "snippet": "const TRACEPARENT_ENV_VAR: &str = \"TRACEPARENT\";",
+          "note": "inbound propagation from environment"
+        },
+        {
+          "file": "codex-rs/otel/src/trace_context.rs",
+          "start_line": 57,
+          "end_line": 57,
+          "snippet": "pub fn inject_span_w3c_trace_headers(span: &Span, headers: &mut http::HeaderMap) -> bool {",
+          "note": "outbound propagation on HTTP requests"
+        },
+        {
+          "file": "codex-rs/core/src/mcp_tool_exposure.rs",
+          "start_line": 74,
+          "end_line": 74,
+          "snippet": "#[instrument(level = \"trace\", skip_all)]",
+          "note": "representative instrumentation style: trace level, arguments skipped"
+        }
+      ],
+      "tags": [
+        "tracing",
+        "w3c",
+        "propagation"
+      ]
+    },
+    {
+      "id": "observability-scan/error-reporting/panic-hooks-chained",
+      "group": "error-reporting",
+      "title": "Panic hooks restore the terminal and forward panics to tracing without swallowing default reports",
+      "description": "The TUI installs chained panic hooks: one restores the terminal and re-emits the panic through tracing::error! before delegating to the previous (color-eyre) hook so users still get a full backtrace, and a second in tui.rs restores the terminal on panic while explicitly ignoring restore errors. Telemetry initialization itself is wrapped in catch_unwind in both the TUI and exec entry points, so a panicking OTel provider degrades to 'no telemetry' instead of crashing the app - the observer cannot take down the observed.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/tui/src/lib.rs",
+          "start_line": 984,
+          "end_line": 986,
+          "snippet": "std::panic::set_hook(Box::new(move |info| {\n        let _ = tui::restore_after_exit();\n        tracing::error!(\"panic: {info}\");",
+          "note": "panic forwarded to tracing, previous hook preserved"
+        },
+        {
+          "file": "codex-rs/tui/src/tui.rs",
+          "start_line": 552,
+          "end_line": 553,
+          "snippet": "let hook = panic::take_hook();\n    panic::set_hook(Box::new(move |panic_info| {",
+          "note": "second chained hook restoring the terminal"
+        },
+        {
+          "file": "codex-rs/tui/src/startup_orchestration.rs",
+          "start_line": 369,
+          "end_line": 369,
+          "snippet": "let otel = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {",
+          "note": "telemetry init failure cannot crash startup"
+        }
+      ],
+      "tags": [
+        "panic",
+        "resilience",
+        "tui"
+      ]
+    },
+    {
+      "id": "observability-scan/error-reporting/sentry-consent-based-feedback",
+      "group": "error-reporting",
+      "title": "Sentry is used only for user-initiated feedback envelopes; no automatic crash reporting",
+      "description": "There is no sentry::init call anywhere in the workspace - the Sentry SDK is used purely as an envelope builder/uploader inside the feedback crate. A tracing layer keeps the last ~4 MiB of filtered logs in an in-memory ring buffer; only when the user explicitly submits feedback (TUI /feedback flow or the app-server feedback request) is an envelope with those logs and diagnostic attachments (doctor report, sandbox logs, tool caches) uploaded to a hardcoded Sentry DSN. Crashes are therefore visible to operators only if users report them - a consent-first posture that trades fleet-wide crash visibility for privacy.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/feedback/src/lib.rs",
+          "start_line": 46,
+          "end_line": 47,
+          "snippet": "const SENTRY_DSN: &str =\n    \"https://ae32ed50620d7a7792c1ce5df38b3e3e@o33249.ingest.us.sentry.io/4510195390611458\";",
+          "note": "hardcoded DSN, used only on explicit upload"
+        },
+        {
+          "file": "codex-rs/feedback/src/lib.rs",
+          "start_line": 45,
+          "end_line": 45,
+          "snippet": "const DEFAULT_MAX_BYTES: usize = 4 * 1024 * 1024; // 4 MiB",
+          "note": "in-memory log ring size"
+        },
+        {
+          "file": "codex-rs/feedback/src/lib.rs",
+          "start_line": 428,
+          "end_line": 428,
+          "snippet": "pub async fn upload_feedback(",
+          "note": "upload happens only through this explicit call path"
+        }
+      ],
+      "tags": [
+        "sentry",
+        "crash-reporting",
+        "privacy"
+      ]
+    },
+    {
+      "id": "observability-scan/error-reporting/rollout-flush-errors-dropped",
+      "group": "error-reporting",
+      "title": "Rollout flush errors are discarded at session-seed call sites",
+      "description": "In the session bootstrap path (seeding new and forked threads), flush_rollout() returns an io::Result that is discarded with let _ = at both call sites, so a failed flush of the conversation rollout - the persistence layer resume/fork depends on - produces no signal at that decision point. The blast radius is limited because the rollout recorder itself warns and retries internally when the writer fails ('failed to {operation} rollout writer; reopening and retrying'), and persistence metrics exist; but the caller cannot distinguish 'flushed' from 'silently failed', which matters on the path that decides whether a thread is durably file-backed.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/session/mod.rs",
+          "start_line": 1401,
+          "end_line": 1401,
+          "snippet": "let _ = self.flush_rollout().await;",
+          "note": "error discarded (same pattern at line 1449 in the forked-thread branch)"
+        },
+        {
+          "file": "codex-rs/core/src/session/mod.rs",
+          "start_line": 1219,
+          "end_line": 1220,
+          "snippet": "pub(crate) async fn flush_rollout(&self) -> std::io::Result<()> {\n        if let Some(live_thread) = self.live_thread() {",
+          "note": "fallible flush whose result is dropped"
+        },
+        {
+          "file": "codex-rs/rollout/src/recorder.rs",
+          "start_line": 1710,
+          "end_line": 1710,
+          "snippet": "warn!(\"failed to {operation} rollout writer; reopening and retrying: {first_err}\");",
+          "note": "mitigation: recorder-internal warn + retry"
+        }
+      ],
+      "recommendation": "Log (warn!) the dropped flush_rollout errors at the session-seed call sites, or propagate them into the existing rollout persistence metrics, so a persistently failing flush is distinguishable from success on the resume/fork durability path.",
+      "tags": [
+        "error-swallowing",
+        "persistence",
+        "core"
+      ],
+      "sokrates_refs": [
+        "component:codex_rs"
+      ]
+    },
+    {
+      "id": "observability-scan/health-diagnostics/codex-doctor",
+      "group": "health-diagnostics",
+      "title": "codex doctor provides a redacted, read-mostly diagnostic report wired into support flows",
+      "description": "The CLI ships a dedicated doctor subcommand that inspects installation, configuration, authentication, terminal, state paths and bounded reachability probes without mutating state or starting services; each check returns a redacted serializable row backing both the human summary and --json output. It is integrated into the support loop: the redacted doctor JSON is a named attachment on feedback uploads, and state-database recovery errors direct users to run it. There are no long-running health/readiness endpoints - appropriate for a local CLI whose 'health surface' is a diagnostic command rather than a probe URL.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/doctor.rs",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "//! Implements the `codex doctor` diagnostic report."
+        },
+        {
+          "file": "codex-rs/feedback/src/lib.rs",
+          "start_line": 37,
+          "end_line": 38,
+          "snippet": "/// Filename used for the redacted `codex doctor --json` feedback attachment.\npub const DOCTOR_REPORT_ATTACHMENT_FILENAME: &str = \"codex-doctor-report.json\";",
+          "note": "doctor output attached to feedback uploads"
+        },
+        {
+          "file": "codex-rs/cli/src/state_db_recovery.rs",
+          "start_line": 75,
+          "end_line": 75,
+          "snippet": "eprintln!(\"Run `codex doctor` to check your setup and get next-step guidance.\");",
+          "note": "recovery path points users at doctor"
+        }
+      ],
+      "tags": [
+        "diagnostics",
+        "cli",
+        "support"
+      ]
+    },
+    {
+      "id": "observability-scan/telemetry-pipeline/statsig-metrics-default-on",
+      "group": "telemetry-pipeline",
+      "title": "Metrics default to a Statsig exporter: OTLP-HTTP to ab.chatgpt.com with an embedded client key, release builds only",
+      "description": "While log and trace exporters default to None, otel.metrics_exporter defaults to Statsig, which resolves to an OTLP-HTTP/JSON push to https://ab.chatgpt.com/otlp/v1/metrics authenticated with a client API key embedded in the source. The default is disabled in debug builds and gated at runtime on analytics_enabled (the TUI passes default_analytics_enabled=true), so a stock release install with analytics on sends usage/performance metrics to OpenAI by default. Mitigations are real: only sanitized low-cardinality metric data is sent (no prompts or log content), and a curated STATSIG_DISABLED_METRICS list keeps token-usage, API-call and tool-call metrics off the built-in route while still delivering them to any user-configured OTLP exporter. Worth flagging because 'metrics on by default to the vendor' is a posture users and enterprises will want to know about and how to opt out of (analytics_enabled=false or metrics_exporter='none').",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/config/otel.rs",
+          "start_line": 20,
+          "end_line": 21,
+          "snippet": "let trace_exporter = config.trace_exporter.unwrap_or(OtelExporterKind::None);\n    let metrics_exporter = config.metrics_exporter.unwrap_or(OtelExporterKind::Statsig);",
+          "note": "asymmetric defaults: traces off, metrics -> Statsig"
+        },
+        {
+          "file": "codex-rs/otel/src/config.rs",
+          "start_line": 9,
+          "end_line": 11,
+          "snippet": "pub(crate) const STATSIG_OTLP_HTTP_ENDPOINT: &str = \"https://ab.chatgpt.com/otlp/v1/metrics\";\npub(crate) const STATSIG_API_KEY_HEADER: &str = \"statsig-api-key\";\npub(crate) const STATSIG_API_KEY: &str = \"client-MkRuleRQBd6qakfnDYqJVR9JuXcY57Ljly3vi5JVUIO\";",
+          "note": "hardcoded endpoint and client key (debug builds resolve to None at lines 20-21)"
+        },
+        {
+          "file": "codex-rs/otel/src/metrics/config.rs",
+          "start_line": 21,
+          "end_line": 21,
+          "snippet": "const STATSIG_DISABLED_METRICS: &[&str] = &[",
+          "note": "token-usage/API metrics excluded from the built-in Statsig route"
+        }
+      ],
+      "recommendation": "Document the default metrics destination and the opt-outs (analytics_enabled = false, otel.metrics_exporter = \"none\") prominently in user-facing docs, and treat the embedded Statsig client key as rotatable configuration rather than source-embedded.",
+      "tags": [
+        "statsig",
+        "privacy",
+        "defaults",
+        "telemetry"
+      ]
+    },
+    {
+      "id": "observability-scan/telemetry-pipeline/configurable-otlp-export",
+      "group": "telemetry-pipeline",
+      "title": "Per-signal OTLP export (HTTP/gRPC, headers, mutual TLS) with batching and a bounded shutdown flush",
+      "description": "The codex-otel crate exposes independent exporter settings per signal (logs, traces, metrics), each accepting OtlpHttp (JSON or binary protobuf) or OtlpGrpc with custom headers and optional mutual TLS (CA, client cert/key). Standard OTEL_EXPORTER_OTLP_*_TIMEOUT environment variables are honored, spans go through batch processors, and shutdown is handled by a detached worker with an explicit time budget so a hung collector cannot block process exit ('telemetry shutdown exceeded its time budget'). This means any enterprise can point Codex at its own collector and get logs, spans and the full metric catalog without code changes.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/otel/src/config.rs",
+          "start_line": 88,
+          "end_line": 89,
+          "snippet": "pub enum OtelExporter {\n    None,",
+          "note": "exporter variants: None / Statsig / OtlpGrpc / OtlpHttp with headers + TLS"
+        },
+        {
+          "file": "codex-rs/otel/src/otlp.rs",
+          "start_line": 200,
+          "end_line": 200,
+          "snippet": "if let Some(timeout) = read_timeout_env(OTEL_EXPORTER_OTLP_TIMEOUT) {",
+          "note": "standard OTLP env vars honored"
+        },
+        {
+          "file": "codex-rs/otel/src/provider.rs",
+          "start_line": 158,
+          "end_line": 158,
+          "snippet": "pub async fn shutdown_with_timeout(mut self, timeout: Duration) -> io::Result<()> {",
+          "note": "bounded flush on exit"
+        }
+      ],
+      "tags": [
+        "otlp",
+        "opentelemetry",
+        "export",
+        "tls"
+      ]
+    },
+    {
+      "id": "observability-scan/telemetry-pipeline/analytics-events-backend",
+      "group": "telemetry-pipeline",
+      "title": "Separate product-analytics event pipeline posts to the ChatGPT backend with a bounded, lossy queue",
+      "description": "Alongside OTel metrics, a codex-analytics crate batches structured product events (guardian reviews, compaction, goals, tool calls, invocation facts) through a reducer and posts them to {base_url}/codex/analytics-events/events on the authenticated ChatGPT backend. The channel is bounded and deliberately lossy - when the queue is full it drops events and emits tracing::warn!(\"dropping analytics events: queue is full\") - so analytics backpressure cannot stall the agent. A debug-build capture-file mode exists for inspecting what would be sent. This is a second, product-focused egress path distinct from the Statsig metrics route, gated by the same analytics enablement.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/analytics/src/client.rs",
+          "start_line": 124,
+          "end_line": 124,
+          "snippet": "url: format!(\"{base_url}/codex/analytics-events/events\"),",
+          "note": "destination endpoint on the ChatGPT backend"
+        },
+        {
+          "file": "codex-rs/analytics/src/client.rs",
+          "start_line": 176,
+          "end_line": 176,
+          "snippet": "tracing::warn!(\"dropping analytics events: queue is full\");",
+          "note": "bounded queue drops rather than blocks"
+        }
+      ],
+      "tags": [
+        "analytics",
+        "telemetry",
+        "backpressure"
+      ]
+    },
+    {
+      "id": "observability-scan/monitoring-posture/operator-visibility",
+      "group": "monitoring-posture",
+      "title": "With an OTLP collector configured, the emitted signals support rich fleet dashboards and alerting",
+      "description": "An operator who points otel.exporter/trace_exporter/metrics_exporter at their own collector can build substantial monitoring from what the code already emits: alerting on model API error rates and latency (codex.api_request + duration histograms), turn health (e2e/TTFT/token-usage histograms), tool-call failure rates and durations, SSE/WebSocket transport stalls, startup-phase regressions, guardian review outcomes, and SQLite persistence errors (rollout/DB telemetry recorders). Session-lifecycle log events (with per-conversation ids, model, auth mode) enable per-session forensic timelines, and W3C trace propagation lets Codex spans join a larger distributed trace. OpenAI itself, via the default Statsig route, sees a narrower slice: process starts, turns, goals, startup timings - with API/token/tool metrics deliberately excluded from that route.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/otel/src/metrics/names.rs",
+          "start_line": 1,
+          "end_line": 2,
+          "snippet": "pub const TOOL_CALL_COUNT_METRIC: &str = \"codex.tool.call\";\npub const TOOL_CALL_DURATION_METRIC: &str = \"codex.tool.call.duration_ms\";",
+          "note": "count + duration pairs are the alerting substrate"
+        },
+        {
+          "file": "codex-rs/otel/src/metrics/names.rs",
+          "start_line": 10,
+          "end_line": 11,
+          "snippet": "pub const SSE_EVENT_COUNT_METRIC: &str = \"codex.sse_event\";\npub const SSE_EVENT_DURATION_METRIC: &str = \"codex.sse_event.duration_ms\";",
+          "note": "transport-level signals for streaming health"
+        }
+      ],
+      "tags": [
+        "monitoring",
+        "alerting",
+        "dashboards"
+      ]
+    },
+    {
+      "id": "observability-scan/monitoring-posture/default-install-blind-spots",
+      "group": "monitoring-posture",
+      "title": "Blind spots: a default install is nearly dark locally, and the SDK/JS surfaces emit nothing",
+      "description": "Several failure modes are invisible today. (1) A default install gives the local user almost no signals: file logging requires configuring log_dir, exec's stderr filter is 'error', and the metrics that do flow by default go to OpenAI's Statsig endpoint - not anywhere the user can see - so 'why is my Codex slow/failing' is answerable only via opt-in logs, the SQLite log db, or codex doctor. (2) Crash visibility is consent-bound: with no automatic crash reporter, panics that users do not report leave no operator-side trace. (3) The TypeScript SDK sources contain no logging or telemetry calls at all, and the thin npm/python wrappers likewise emit nothing, so integrations built on the SDKs are dark unless the spawned Rust binary's telemetry is configured. (4) Anything OpenAI might want to alert on fleet-wide beyond the curated Statsig metric slice (e.g. API error rates, which are on the disabled list) is structurally unavailable from the default pipeline.",
+      "severity": "info",
+      "confidence": "possible",
+      "evidence": [
+        {
+          "file": "codex-rs/tui/src/startup_orchestration.rs",
+          "start_line": 450,
+          "end_line": 450,
+          "snippet": "let (tui_file_layer, _tui_file_log_guard) = if config_toml_log_dir_configured {",
+          "note": "file logging exists only when explicitly configured"
+        },
+        {
+          "file": "codex-rs/core/src/config/otel.rs",
+          "start_line": 17,
+          "end_line": 17,
+          "snippet": "let exporter = config.exporter.unwrap_or(OtelExporterKind::None);",
+          "note": "log export off by default; the SDK dark spots are absences and cannot be cited"
+        }
+      ],
+      "tags": [
+        "blind-spots",
+        "defaults",
+        "sdk"
+      ]
+    }
+  ]
+}

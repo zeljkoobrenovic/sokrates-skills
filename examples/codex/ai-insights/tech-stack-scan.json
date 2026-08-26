@@ -1,0 +1,1466 @@
+{
+  "scanner": "tech-stack-scan",
+  "scanner_version": "1.0",
+  "analyzed_at": "2026-08-24T00:00:00Z",
+  "target": {
+    "name": "Codex",
+    "src_root": "../../.."
+  },
+  "summary": "Codex is OpenAI's local coding agent, built almost entirely in Rust (688k of 713k main LOC, ~97%) as a 135-crate Cargo workspace (codex-rs) pinned to Rust 1.95.0 / edition 2024, with thin TypeScript and Python SDKs and a Node wrapper package around the released binary. The core stack is Tokio async + Ratatui/crossterm for the TUI, Clap for the CLI, reqwest/rustls(aws-lc) for HTTP, SQLx-managed bundled SQLite for local state, an embedded, sandboxed V8 for 'code mode', tree-sitter for shell parsing, Starlark for exec policies, and OS sandboxing via Landlock/seccomp/bubblewrap. It builds with both Cargo and a heavily customized Bazel (bzlmod) setup, plus pnpm, just, uv/hatchling, and a Nix flake; CI/CD is 27 GitHub Actions workflows with SHA-pinned actions, cargo-deny auditing, and releases published to Cloudflare R2. It talks to the OpenAI API/ChatGPT backend (plus Amazon Bedrock, Ollama and LM Studio as alternative model providers), speaks MCP, gRPC/protobuf, WebSocket and SSE, and reports telemetry via OpenTelemetry/Statsig and crash/feedback data via Sentry. Attention items are all low severity: three crates patched to OpenAI git forks plus two git-rev dependencies, ~20 local patch files applied to third-party Bazel/toolchain modules, and an unpinned openssl-sys = \"*\" wildcard.",
+  "stats": {
+    "direct_dependencies": {
+      "cargo_workspace_external": 175,
+      "npm_dev": 20,
+      "python": 7
+    },
+    "manifest_files": {
+      "cargo_toml": 135,
+      "package_json": 5,
+      "pyproject_toml": 3
+    },
+    "github_workflows": 27,
+    "main_files": 2307,
+    "main_loc": 712527,
+    "rust_loc": 687909
+  },
+  "findings": [
+    {
+      "id": "tech-stack-scan/languages-runtimes/rust",
+      "group": "languages-runtimes",
+      "title": "Rust 1.95.0 (edition 2024) is the dominant language (~97% of main code)",
+      "description": "Sokrates counts 687,909 of 712,527 main LOC as Rust (*.rs), making Rust ~97% of the codebase. The toolchain is pinned to stable 1.95.0 via rust-toolchain.toml and all workspace crates use the 2024 edition.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/rust-toolchain.toml",
+          "start_line": 1,
+          "end_line": 3,
+          "snippet": "channel = \"1.95.0\"",
+          "note": "pinned stable toolchain"
+        },
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 145,
+          "end_line": 145,
+          "snippet": "edition = \"2024\"",
+          "note": "workspace-wide edition"
+        }
+      ],
+      "tags": [
+        "rust"
+      ],
+      "sokrates_refs": [
+        "metric:LINES_OF_CODE_MAIN"
+      ],
+      "attributes": {
+        "version": "1.95.0",
+        "edition": "2024",
+        "loc": 687909,
+        "loc_share": "96.5%"
+      }
+    },
+    {
+      "id": "tech-stack-scan/languages-runtimes/python",
+      "group": "languages-runtimes",
+      "title": "Python 3.10+ for the Python SDK, packaging runtime and repo scripts",
+      "description": "Python (~17.6k LOC per Sokrates) is used for the openai-codex Python SDK (sdk/python), the openai-codex-cli-bin wheel that pins the CLI binary (sdk/python-runtime), and repo maintenance scripts (scripts/). All declare requires-python >= 3.10.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "sdk/python/pyproject.toml",
+          "start_line": 10,
+          "end_line": 10,
+          "snippet": "requires-python = \">=3.10\""
+        },
+        {
+          "file": "scripts/pyproject.toml",
+          "start_line": 4,
+          "end_line": 4,
+          "snippet": "requires-python = \">=3.10\""
+        }
+      ],
+      "tags": [
+        "python"
+      ],
+      "sokrates_refs": [
+        "component:sdk",
+        "component:scripts"
+      ],
+      "attributes": {
+        "version": ">=3.10",
+        "loc": 17590
+      }
+    },
+    {
+      "id": "tech-stack-scan/languages-runtimes/typescript",
+      "group": "languages-runtimes",
+      "title": "TypeScript 5.9 for the @openai/codex-sdk",
+      "description": "TypeScript is used for the official TypeScript SDK (sdk/typescript), compiled with TypeScript ~5.9 and bundled with tsup into an ESM package. TS/JS is a small share of the repo (~1.5k LOC) since the CLI itself is a Rust binary.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "sdk/typescript/package.json",
+          "start_line": 62,
+          "end_line": 62,
+          "snippet": "\"typescript\": \"^5.9.2\""
+        }
+      ],
+      "tags": [
+        "typescript",
+        "npm"
+      ],
+      "sokrates_refs": [
+        "component:sdk"
+      ],
+      "attributes": {
+        "version": "^5.9.2"
+      }
+    },
+    {
+      "id": "tech-stack-scan/languages-runtimes/nodejs",
+      "group": "languages-runtimes",
+      "title": "Node.js runtime: >=22 for the monorepo, >=16 for the published CLI wrapper",
+      "description": "Node.js is required for repo tooling and the npm distribution. The monorepo pins Node >= 22 and pnpm >= 10.33, while the published @openai/codex package (a thin bin/codex.js wrapper that launches the native binary) only requires Node >= 16 to maximize installability. The engine skew is intentional but worth knowing.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "package.json",
+          "start_line": 35,
+          "end_line": 35,
+          "snippet": "\"node\": \">=22\""
+        },
+        {
+          "file": "codex-cli/package.json",
+          "start_line": 11,
+          "end_line": 11,
+          "snippet": "\"node\": \">=16\""
+        }
+      ],
+      "tags": [
+        "nodejs",
+        "npm"
+      ],
+      "attributes": {
+        "monorepo_engines": ">=22",
+        "cli_engines": ">=16"
+      }
+    },
+    {
+      "id": "tech-stack-scan/frameworks/tokio",
+      "group": "frameworks",
+      "title": "Tokio async runtime",
+      "description": "Tokio 1.x is the async runtime for effectively the whole Rust workspace (HTTP, WebSocket, gRPC, process management, file watching all run on it), declared once as a workspace dependency.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 456,
+          "end_line": 456,
+          "snippet": "tokio = \"1\"",
+          "note": "workspace dependency"
+        },
+        {
+          "file": "codex-rs/rmcp-client/src/bin/rmcp_test_server.rs",
+          "start_line": 138,
+          "end_line": 138,
+          "snippet": "#[tokio::main]",
+          "note": "representative usage"
+        }
+      ],
+      "tags": [
+        "rust",
+        "async"
+      ],
+      "sokrates_refs": [
+        "component:codex_rs"
+      ],
+      "attributes": {
+        "version": "1.x"
+      }
+    },
+    {
+      "id": "tech-stack-scan/frameworks/ratatui",
+      "group": "frameworks",
+      "title": "Ratatui + crossterm terminal UI framework",
+      "description": "The interactive UI (codex-rs/tui, the largest crate) is built on Ratatui 0.30 with a crossterm backend; ansi-to-tui, ratatui-macros and vt100 support it. Crossterm is consumed via an OpenAI fork (see the forked-git-dependencies finding).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 384,
+          "end_line": 388,
+          "snippet": "ratatui = { version = \"0.30.2\", default-features = false, features = [",
+          "note": "workspace dependency"
+        },
+        {
+          "file": "codex-rs/tui/src/app.rs",
+          "start_line": 177,
+          "end_line": 179,
+          "snippet": "use ratatui::backend::Backend;",
+          "note": "usage in the TUI crate"
+        }
+      ],
+      "tags": [
+        "rust",
+        "tui"
+      ],
+      "sokrates_refs": [
+        "component:codex_rs"
+      ],
+      "attributes": {
+        "version": "0.30.2"
+      }
+    },
+    {
+      "id": "tech-stack-scan/frameworks/clap",
+      "group": "frameworks",
+      "title": "Clap 4 CLI framework",
+      "description": "All command-line entry points (codex, codex exec, file-search, etc.) use Clap 4 with derive macros plus clap_complete for shell completions.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 304,
+          "end_line": 305,
+          "snippet": "clap = \"4\""
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 1,
+          "end_line": 2,
+          "snippet": "use clap::Args;"
+        }
+      ],
+      "tags": [
+        "rust",
+        "cli"
+      ],
+      "attributes": {
+        "version": "4"
+      }
+    },
+    {
+      "id": "tech-stack-scan/frameworks/axum",
+      "group": "frameworks",
+      "title": "Axum 0.8 HTTP server framework",
+      "description": "Axum is used for embedded HTTP servers in several crates (rmcp-client OAuth callback flows, app-server-transport, exec-server, code-mode-host), not for a standalone web application.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 297,
+          "end_line": 297,
+          "snippet": "axum = { version = \"0.8\", default-features = false }"
+        }
+      ],
+      "tags": [
+        "rust",
+        "http"
+      ],
+      "attributes": {
+        "version": "0.8"
+      }
+    },
+    {
+      "id": "tech-stack-scan/frameworks/v8",
+      "group": "frameworks",
+      "title": "Embedded V8 JavaScript engine (sandboxed) for code mode",
+      "description": "The code-mode-runtime crate embeds Google V8 (rusty_v8, pinned =150.4.0, with the v8_enable_sandbox feature) to execute model-generated JavaScript locally. V8 is also built hermetically through Bazel (bazel_dep v8 15.0.245.2) with custom build files under third_party/v8.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 485,
+          "end_line": 485,
+          "snippet": "v8 = \"=150.4.0\""
+        },
+        {
+          "file": "codex-rs/code-mode-runtime/Cargo.toml",
+          "start_line": 24,
+          "end_line": 24,
+          "snippet": "v8 = { workspace = true, features = [\"v8_enable_sandbox\"] }"
+        },
+        {
+          "file": "MODULE.bazel",
+          "start_line": 533,
+          "end_line": 533,
+          "snippet": "bazel_dep(name = \"v8\", version = \"15.0.245.2\")"
+        }
+      ],
+      "tags": [
+        "rust",
+        "javascript",
+        "sandbox"
+      ],
+      "attributes": {
+        "version": "=150.4.0"
+      }
+    },
+    {
+      "id": "tech-stack-scan/frameworks/test-frameworks",
+      "group": "frameworks",
+      "title": "Test frameworks: cargo test + insta/wiremock (Rust), Jest (TS), pytest (Python)",
+      "description": "Rust testing uses the built-in harness augmented with insta snapshot testing, wiremock HTTP mocking, assert_cmd, pretty_assertions and divan benchmarks. The TypeScript SDK tests with Jest 29 (ts-jest); the Python SDK uses pytest 8.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 348,
+          "end_line": 348,
+          "snippet": "insta = \"1.46.3\""
+        },
+        {
+          "file": "sdk/typescript/package.json",
+          "start_line": 56,
+          "end_line": 56,
+          "snippet": "\"jest\": \"^29.7.0\""
+        },
+        {
+          "file": "sdk/python/pyproject.toml",
+          "start_line": 30,
+          "end_line": 30,
+          "snippet": "\"pytest>=8.0\""
+        }
+      ],
+      "tags": [
+        "testing"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/libraries/reqwest",
+      "group": "libraries",
+      "title": "reqwest HTTP client",
+      "description": "reqwest 0.12 (with cookie support) is the primary HTTP client for calls to model providers and backend services, wrapped by the codex-http-client crate.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 396,
+          "end_line": 396,
+          "snippet": "reqwest = { version = \"0.12\", features = [\"cookies\"] }"
+        }
+      ],
+      "tags": [
+        "rust",
+        "http"
+      ],
+      "attributes": {
+        "version": "0.12"
+      }
+    },
+    {
+      "id": "tech-stack-scan/libraries/rustls-aws-lc",
+      "group": "libraries",
+      "title": "rustls TLS stack backed by aws-lc-rs",
+      "description": "TLS is provided by rustls 0.23 with the aws_lc_rs crypto provider (a dedicated utils/rustls-provider crate configures it), rustls-native-certs for system roots, and tokio-rustls for async streams. Bazel builds link aws-lc as a module. rcgen (also aws_lc_rs-backed) generates certificates.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 400,
+          "end_line": 403,
+          "snippet": "rustls = { version = \"0.23\", default-features = false, features = [ \"aws_lc_rs\", \"std\", ] }"
+        },
+        {
+          "file": "MODULE.bazel",
+          "start_line": 147,
+          "end_line": 147,
+          "snippet": "bazel_dep(name = \"aws-lc\", version = \"5.1.0.bcr.1\")"
+        }
+      ],
+      "tags": [
+        "rust",
+        "tls",
+        "security"
+      ],
+      "attributes": {
+        "version": "0.23"
+      }
+    },
+    {
+      "id": "tech-stack-scan/libraries/serde",
+      "group": "libraries",
+      "title": "Serde serialization ecosystem",
+      "description": "serde/serde_json (plus serde_with, serde_yaml, serde_path_to_error, serde_ignored) is the universal serialization layer for protocol messages, config files and persisted state. ts-rs and schemars generate TypeScript types and JSON schemas from the same Rust types.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 410,
+          "end_line": 412,
+          "snippet": "serde = { version = \"1\", features = [\"rc\"] }"
+        }
+      ],
+      "tags": [
+        "rust",
+        "serialization"
+      ],
+      "attributes": {
+        "version": "1"
+      }
+    },
+    {
+      "id": "tech-stack-scan/libraries/opentelemetry",
+      "group": "libraries",
+      "title": "OpenTelemetry + tracing observability stack with OTLP export",
+      "description": "Structured logging/tracing uses the tracing ecosystem bridged into OpenTelemetry 0.31 (opentelemetry-otlp exporter over tonic/gRPC, tracing-opentelemetry, opentelemetry-appender-tracing). The codex-otel crate centralizes OTLP endpoint and TLS configuration.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 370,
+          "end_line": 374,
+          "snippet": "opentelemetry = \"0.31.0\"",
+          "note": "workspace declarations for the OTel crates"
+        },
+        {
+          "file": "codex-rs/otel/src/otlp.rs",
+          "start_line": 4,
+          "end_line": 5,
+          "snippet": "use opentelemetry_otlp::OTEL_EXPORTER_OTLP_TIMEOUT;",
+          "note": "OTLP exporter usage"
+        }
+      ],
+      "tags": [
+        "rust",
+        "telemetry",
+        "observability"
+      ],
+      "attributes": {
+        "version": "0.31.0"
+      }
+    },
+    {
+      "id": "tech-stack-scan/libraries/tree-sitter",
+      "group": "libraries",
+      "title": "tree-sitter parsers for Bash and PowerShell",
+      "description": "tree-sitter 0.25 with the bash and powershell grammars is used (e.g. in apply-patch and shell-command) to parse shell commands the agent proposes, which feeds safety analysis and patch application.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 474,
+          "end_line": 476,
+          "snippet": "tree-sitter = \"0.25.10\""
+        },
+        {
+          "file": "codex-rs/apply-patch/Cargo.toml",
+          "start_line": 27,
+          "end_line": 28,
+          "snippet": "tree-sitter = { workspace = true }"
+        }
+      ],
+      "tags": [
+        "rust",
+        "parsing"
+      ],
+      "attributes": {
+        "version": "0.25.10"
+      }
+    },
+    {
+      "id": "tech-stack-scan/libraries/starlark",
+      "group": "libraries",
+      "title": "Starlark interpreter for execution policies",
+      "description": "The execpolicy crate embeds the starlark-rust interpreter (0.14) so command execution policies can be written in Starlark and evaluated at runtime.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 442,
+          "end_line": 442,
+          "snippet": "starlark = { version = \"0.14.2\", default-features = false }"
+        },
+        {
+          "file": "codex-rs/execpolicy/src/error.rs",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "use starlark::Error as StarlarkError;"
+        }
+      ],
+      "tags": [
+        "rust",
+        "policy",
+        "dsl"
+      ],
+      "attributes": {
+        "version": "0.14.2"
+      }
+    },
+    {
+      "id": "tech-stack-scan/libraries/gix",
+      "group": "libraries",
+      "title": "gix (gitoxide) for Git operations",
+      "description": "Git integration (repo state, attribution, history) uses the pure-Rust gitoxide library (gix 0.81) rather than shelling out to git or libgit2, supported by the git-utils crate.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 334,
+          "end_line": 334,
+          "snippet": "gix = { version = \"0.81.0\", default-features = false, features = [\"sha1\"] }"
+        }
+      ],
+      "tags": [
+        "rust",
+        "git"
+      ],
+      "attributes": {
+        "version": "0.81.0"
+      }
+    },
+    {
+      "id": "tech-stack-scan/libraries/keyring",
+      "group": "libraries",
+      "title": "OS keyring integration for secret storage",
+      "description": "The keyring-store crate wraps the keyring crate (3.6) to store credentials in the platform secret service (macOS Keychain, Windows Credential Manager, etc.).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 353,
+          "end_line": 353,
+          "snippet": "keyring = { version = \"3.6\", default-features = false }"
+        },
+        {
+          "file": "codex-rs/keyring-store/src/lib.rs",
+          "start_line": 1,
+          "end_line": 2,
+          "snippet": "use keyring::Entry;"
+        }
+      ],
+      "tags": [
+        "rust",
+        "security",
+        "secrets"
+      ],
+      "attributes": {
+        "version": "3.6"
+      }
+    },
+    {
+      "id": "tech-stack-scan/libraries/aws-sdk-sigv4",
+      "group": "libraries",
+      "title": "AWS SDK credential/SigV4 signing crates",
+      "description": "aws-config, aws-credential-types, aws-sigv4 and aws-types are used by the aws-auth crate to resolve AWS credentials and SigV4-sign requests, enabling the Amazon Bedrock model provider.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 293,
+          "end_line": 296,
+          "snippet": "aws-config = \"1\""
+        },
+        {
+          "file": "codex-rs/aws-auth/src/lib.rs",
+          "start_line": 6,
+          "end_line": 7,
+          "snippet": "use aws_credential_types::provider::ProvideCredentials;"
+        }
+      ],
+      "tags": [
+        "rust",
+        "aws",
+        "auth"
+      ],
+      "attributes": {
+        "version": "1"
+      }
+    },
+    {
+      "id": "tech-stack-scan/libraries/cryptography",
+      "group": "libraries",
+      "title": "Cryptography stack: clatter (Noise, post-quantum), ed25519-dalek, crypto_box, age, jsonwebtoken",
+      "description": "Beyond TLS, the workspace uses clatter 2.2 (Noise protocol with ML-KEM post-quantum options) for secure channels, ed25519-dalek for signing, crypto_box sealed boxes, age for file encryption, jsonwebtoken for JWT handling, and hmac/sha1/sha2/constant_time_eq/zeroize as primitives.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 306,
+          "end_line": 313,
+          "snippet": "clatter = { version = \"2.2.0\", default-features = false, features = ["
+        },
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 328,
+          "end_line": 328,
+          "snippet": "ed25519-dalek = { version = \"2.2.0\", features = [\"pkcs8\"] }"
+        },
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 352,
+          "end_line": 352,
+          "snippet": "jsonwebtoken = \"9.3.1\""
+        }
+      ],
+      "tags": [
+        "rust",
+        "cryptography",
+        "security"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/libraries/sandboxing-primitives",
+      "group": "libraries",
+      "title": "OS sandboxing: Landlock, seccomp, bubblewrap, Windows sandbox",
+      "description": "Command execution is sandboxed per-OS: on Linux via the landlock crate, seccompiler-built seccomp filters and a bwrap (bubblewrap) integration crate; dedicated linux-sandbox, sandboxing, windows-sandbox-rs and process-hardening crates implement the layers. This is a core architectural element of the agent's safety model.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 354,
+          "end_line": 354,
+          "snippet": "landlock = \"0.4.4\""
+        },
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 407,
+          "end_line": 407,
+          "snippet": "seccompiler = \"0.5.0\""
+        },
+        {
+          "file": "codex-rs/linux-sandbox/src/lib.rs",
+          "start_line": 4,
+          "end_line": 4,
+          "snippet": "in-process restrictions (`no_new_privs` + seccomp)"
+        }
+      ],
+      "tags": [
+        "rust",
+        "sandbox",
+        "security",
+        "linux",
+        "windows"
+      ],
+      "sokrates_refs": [
+        "component:codex_rs"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/libraries/notable-smaller-rust-libraries",
+      "group": "libraries",
+      "title": "Notable smaller Rust libraries (~175 direct workspace dependencies overall)",
+      "description": "The workspace declares ~175 direct external dependencies. Beyond the majors, notable utilities include anyhow/thiserror (errors), tracing (logging), regex and regex-lite (both present, used for different size/perf tradeoffs), chrono/time, uuid, image, syntect (syntax highlighting), pulldown-cmark (Markdown), symphonia (audio decoding), notify (file watching), portable-pty, sqlx companions, and archive/compression crates (zip, tar, zstd, flate2).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 285,
+          "end_line": 285,
+          "snippet": "anyhow = \"1\""
+        },
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 394,
+          "end_line": 395,
+          "snippet": "regex = \"1.12.3\" regex-lite = \"0.1.8\""
+        }
+      ],
+      "tags": [
+        "rust"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/libraries/typescript-sdk-libraries",
+      "group": "libraries",
+      "title": "TypeScript SDK libraries: zod and the MCP SDK",
+      "description": "The TypeScript SDK's notable dependencies are zod (schema validation, with zod-to-json-schema) and @modelcontextprotocol/sdk for MCP integration testing/conformance; everything else is dev tooling.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "sdk/typescript/package.json",
+          "start_line": 64,
+          "end_line": 64,
+          "snippet": "\"zod\": \"^3.24.2\""
+        },
+        {
+          "file": "sdk/typescript/package.json",
+          "start_line": 49,
+          "end_line": 49,
+          "snippet": "\"@modelcontextprotocol/sdk\": \"^1.24.0\""
+        }
+      ],
+      "tags": [
+        "typescript",
+        "npm"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/libraries/pydantic",
+      "group": "libraries",
+      "title": "Pydantic 2 in the Python SDK",
+      "description": "The Python SDK's only runtime dependencies are pydantic >= 2.12 for typed models and the pinned openai-codex-cli-bin wheel that ships the native CLI binary.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "sdk/python/pyproject.toml",
+          "start_line": 19,
+          "end_line": 19,
+          "snippet": "dependencies = [\"pydantic>=2.12\", \"openai-codex-cli-bin==0.147.0\"]"
+        }
+      ],
+      "tags": [
+        "python"
+      ],
+      "attributes": {
+        "version": ">=2.12"
+      }
+    },
+    {
+      "id": "tech-stack-scan/build-tooling/cargo-workspace",
+      "group": "build-tooling",
+      "title": "Cargo workspace with ~135 crates and strict clippy policy",
+      "description": "codex-rs is a single Cargo workspace (resolver 2) of ~135 member crates with centralized workspace dependencies and custom build profiles (dev-small, profiling, ci-test). A large clippy deny-list (including unwrap_used and expect_used) is enforced workspace-wide; cargo-shear is used against unused dependencies.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 1,
+          "end_line": 2,
+          "snippet": "[workspace] members = ["
+        },
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 502,
+          "end_line": 503,
+          "snippet": "[workspace.lints.clippy] await_holding_invalid_type = \"deny\""
+        }
+      ],
+      "tags": [
+        "rust",
+        "cargo",
+        "monorepo"
+      ],
+      "sokrates_refs": [
+        "component:codex_rs"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/build-tooling/bazel",
+      "group": "build-tooling",
+      "title": "Bazel (bzlmod) hermetic build alongside Cargo",
+      "description": "The repo has a full Bazel bzlmod setup (MODULE.bazel, rules_rs, hermetic LLVM toolchain, protobuf, aws-lc, v8, openssl and other C deps as modules; custom rules under bazel/ and third_party/; remote-execution config in rbe.bzl). Bazel builds the same Rust code hermetically for CI and cross-platform release, in parallel with plain Cargo for local development.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "MODULE.bazel",
+          "start_line": 1,
+          "end_line": 3,
+          "snippet": "module(name = \"codex\")"
+        },
+        {
+          "file": "MODULE.bazel",
+          "start_line": 148,
+          "end_line": 148,
+          "snippet": "bazel_dep(name = \"rules_rs\", version = \"0.0.96\")"
+        },
+        {
+          "file": "BUILD.bazel",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "load(\"@apple_support//xcode:xcode_config.bzl\", \"xcode_config\")"
+        }
+      ],
+      "tags": [
+        "bazel",
+        "build"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/build-tooling/pnpm",
+      "group": "build-tooling",
+      "title": "pnpm 10 workspace with supply-chain hardening settings",
+      "description": "JavaScript packages (codex-cli, responses-api-proxy/npm, sdk/typescript) are managed as a pnpm workspace pinned via packageManager to pnpm 10.33. pnpm-workspace.yaml enables notable supply-chain protections: minimumReleaseAge of 7 days, blockExoticSubdeps, strictDepBuilds and an explicit allowBuilds list.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "pnpm-workspace.yaml",
+          "start_line": 1,
+          "end_line": 4,
+          "snippet": "packages: - codex-cli - codex-rs/responses-api-proxy/npm - sdk/typescript"
+        },
+        {
+          "file": "pnpm-workspace.yaml",
+          "start_line": 9,
+          "end_line": 12,
+          "snippet": "minimumReleaseAge: 10080",
+          "note": "7-day release-age gate plus blockExoticSubdeps"
+        },
+        {
+          "file": "package.json",
+          "start_line": 38,
+          "end_line": 38,
+          "snippet": "\"packageManager\": \"pnpm@10.33.0",
+          "note": "pinned package manager"
+        }
+      ],
+      "tags": [
+        "npm",
+        "pnpm",
+        "supply-chain"
+      ],
+      "attributes": {
+        "version": "10.33.0"
+      }
+    },
+    {
+      "id": "tech-stack-scan/build-tooling/just",
+      "group": "build-tooling",
+      "title": "just task runner",
+      "description": "A root justfile (defaulting to the codex-rs working directory, with a custom Python-based shell shim for cross-platform recipes) is the developer entry point for building, running, formatting and testing.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "justfile",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "set working-directory := \"codex-rs\""
+        }
+      ],
+      "tags": [
+        "build",
+        "developer-experience"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/build-tooling/nix-flake",
+      "group": "build-tooling",
+      "title": "Nix flake dev/build environment",
+      "description": "A Nix flake (nixpkgs unstable + rust-overlay) provides reproducible dev shells and package builds for Linux and macOS on x86_64 and aarch64.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "flake.nix",
+          "start_line": 2,
+          "end_line": 2,
+          "snippet": "description = \"Development Nix flake for OpenAI Codex CLI\";"
+        },
+        {
+          "file": "flake.nix",
+          "start_line": 5,
+          "end_line": 5,
+          "snippet": "nixpkgs.url = \"github:NixOS/nixpkgs/nixos-unstable\";"
+        }
+      ],
+      "tags": [
+        "nix",
+        "developer-experience"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/build-tooling/python-packaging",
+      "group": "build-tooling",
+      "title": "Python packaging via uv_build and hatchling",
+      "description": "The Python SDK builds with the uv_build backend, while the CLI-binary wheel (sdk/python-runtime) uses hatchling with custom build hooks; both configure uv with a 7-day exclude-newer window (supply-chain hardening mirroring the pnpm setting).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "sdk/python/pyproject.toml",
+          "start_line": 2,
+          "end_line": 3,
+          "snippet": "requires = [\"uv_build>=0.11.19,<0.12\"]"
+        },
+        {
+          "file": "sdk/python-runtime/pyproject.toml",
+          "start_line": 2,
+          "end_line": 3,
+          "snippet": "requires = [\"hatchling>=1.24.0\"]"
+        }
+      ],
+      "tags": [
+        "python",
+        "packaging",
+        "uv"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/build-tooling/linters-formatters",
+      "group": "build-tooling",
+      "title": "Linters/formatters: clippy+rustfmt, Prettier, ESLint, ruff, buildifier, codespell",
+      "description": "Formatting and linting are enforced per ecosystem: clippy and rustfmt (pinned in rust-toolchain.toml) for Rust, Prettier for JSON/MD/YAML/JS repo-wide, ESLint 9 + typescript-eslint for the TS SDK, ruff for Python, buildifier for Starlark/Bazel files (tools/buildifier), and a codespell CI workflow for spelling.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "package.json",
+          "start_line": 11,
+          "end_line": 11,
+          "snippet": "\"prettier\": \"^3.5.3\""
+        },
+        {
+          "file": "sdk/typescript/package.json",
+          "start_line": 52,
+          "end_line": 52,
+          "snippet": "\"eslint\": \"^9.36.0\""
+        },
+        {
+          "file": "sdk/python/pyproject.toml",
+          "start_line": 28,
+          "end_line": 28,
+          "snippet": "format = [\"ruff>=0.15.8\"]"
+        }
+      ],
+      "tags": [
+        "lint",
+        "format"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/ci-cd/github-actions",
+      "group": "ci-cd",
+      "title": "GitHub Actions CI: 27 workflows with SHA-pinned actions",
+      "description": "CI/CD runs entirely on GitHub Actions with 27 workflows covering Rust CI (fast, full, nextest matrix), Bazel builds, SDK/Python builds, issue automation (labeler, deduplicator, translator), CLA, blob-size policy and post-merge checks. Third-party actions are pinned to commit SHAs, a supply-chain best practice.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": ".github/workflows/rust-ci.yml",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "name: rust-ci"
+        },
+        {
+          "file": ".github/workflows/rust-ci.yml",
+          "start_line": 17,
+          "end_line": 17,
+          "snippet": "uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2",
+          "note": "SHA-pinned action"
+        }
+      ],
+      "tags": [
+        "ci",
+        "github-actions"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/ci-cd/cargo-deny",
+      "group": "ci-cd",
+      "title": "cargo-deny dependency auditing in CI",
+      "description": "A dedicated cargo-deny workflow audits the Rust dependency tree (advisories/licenses/bans) on every run, complementing the pnpm and uv release-age gates on the JS/Python side.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": ".github/workflows/cargo-deny.yml",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "name: cargo-deny"
+        }
+      ],
+      "tags": [
+        "ci",
+        "supply-chain",
+        "security"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/ci-cd/release-automation",
+      "group": "ci-cd",
+      "title": "Multi-stage release automation (rust-release, npm, PyPI wheels, R2 publishing)",
+      "description": "Releases are automated across several workflows: rust-release (+ Windows and zsh variants), python-runtime/python-sdk releases, rusty-v8 prebuilt releases, and publish-r2-release which uploads release assets and metadata to Cloudflare R2 through its S3-compatible API using the AWS CLI.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": ".github/workflows/r2-release.yml",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "name: publish-r2-release"
+        },
+        {
+          "file": ".github/workflows/r2-release.yml",
+          "start_line": 35,
+          "end_line": 36,
+          "snippet": "Publish release assets and metadata to R2"
+        }
+      ],
+      "tags": [
+        "ci",
+        "release"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/infrastructure/devcontainer-docker",
+      "group": "infrastructure",
+      "title": "Docker-based dev containers (Ubuntu 24.04) with DotSlash, including a firewalled secure variant",
+      "description": "Development environments are containerized: .devcontainer builds an Ubuntu 24.04 image (arm64-targeted), installs Facebook's DotSlash tool distributor as a devcontainer feature, and offers a Dockerfile.secure/devcontainer.secure.json variant with an init-firewall.sh network lockdown. CI also uses a Dockerfile.bazel image.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": ".devcontainer/devcontainer.json",
+          "start_line": 2,
+          "end_line": 4,
+          "snippet": "\"name\": \"Codex\", \"build\": { \"dockerfile\": \"Dockerfile\","
+        },
+        {
+          "file": ".devcontainer/Dockerfile",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "FROM ubuntu:24.04"
+        },
+        {
+          "file": ".devcontainer/devcontainer.json",
+          "start_line": 13,
+          "end_line": 15,
+          "snippet": "\"ghcr.io/facebook/devcontainers/features/dotslash:latest\": {}"
+        }
+      ],
+      "tags": [
+        "docker",
+        "devcontainer"
+      ],
+      "sokrates_refs": [
+        "component:.devcontainer"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/databases-storage/sqlite-sqlx",
+      "group": "databases-storage",
+      "title": "SQLite (bundled) via SQLx for local state",
+      "description": "Local persistence (state, thread store, message history, audit logs) uses SQLite embedded through SQLx 0.9 with the sqlite-bundled feature and migrations; libsqlite3-sys is deliberately held at a version containing the WAL-reset corruption fix. No external database server is involved.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 431,
+          "end_line": 432,
+          "snippet": "sqlx = { version = \"0.9.0\", default-features = false, features = ["
+        },
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 357,
+          "end_line": 359,
+          "snippet": "Keep SQLx's bundled SQLite on a version containing the WAL-reset corruption fix"
+        },
+        {
+          "file": "codex-rs/state/src/audit.rs",
+          "start_line": 4,
+          "end_line": 4,
+          "snippet": "use sqlx::Row;"
+        }
+      ],
+      "tags": [
+        "sqlite",
+        "database",
+        "rust"
+      ],
+      "attributes": {
+        "sqlx_version": "0.9.0"
+      }
+    },
+    {
+      "id": "tech-stack-scan/databases-storage/cloudflare-r2",
+      "group": "databases-storage",
+      "title": "Cloudflare R2 blob storage for release distribution",
+      "description": "Release binaries and metadata are published to Cloudflare R2 object storage (accessed via its S3-compatible API with AWS-named credentials) from a dedicated GitHub environment, making R2 part of the distribution infrastructure.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": ".github/workflows/r2-release.yml",
+          "start_line": 25,
+          "end_line": 25,
+          "snippet": "environment: codex-r2-publisher"
+        },
+        {
+          "file": ".github/workflows/r2-release.yml",
+          "start_line": 38,
+          "end_line": 39,
+          "snippet": "AWS_ACCESS_KEY_ID: ${{ secrets.CODEX_R2_ACCESS_KEY_ID }}"
+        }
+      ],
+      "tags": [
+        "cloudflare",
+        "storage",
+        "release"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/external-services/openai-api",
+      "group": "external-services",
+      "title": "OpenAI API and ChatGPT backend as primary model providers",
+      "description": "The default model providers call https://api.openai.com/v1 (API-key auth) or the ChatGPT Codex backend at https://chatgpt.com/backend-api/codex (ChatGPT auth), selected by auth mode in model-provider-info. Numerous auxiliary endpoints under chatgpt.com/openai.com are used for login, connectors and cloud tasks.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 39,
+          "end_line": 39,
+          "snippet": "pub const CHATGPT_CODEX_BASE_URL: &str = \"https://chatgpt.com/backend-api/codex\";"
+        },
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 302,
+          "end_line": 302,
+          "snippet": "\"https://api.openai.com/v1\""
+        }
+      ],
+      "tags": [
+        "openai",
+        "llm",
+        "api"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/external-services/amazon-bedrock",
+      "group": "external-services",
+      "title": "Amazon Bedrock model provider",
+      "description": "Amazon Bedrock is supported as an alternative model provider, with requests SigV4-signed via the aws-auth crate and AWS SDK credential resolution.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 40,
+          "end_line": 40,
+          "snippet": "const AMAZON_BEDROCK_PROVIDER_NAME: &str = \"Amazon Bedrock\";"
+        }
+      ],
+      "tags": [
+        "aws",
+        "bedrock",
+        "llm"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/external-services/local-llm-runtimes",
+      "group": "external-services",
+      "title": "Ollama and LM Studio local model runtimes",
+      "description": "Dedicated crates integrate local OpenAI-compatible model servers: codex-ollama talks to an Ollama daemon (default http://localhost:11434) including model pulls, and codex-lmstudio manages LM Studio model download and serving.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/ollama/src/url.rs",
+          "start_line": 27,
+          "end_line": 28,
+          "snippet": "base_url_to_host_root(\"http://localhost:11434/v1\")"
+        },
+        {
+          "file": "codex-rs/lmstudio/src/lib.rs",
+          "start_line": 20,
+          "end_line": 22,
+          "snippet": "let lmstudio_client = LMStudioClient::try_from_provider(config).await?;"
+        }
+      ],
+      "tags": [
+        "ollama",
+        "lmstudio",
+        "llm",
+        "local"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/external-services/sentry",
+      "group": "external-services",
+      "title": "Sentry for feedback/crash envelope upload",
+      "description": "The feedback crate uses the Sentry Rust SDK (0.46) and a hardcoded DSN pointing at o33249.ingest.us.sentry.io to upload user feedback/diagnostic envelopes.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/feedback/src/lib.rs",
+          "start_line": 46,
+          "end_line": 47,
+          "snippet": "const SENTRY_DSN: &str = \"https://ae32ed50620d7a7792c1ce5df38b3e3e@o33249.ingest.us.sentry.io/4510195390611458\";"
+        },
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 409,
+          "end_line": 409,
+          "snippet": "sentry = \"0.46.0\""
+        }
+      ],
+      "tags": [
+        "sentry",
+        "telemetry"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/external-services/statsig",
+      "group": "external-services",
+      "title": "Statsig as a metrics exporter backend",
+      "description": "The otel crate supports Statsig as an alternative metrics exporter (alongside OTLP), with per-metric disable lists resolved when the Statsig exporter is active; this ties runtime metrics into OpenAI's feature-gating/analytics service.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/otel/src/lib.rs",
+          "start_line": 79,
+          "end_line": 80,
+          "snippet": "pub fn global_statsig_metrics_settings() -> Option<StatsigMetricsSettings> {"
+        }
+      ],
+      "tags": [
+        "statsig",
+        "telemetry",
+        "metrics"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/protocols-formats/mcp",
+      "group": "protocols-formats",
+      "title": "Model Context Protocol (MCP), client and server",
+      "description": "Codex both consumes and serves MCP: the rmcp-client crate wraps the official Rust SDK (rmcp, pinned =3.1.2) for connecting to MCP servers (stdio and streamable HTTP, with OAuth), the mcp-server/codex-mcp crates expose Codex as an MCP server, and the TS SDK tests against @modelcontextprotocol/sdk with the official conformance suite.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 397,
+          "end_line": 397,
+          "snippet": "rmcp = { version = \"=3.1.2\", default-features = false }"
+        },
+        {
+          "file": "codex-rs/rmcp-client/src/lib.rs",
+          "start_line": 48,
+          "end_line": 48,
+          "snippet": "pub use rmcp::model::ElicitationAction;"
+        },
+        {
+          "file": "package.json",
+          "start_line": 14,
+          "end_line": 14,
+          "snippet": "\"@modelcontextprotocol/sdk\": \"1.26.0\""
+        }
+      ],
+      "tags": [
+        "mcp",
+        "protocol"
+      ],
+      "attributes": {
+        "rmcp_version": "=3.1.2"
+      }
+    },
+    {
+      "id": "tech-stack-scan/protocols-formats/grpc-protobuf",
+      "group": "protocols-formats",
+      "title": "gRPC / Protocol Buffers (tonic) for internal service protocols",
+      "description": "Internal process-to-process protocols are defined in proto3 (code-mode, exec-server relay, thread-config) and served with tonic 0.14 + tonic-prost; protobuf is also wired through Bazel for hermetic codegen.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 472,
+          "end_line": 473,
+          "snippet": "tonic = { version = \"0.14.3\", default-features = false, features = [\"channel\", \"codegen\"] }"
+        },
+        {
+          "file": "codex-rs/code-mode-protocol/src/grpc/codex.code_mode.v1.proto",
+          "start_line": 1,
+          "end_line": 3,
+          "snippet": "syntax = \"proto3\";"
+        },
+        {
+          "file": "MODULE.bazel",
+          "start_line": 7,
+          "end_line": 7,
+          "snippet": "bazel_dep(name = \"protobuf\", version = \"34.0.bcr.1\", repo_name = \"com_google_protobuf\")"
+        }
+      ],
+      "tags": [
+        "grpc",
+        "protobuf",
+        "protocol"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/protocols-formats/websocket",
+      "group": "protocols-formats",
+      "title": "WebSocket transport (tokio-tungstenite)",
+      "description": "WebSockets (tokio-tungstenite 0.28 with proxy and rustls support, wrapped by the websocket-client crate) carry realtime connections such as the app-server remote-control transport and streaming model sessions. The tungstenite crates are consumed via OpenAI forks (see forked-git-dependencies).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 460,
+          "end_line": 463,
+          "snippet": "tokio-tungstenite = { version = \"0.28.0\", features = ["
+        },
+        {
+          "file": "codex-rs/websocket-client/src/lib.rs",
+          "start_line": 19,
+          "end_line": 21,
+          "snippet": "use tokio_tungstenite::MaybeTlsStream;"
+        }
+      ],
+      "tags": [
+        "websocket",
+        "protocol"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/protocols-formats/sse",
+      "group": "protocols-formats",
+      "title": "Server-Sent Events for model response streaming",
+      "description": "Streaming responses from model providers are parsed as Server-Sent Events using eventsource-stream in the core client.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 330,
+          "end_line": 330,
+          "snippet": "eventsource-stream = \"0.2.3\""
+        },
+        {
+          "file": "codex-rs/core/src/client.rs",
+          "start_line": 94,
+          "end_line": 95,
+          "snippet": "use eventsource_stream::Event;"
+        }
+      ],
+      "tags": [
+        "sse",
+        "streaming",
+        "protocol"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/protocols-formats/jsonrpc-style-app-server",
+      "group": "protocols-formats",
+      "title": "JSON-RPC-style protocol for the app server",
+      "description": "The app-server protocol uses a JSON-RPC-like request/response/notification framing over stdio and other transports; the code explicitly notes it is not strict JSON-RPC 2.0 (the jsonrpc field is omitted). Types are shared with TypeScript via ts-rs.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/app-server-protocol/src/rpc.rs",
+          "start_line": 1,
+          "end_line": 2,
+          "snippet": "We do not do true JSON-RPC 2.0, as we neither send nor expect the"
+        }
+      ],
+      "tags": [
+        "json-rpc",
+        "protocol"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/protocols-formats/openapi",
+      "group": "protocols-formats",
+      "title": "OpenAPI-generated backend API models",
+      "description": "The codex-backend-openapi-models crate holds models generated from an OpenAPI specification of the Codex backend API, indicating OpenAPI as the interface definition format for backend communication.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/codex-backend-openapi-models/Cargo.toml",
+          "start_line": 2,
+          "end_line": 2,
+          "snippet": "name = \"codex-backend-openapi-models\""
+        }
+      ],
+      "tags": [
+        "openapi",
+        "codegen"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/build-tooling/forked-git-dependencies",
+      "group": "build-tooling",
+      "title": "Several dependencies pinned to git forks/revisions instead of crates.io",
+      "description": "crossterm, tokio-tungstenite and tungstenite are patched to OpenAI-maintained forks (github.com/openai-oss-forks) at fixed revisions, and nucleo (helix-editor git rev) and runfiles (dzbarsky/rules_rust git rev) are pulled directly from git. Pinned revisions keep builds reproducible, but forked/git dependencies do not receive crates.io advisories or normal version bumps and can drift from upstream.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 586,
+          "end_line": 588,
+          "snippet": "crossterm = { git = \"https://github.com/openai-oss-forks/crossterm\", rev = \"45fecb9508105988f42fe6ff0441783ed3717f92\" }"
+        },
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 367,
+          "end_line": 367,
+          "snippet": "nucleo = { git = \"https://github.com/helix-editor/nucleo.git\", rev = \"4253de9faabb4e5c6d81d946a5e35a90f87347ee\" }"
+        }
+      ],
+      "recommendation": "Track upstream releases for the forked crates (crossterm, tungstenite family, nucleo) and periodically rebase or retire the forks; ensure cargo-deny advisories still cover the forked code paths.",
+      "tags": [
+        "rust",
+        "supply-chain",
+        "risk"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/build-tooling/patched-third-party-modules",
+      "group": "build-tooling",
+      "title": "~20 local patch files applied to third-party Bazel modules and toolchains",
+      "description": "The patches/ directory carries about 20 .patch files applied via MODULE.bazel to LLVM, rules_rust/rules_rs, rules_cc, v8/rusty_v8, ring, zstd, xz, bzip2 and Windows support modules, plus custom BUILD files under third_party/. This makes hermetic cross-platform builds possible but is a maintenance burden: every module upgrade requires re-validating local patches.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "MODULE.bazel",
+          "start_line": 16,
+          "end_line": 19,
+          "snippet": "patches = [ \"//patches:llvm_rusty_v8_custom_libcxx.patch\","
+        }
+      ],
+      "recommendation": "Where feasible, upstream the patches to the respective Bazel modules (several look upstreamable, e.g. Windows include-dir fixes) to shrink the local patch set.",
+      "tags": [
+        "bazel",
+        "vendoring",
+        "maintenance"
+      ]
+    },
+    {
+      "id": "tech-stack-scan/build-tooling/openssl-sys-wildcard",
+      "group": "build-tooling",
+      "title": "openssl-sys declared with an unpinned wildcard version",
+      "description": "openssl-sys is declared as \"*\" in the workspace dependencies (kept only for platform-specific builds and excluded from cargo-shear). A wildcard range in an application workspace means any future major release would be accepted on a fresh lock, which is unusual next to the otherwise carefully pinned dependency set.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 369,
+          "end_line": 369,
+          "snippet": "openssl-sys = \"*\""
+        }
+      ],
+      "recommendation": "Pin openssl-sys to a major version range (e.g. \"0.9\") to avoid silently adopting a future incompatible release.",
+      "tags": [
+        "rust",
+        "supply-chain"
+      ]
+    }
+  ]
+}

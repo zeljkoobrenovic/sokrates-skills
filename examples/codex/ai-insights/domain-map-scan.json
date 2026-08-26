@@ -1,0 +1,805 @@
+{
+  "scanner": "domain-map-scan",
+  "scanner_version": "1.0",
+  "analyzed_at": "2026-08-24",
+  "target": {
+    "name": "Codex",
+    "src_root": "../../.."
+  },
+  "summary": "Codex's domain language rides on ten nouns: a Thread (UUIDv7-identified conversation with the agent, forkable and resumable) is made of Turns (one user input through completion), each Turn of Items (user/agent messages, reasoning, command executions, tool calls); the engine drives a Thread through a runtime Session object fed by an Op/Submission queue and answering on an Event queue; everything is persisted as a Rollout (JSONL line file, mirrored into SQLite). Around the core loop sit the extensibility nouns - Skill (SKILL.md-declared instruction package), Plugin (installable package resolved from a Marketplace), MCP server - and the safety nouns: AskForApproval policy, SandboxPolicy, PermissionProfile, and Environment (a thread's resolved execution-permission attachment). The vocabulary is committed publicly in two crates: codex-protocol (identity and engine wire) and app-server-protocol v2 (public API naming, thread/* and turn/* methods). The main drift is the Session/Thread/Conversation triangle around the mid-flight rename that architecture-scan already mapped: 'session' now carries two incompatible public meanings (CLI 'session' = one thread; v2 API session_id = a tree of threads; engine Session = one thread's runtime), 'Turn' silently absorbed what protocol v1 called a Task (the wire still serializes task_started), 'Item' means four related-but-different types at four layers, and 'profile' is a homonym between config presets and permission profiles. In-repo docs are mostly stubs pointing at an external site, so the code definitions collected here are the only in-repo glossary.",
+  "stats": {
+    "concepts_defined": 15,
+    "contexts_mapped": 4,
+    "capabilities_mapped": 4,
+    "drift_pairs_found": 5,
+    "cli_subcommands_observed": 30,
+    "v2_api_method_families_observed": 12
+  },
+  "findings": [
+    {
+      "id": "domain-map-scan/glossary/thread",
+      "group": "glossary",
+      "title": "Thread: the unit of conversation with the agent - UUIDv7 identity, forkable, resumable, tree-forming",
+      "description": "A Thread is one conversation between a user (or another agent) and Codex. Identity: ThreadId, a UUIDv7 defined in codex-protocol; it is the only durable handle and doubles as the rollout filename id. Lifecycle: created by thread/start (or codex CLI startup), continued by thread/resume, duplicated by thread/fork, ended by archive/delete; ThreadManager in codex-core creates threads and keeps them in memory. Relationships: a thread owns an ordered list of Turns; forked_from_id links a fork to its source; parent_thread_id marks sub-agent threads, so threads form trees; threads sharing one session tree share a session_id. The public v2 Thread record adds product metadata (preview, section, project assignment, status, git info, model provider). Owning component: identity in codex-protocol, public shape in app-server-protocol v2, runtime in codex-core.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/protocol/src/thread_id.rs",
+          "start_line": 13,
+          "end_line": 13,
+          "snippet": "/// Identifier for a Codex thread.",
+          "note": "the defining identity type's doc"
+        },
+        {
+          "file": "codex-rs/app-server-protocol/src/protocol/v2/thread_data.rs",
+          "start_line": 196,
+          "end_line": 197,
+          "snippet": "pub struct Thread {",
+          "note": "public v2 definition; next line's doc: thread IDs are UUIDv7"
+        },
+        {
+          "file": "codex-rs/core/src/thread_manager.rs",
+          "start_line": 216,
+          "end_line": 216,
+          "snippet": "/// [`ThreadManager`] is responsible for creating threads and maintaining",
+          "note": "lifecycle owner in the engine"
+        }
+      ],
+      "tags": [
+        "thread",
+        "identity",
+        "core-concept"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    },
+    {
+      "id": "domain-map-scan/glossary/turn",
+      "group": "glossary",
+      "title": "Turn: one user input driven to completion; executed inside the engine as a Task",
+      "description": "A Turn is the unit of work inside a thread: it starts with user input (turn/start), runs the model/tool loop, and completes with status, timing and an optional error. Identity: UUIDv7 turn ids on the v2 Turn struct. Lifecycle: started by turn/start, redirected by turn/steer, stopped by turn/interrupt; at most one turn runs per thread at a time. Relationships: a Turn belongs to a Thread and owns the ThreadItems produced while it ran; TurnContextItem snapshots the per-turn execution context (cwd, model, sandbox and approval policy) into the rollout so resume/fork can replay it. Inside codex-core the running turn is tracked as ActiveTurn holding a RunningTask - 'task' is the engine-internal word for a turn's execution (see the task-turn drift finding).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/app-server-protocol/src/protocol/v2/thread_data.rs",
+          "start_line": 350,
+          "end_line": 351,
+          "snippet": "pub struct Turn {",
+          "note": "public v2 definition; doc on next line: turn IDs are UUIDv7"
+        },
+        {
+          "file": "codex-rs/core/src/state/turn.rs",
+          "start_line": 31,
+          "end_line": 33,
+          "snippet": "pub(crate) struct ActiveTurn {",
+          "note": "engine runtime state; doc line above reads 'Metadata about the currently running turn', field is task: Option<RunningTask>"
+        },
+        {
+          "file": "codex-rs/protocol/src/protocol.rs",
+          "start_line": 3027,
+          "end_line": 3027,
+          "snippet": "pub struct TurnContextItem {",
+          "note": "persisted per-turn context snapshot"
+        }
+      ],
+      "tags": [
+        "turn",
+        "task",
+        "core-concept"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    },
+    {
+      "id": "domain-map-scan/glossary/item",
+      "group": "glossary",
+      "title": "Item: the atomic unit of thread content, with four layer-specific forms",
+      "description": "An Item is one atomic piece of thread content - a user message, agent message, reasoning block, command execution, MCP/dynamic tool call, file change, plan, review marker, or extension-owned payload. The concept appears as four types at four layers: TurnItem in codex-protocol (the engine's canonical enum), ThreadItem in app-server-protocol v2 (the public wire projection of the same variants, camelCase-tagged), ResponseItem (the raw model-API item that TurnItems are derived from), and RolloutItem (the persisted envelope written to rollout JSONL, which also carries session meta, compaction records and turn context lines). Identity: string ids per item; ResponseItemId ties items back to model responses. Ownership: codex-protocol holds the canonical variant list; app-server-protocol owns the public naming; extensions can own item schemas via TurnItem::Extension.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/protocol/src/items.rs",
+          "start_line": 44,
+          "end_line": 44,
+          "snippet": "pub enum TurnItem {",
+          "note": "canonical engine-side item enum"
+        },
+        {
+          "file": "codex-rs/app-server-protocol/src/protocol/v2/item.rs",
+          "start_line": 231,
+          "end_line": 231,
+          "snippet": "pub enum ThreadItem {",
+          "note": "public v2 projection of the same concept"
+        },
+        {
+          "file": "codex-rs/history/src/lib.rs",
+          "start_line": 93,
+          "end_line": 95,
+          "snippet": "/// Persisted rollout item used by core history and rollout storage.",
+          "note": "persistence form: RolloutItem enum declared two lines below"
+        }
+      ],
+      "tags": [
+        "item",
+        "core-concept",
+        "wire-types"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    },
+    {
+      "id": "domain-map-scan/glossary/session",
+      "group": "glossary",
+      "title": "Session: the engine's runtime object for a live thread - and, on the API, the tree grouping related threads",
+      "description": "Session has two live code meanings. (1) In codex-core, Session is the runtime context for an initialized model agent driving exactly one thread: it holds thread_id, the event sender, MCP/state machinery, and runs at most one task at a time; CodexThread wraps an Arc<Session>. (2) On the wire, SessionId (a UUIDv7 distinct from ThreadId only by type) is 'shared by threads that belong to the same session tree' - i.e. a grouping key over a root thread and its forks/sub-agents; SessionMeta, the first line of every rollout file, carries both session_id and the thread id plus origin metadata (cwd, cli_version, SessionSource). Lifecycle: engine Sessions live for the life of a loaded thread; SessionIds are minted at root-thread creation and inherited by descendants. The overlap of these meanings with the retired 'Conversation' noun is filed as the session-thread-conversation drift finding.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/session/session.rs",
+          "start_line": 37,
+          "end_line": 39,
+          "snippet": "pub(crate) struct Session {",
+          "note": "engine meaning; doc above: 'A session has at most 1 running task at a time'; first field is thread_id: ThreadId"
+        },
+        {
+          "file": "codex-rs/app-server-protocol/src/protocol/v2/thread_data.rs",
+          "start_line": 202,
+          "end_line": 203,
+          "snippet": "/// Session id shared by threads that belong to the same session tree.",
+          "note": "API meaning: session = tree of threads"
+        },
+        {
+          "file": "codex-rs/protocol/src/protocol.rs",
+          "start_line": 2871,
+          "end_line": 2873,
+          "snippet": "pub struct SessionMeta {",
+          "note": "rollout header carries both session_id: SessionId and id: ThreadId"
+        }
+      ],
+      "tags": [
+        "session",
+        "core-concept",
+        "identity"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    },
+    {
+      "id": "domain-map-scan/glossary/rollout",
+      "group": "glossary",
+      "title": "Rollout: the durable JSONL record of a thread, one timestamped line per persisted item",
+      "description": "A Rollout is the persisted form of a thread: an append-only JSONL file of RolloutLine records (timestamp + ordinal + RolloutItem), starting with a SessionMetaLine and then response items, turn-context snapshots, compaction records, world state and selected events. Location and identity: files live under ~/.codex/sessions/YYYY/MM/DD/rollout-<timestamp>-<uuid>.jsonl; RolloutId is a type alias of ThreadId - ordinary rollouts use the thread id, while thread/revert mints a distinct rollout id for the new file. Lifecycle: written by the recorder in codex-rollout during a session, listed/resumed by the same crate, mirrored into a SQLite state DB by codex-state (the migration architecture-scan maps under rollout-jsonl-to-sqlite-state), and abstracted by thread-store. 'Rollout' is load-bearing jargon defined only by these types - no in-repo doc explains the word.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/history/src/lib.rs",
+          "start_line": 201,
+          "end_line": 201,
+          "snippet": "pub struct RolloutLine {",
+          "note": "the persisted line format"
+        },
+        {
+          "file": "codex-rs/rollout/src/list.rs",
+          "start_line": 426,
+          "end_line": 426,
+          "snippet": "/// Directory layout: `~/.codex/sessions/YYYY/MM/DD/rollout-YYYY-MM-DDThh-mm-ss-<uuid>.jsonl`",
+          "note": "on-disk identity and location"
+        },
+        {
+          "file": "codex-rs/protocol/src/thread_id.rs",
+          "start_line": 25,
+          "end_line": 25,
+          "snippet": "pub type RolloutId = ThreadId;",
+          "note": "rollout identity is thread identity (doc above covers the thread/revert exception)"
+        }
+      ],
+      "tags": [
+        "rollout",
+        "persistence",
+        "core-concept",
+        "jsonl"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    },
+    {
+      "id": "domain-map-scan/glossary/submission-event",
+      "group": "glossary",
+      "title": "Op/Submission and Event/EventMsg: the engine's SQ/EQ vocabulary",
+      "description": "The engine's own interface is a queue pair: clients push Submissions - an id plus an Op (the non-exhaustive enum of every operation: interrupt, realtime conversation control, approvals, shutdown) - onto the Submission Queue, and consume Events - a correlating id plus an EventMsg (errors, turn lifecycle, item deltas, approval requests) - from the Event Queue. Identity: submission ids are caller-chosen strings; events carry the sub_id of the submission that started the current task, not unique ids. Ownership: both enums live in codex-protocol's protocol module, whose module doc names the pattern; codex-rs/docs/protocol_v1.md documents this layer as deliberately in-process and unstable, with the stable contract one level up at app-server-protocol (architecture-scan's sq-eq-queue-pair finding covers the structural side).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/protocol/src/protocol.rs",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "//! Defines the protocol for a Codex session between a client and an agent.",
+          "note": "module doc; line 3 names the SQ/EQ pattern"
+        },
+        {
+          "file": "codex-rs/protocol/src/protocol.rs",
+          "start_line": 184,
+          "end_line": 186,
+          "snippet": "/// Submission Queue Entry - requests from user",
+          "note": "Submission struct defined two lines below"
+        },
+        {
+          "file": "codex-rs/protocol/src/protocol.rs",
+          "start_line": 1268,
+          "end_line": 1270,
+          "snippet": "/// Event Queue Entry - events from agent",
+          "note": "Event struct defined two lines below; EventMsg enum at line 1288"
+        }
+      ],
+      "tags": [
+        "op",
+        "event",
+        "sq-eq",
+        "core-concept"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    },
+    {
+      "id": "domain-map-scan/glossary/skill",
+      "group": "glossary",
+      "title": "Skill: a SKILL.md-declared instruction package materialized on the filesystem",
+      "description": "A Skill in Codex is a project-specific concept, not the dictionary word: a named instruction package declared by a SKILL.md file, with a description used for selection, an optional user interface block (display name, icons, default prompt), dependencies, and a policy controlling implicit invocation and product gating. Identity: name plus the path to its SKILL.md; scope (SkillScope) records where it was found, and skills can be supplied by plugins (plugin_id/remote_plugin_id) or owned by an execution environment (EnvironmentSkillMetadata). Lifecycle: discovered/loaded by the codex-skills crate, surfaced through the skills/list API and injected into prompts between skills-instructions tags; the ext/skills extension owns the runtime catalog. The in-repo docs/skills.md is a stub pointing at external documentation, so these types are the definition of record.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/skills/src/model.rs",
+          "start_line": 6,
+          "end_line": 8,
+          "snippet": "/// Metadata for one skill materialized on the host filesystem.",
+          "note": "defining type SkillMetadata declared two lines below"
+        },
+        {
+          "file": "codex-rs/skills/src/model.rs",
+          "start_line": 15,
+          "end_line": 16,
+          "snippet": "/// Path to the SKILL.md file that declares this skill.",
+          "note": "identity: the declaring SKILL.md path"
+        },
+        {
+          "file": "codex-rs/app-server-protocol/src/protocol/common.rs",
+          "start_line": 803,
+          "end_line": 803,
+          "snippet": "SkillsList => \"skills/list\" {",
+          "note": "public API surface for the concept"
+        }
+      ],
+      "tags": [
+        "skill",
+        "extensibility",
+        "core-concept"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    },
+    {
+      "id": "domain-map-scan/glossary/plugin-marketplace",
+      "group": "glossary",
+      "title": "Plugin and Marketplace: installable packages and the catalogs they are resolved from",
+      "description": "A Plugin is an installable package that extends Codex with scripts, skills, hooks and MCP routing; its definition of record is PluginManifest ('parsed plugin metadata parameterized by its resource locator representation'), identified by a validated PluginId and loaded either from host paths or from authority-bound resolved packages. A Marketplace is a catalog plugins are added from: core-plugins recognizes marketplace manifests at .agents/plugins/marketplace.json and compatibility locations (.claude-plugin/, .cursor-plugin/), and the API exposes marketplace/add, marketplace/remove and marketplace/upgrade beside plugin/install, plugin/list, plugin/search and plugin/share. Ownership: codex-plugin holds the shared models, codex-core-plugins the manager/marketplace logic, and the CLI surfaces it all under codex plugin. Note the distinct crate 'core-plugins' vs the API resource 'plugin' - one concept, and skills/hooks ride inside plugins as sub-resources.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/plugin/src/manifest.rs",
+          "start_line": 3,
+          "end_line": 3,
+          "snippet": "/// Parsed plugin metadata parameterized by its resource locator representation.",
+          "note": "defining type PluginManifest's doc"
+        },
+        {
+          "file": "codex-rs/core-plugins/src/marketplace.rs",
+          "start_line": 20,
+          "end_line": 21,
+          "snippet": "const MARKETPLACE_MANIFEST_RELATIVE_PATHS: &[&str] = &[",
+          "note": "what a marketplace concretely is: a manifest at .agents/plugins/marketplace.json"
+        },
+        {
+          "file": "codex-rs/app-server-protocol/src/protocol/common.rs",
+          "start_line": 818,
+          "end_line": 818,
+          "snippet": "MarketplaceAdd => \"marketplace/add\" {",
+          "note": "public API surface committing the noun"
+        }
+      ],
+      "tags": [
+        "plugin",
+        "marketplace",
+        "extensibility",
+        "core-concept"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    },
+    {
+      "id": "domain-map-scan/glossary/permissions-sandbox-environment",
+      "group": "glossary",
+      "title": "The safety cluster: AskForApproval, SandboxPolicy, PermissionProfile, and Environment",
+      "description": "Four nouns govern what the agent may do. AskForApproval is the approval policy enum (untrusted, on-request, fine-grained categories) deciding when a human is asked before a command runs. SandboxPolicy 'determines execution restrictions for model shell commands' - the OS-level isolation mode. PermissionProfile is the canonical active-runtime-permissions value (managed sandbox construction, disabled, or externally enforced), with reserved built-in ids :read-only, :workspace and :danger-full-access; users select profiles by name (thread/start's permissions field). Environment is a thread's resolved execution attachment: EnvironmentConfig bundles a permission-profile snapshot, shell-environment policy, exec policy, MCP policy and network policy for wherever commands actually run - orbiting concepts (execpolicy rules, network sandbox, workspace roots) all hang off this cluster. Ownership: all defined in codex-protocol; enforced by the sandboxing/execpolicy/exec-server crates that security-design-scan covers.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/protocol/src/protocol.rs",
+          "start_line": 998,
+          "end_line": 1002,
+          "snippet": "/// Determines execution restrictions for model shell commands.",
+          "note": "SandboxPolicy's defining doc; enum declared at line 1002. AskForApproval is at line 916"
+        },
+        {
+          "file": "codex-rs/protocol/src/models.rs",
+          "start_line": 407,
+          "end_line": 411,
+          "snippet": "/// Canonical active runtime permissions for a conversation, turn, or command.",
+          "note": "PermissionProfile's defining doc; enum at line 411"
+        },
+        {
+          "file": "codex-rs/protocol/src/environment.rs",
+          "start_line": 22,
+          "end_line": 24,
+          "snippet": "/// Resolved configuration for a thread/environment attachment.",
+          "note": "EnvironmentConfig definition; line 8 defines the selection-state enum"
+        }
+      ],
+      "tags": [
+        "sandbox",
+        "approval",
+        "permissions",
+        "environment",
+        "core-concept"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    },
+    {
+      "id": "domain-map-scan/bounded-contexts/protocol-vocabulary-contexts",
+      "group": "bounded-contexts",
+      "title": "Four language contexts: protocol vocabulary, public API, engine runtime, persistence - with explicit translation",
+      "description": "The vocabulary is owned in four contexts. (1) codex-protocol is the canonical identity-and-engine-wire context: ThreadId, SessionId, TurnItem, Op/EventMsg, the permission vocabulary - the crate 68 others import (architecture-scan's codex-protocol-vocabulary finding). (2) app-server-protocol v2 owns the public names: Thread, Turn, ThreadItem and the resource/method grammar, governed by a written AGENTS.md rule (singular resource, thread/read style); it translates from context 1 via explicit mappers (v2_enum_from_core, event_mapping, item_builders) rather than sharing types blindly. (3) codex-core speaks an internal runtime dialect - Session, ActiveTurn, RunningTask, CodexThread - that never crosses the wire. (4) The persistence crates (history, rollout, state, thread-store) own RolloutItem/RolloutLine/SessionMeta. Concepts shared across contexts keep one canonical side: identity is always context 1's; public naming is context 2's. This is a deliberate context map, not drift - the drift findings cover where the translation leaks.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/protocol/src/lib.rs",
+          "start_line": 14,
+          "end_line": 14,
+          "snippet": "pub use thread_id::ThreadId;",
+          "note": "context 1: canonical identity vocabulary"
+        },
+        {
+          "file": "AGENTS.md",
+          "start_line": 273,
+          "end_line": 273,
+          "snippet": "Expose RPC methods as `<resource>/<method>` and keep `<resource>` singular (for example, `thread/read`, `app/list`).",
+          "note": "context 2's written naming law"
+        },
+        {
+          "file": "codex-rs/app-server-protocol/src/protocol/v2/thread.rs",
+          "start_line": 16,
+          "end_line": 16,
+          "snippet": "use super::shared::v2_enum_from_core;",
+          "note": "explicit translation machinery between contexts 1 and 2"
+        }
+      ],
+      "tags": [
+        "context-map",
+        "vocabulary",
+        "translation"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    },
+    {
+      "id": "domain-map-scan/bounded-contexts/persistence-legacy-context",
+      "group": "bounded-contexts",
+      "title": "The persistence context still speaks the pre-rename dialect: session files, sessions/ directory, SessionMeta",
+      "description": "While the API context has fully adopted Thread vocabulary, the persistence context's language is a generation older: the codex-rollout crate describes itself as persistence for 'Codex session files', rollouts live under ~/.codex/sessions/ (with ARCHIVED_SESSIONS_SUBDIR beside it), the first JSONL line is a SessionMetaLine, and a compatibility deserializer synthesizes session_id from the thread id when reading rollouts written before SessionId existed. This is partly forced - renaming on-disk formats and directories breaks every existing installation, so the old names are load-bearing compatibility surface - which makes it a bounded context whose dialect intentionally lags, translated at the boundary (thread-store, the state DB mirror) rather than rewritten. Newcomers should read 'session file' as 'rollout of a thread'. Cross-reference: architecture-scan/evolution/rollout-jsonl-to-sqlite-state maps the storage migration itself.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/rollout/src/lib.rs",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "//! Rollout persistence and discovery for Codex session files.",
+          "note": "the crate's own dialect: session files"
+        },
+        {
+          "file": "codex-rs/protocol/src/protocol.rs",
+          "start_line": 2985,
+          "end_line": 2990,
+          "snippet": "if !fields.contains_key(\"session_id\") {",
+          "note": "compat decoder backfilling session_id from the thread id for older rollouts"
+        }
+      ],
+      "tags": [
+        "context-map",
+        "persistence",
+        "legacy-naming"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    },
+    {
+      "id": "domain-map-scan/capabilities/thread-lifecycle",
+      "group": "capabilities",
+      "title": "Capability: conversation lifecycle - start, resume, fork, archive, delete, search",
+      "description": "The core product capability is managing conversations end to end. User surface: the default codex TUI starts a thread; codex resume, fork, archive, unarchive, delete, and codex agents operate on saved ones. API surface: the thread/* family (start, resume, fork, archive, delete, rollback, revert, list, read, search, turns/list, items/list) plus project/* and threadSection/* for organizing them. To change this behavior look at: app-server (method handlers), codex-core's ThreadManager and session module (runtime), codex-rollout + codex-state + thread-store (what resume/list actually read), and the TUI resume picker. Concepts it rides on: Thread, Turn, Rollout, Session tree.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 192,
+          "end_line": 192,
+          "snippet": "/// Resume a previous interactive session (picker by default; use --last to continue the most recent).",
+          "note": "CLI surface (note it says 'session' for what the API calls a thread)"
+        },
+        {
+          "file": "codex-rs/app-server-protocol/src/protocol/common.rs",
+          "start_line": 505,
+          "end_line": 505,
+          "snippet": "ThreadStart => \"thread/start\" {",
+          "note": "API surface; resume/fork/archive/delete follow at lines 511-533"
+        }
+      ],
+      "tags": [
+        "capability",
+        "thread",
+        "resume",
+        "fork"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    },
+    {
+      "id": "domain-map-scan/capabilities/automation-exec-sdk-cloud",
+      "group": "capabilities",
+      "title": "Capability: non-interactive automation - codex exec, review, queue, and Codex Cloud tasks",
+      "description": "Codex runs without a human at the terminal through four related surfaces: codex exec runs a prompt non-interactively (the JSONL event stream the TypeScript SDK spawns and parses - architecture-scan's sdk-exec-jsonl-contract finding covers that seam's fragility); codex review runs a code review non-interactively; codex queue enqueues a message for an existing session (backed by the thread/queue/* API family and the ext/queue extension); and codex cloud browses tasks from Codex Cloud and applies their changes locally - the one place where 'task' means a cloud work item (TaskSummary in cloud-tasks-client) rather than a turn execution. To change automation behavior look at: exec (frontend), sdk/typescript, ext/queue, cloud-tasks + cloud-tasks-client.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 137,
+          "end_line": 137,
+          "snippet": "/// Run Codex non-interactively.",
+          "note": "codex exec, the automation workhorse"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 195,
+          "end_line": 195,
+          "snippet": "/// Queue a message for an existing session.",
+          "note": "queueing surface"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 213,
+          "end_line": 213,
+          "snippet": "/// [EXPERIMENTAL] Browse tasks from Codex Cloud and apply changes locally.",
+          "note": "cloud task surface - the second meaning of 'task'"
+        }
+      ],
+      "tags": [
+        "capability",
+        "exec",
+        "sdk",
+        "cloud",
+        "queue"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    },
+    {
+      "id": "domain-map-scan/capabilities/extensibility-mcp-plugins-skills",
+      "group": "capabilities",
+      "title": "Capability: extending the agent - MCP servers, plugins, marketplaces, skills",
+      "description": "Three layered mechanisms let users extend what the agent can do. MCP: codex mcp manages external MCP servers, and codex mcp-server exposes Codex itself as one (codex-mcp, codex-rmcp-client crates). Plugins: codex plugin installs/manages packages resolved from marketplaces, carrying scripts, hooks and skills (plugin, core-plugins crates; plugin/*, marketplace/* API methods). Skills: SKILL.md instruction packages loaded from configured roots or plugins, listed via skills/list (skills crate + ext/skills extension). Internally these all attach through the codex-extension-api contributor traits that architecture-scan's extension-api-contributor-traits finding maps; the user-facing nouns (MCP server, plugin, skill) each own one attachment style. To change extensibility behavior, start from the CLI subcommand, then the matching crate pair.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 150,
+          "end_line": 151,
+          "snippet": "/// Manage external MCP servers for Codex.",
+          "note": "MCP surface"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 153,
+          "end_line": 154,
+          "snippet": "/// Manage Codex plugins.",
+          "note": "plugin surface"
+        },
+        {
+          "file": "codex-rs/app-server-protocol/src/protocol/common.rs",
+          "start_line": 833,
+          "end_line": 833,
+          "snippet": "PluginList => \"plugin/list\" {",
+          "note": "API surface; skills/list at 803, marketplace/add at 818"
+        }
+      ],
+      "tags": [
+        "capability",
+        "mcp",
+        "plugin",
+        "skill"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    },
+    {
+      "id": "domain-map-scan/capabilities/safety-sandbox-approvals",
+      "group": "capabilities",
+      "title": "Capability: controlling what the agent may do - sandbox, approvals, permission profiles, execpolicy",
+      "description": "The safety capability spans one CLI verb and a wide policy vocabulary: codex sandbox runs arbitrary commands inside the Codex-provided sandbox, codex execpolicy checks rule files, and every thread/turn carries the policy quartet from the glossary safety cluster (AskForApproval, SandboxPolicy, PermissionProfile, EnvironmentConfig). At runtime, approval requests and elicitations flow back to clients as events/requests (ExecApprovalRequestEvent and kin in codex-protocol's approvals module), with the guardian extension acting as an automatic reviewer. To change enforcement look at: sandboxing crates (bwrap, windows sandbox), execpolicy, exec-server (the sandboxed executor service), network-proxy; to change the policy language, codex-protocol's permissions/approvals modules; to change how users pick policies, the permission profiles in config and thread/start params. security-design-scan owns the threat-model view; this entry is the vocabulary-to-component index.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 178,
+          "end_line": 179,
+          "snippet": "/// Run commands within a Codex-provided sandbox.",
+          "note": "user-facing sandbox verb"
+        },
+        {
+          "file": "codex-rs/protocol/src/protocol.rs",
+          "start_line": 916,
+          "end_line": 916,
+          "snippet": "pub enum AskForApproval {",
+          "note": "the approval policy the capability revolves around"
+        },
+        {
+          "file": "codex-rs/app-server-protocol/src/protocol/v2/thread.rs",
+          "start_line": 92,
+          "end_line": 92,
+          "snippet": "/// Named profile id for this thread. Cannot be combined with `sandbox`.",
+          "note": "how users select permission profiles at thread start"
+        }
+      ],
+      "tags": [
+        "capability",
+        "sandbox",
+        "approval",
+        "execpolicy"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    },
+    {
+      "id": "domain-map-scan/language-drift/session-thread-conversation",
+      "group": "language-drift",
+      "title": "'Session' carries three meanings across public surfaces while 'Conversation' lingers; canonical term is Thread",
+      "description": "The Conversation-to-Thread rename that architecture-scan maps (evolution/conversation-to-thread-rename) has left 'session' bound to incompatible meanings on public surfaces. To the CLI, a session is one thread: 'Resume a previous interactive session', 'Archive a saved session'. To the v2 API, session_id groups a whole tree of threads, distinct from the thread id. To the engine, Session is the runtime object of a single loaded thread. Meanwhile 'Conversation' still leaks: the fork command's help says 'Conversation/session id (UUID)', ConversationPathResponseEvent is kept 'for backward compatibility' with a conversation_id field typed ThreadId, ResumedHistory.conversation_id likewise, and PermissionProfile's doc still says 'for a conversation'. The codebase's visible convergence target is Thread (v2 methods, ThreadId as the only durable handle), with SessionId being narrowed to the tree-grouping meaning - but until CLI help and engine naming follow, a newcomer reading 'session' cannot know which of the three referents is meant.",
+      "severity": "medium",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 407,
+          "end_line": 407,
+          "snippet": "/// Conversation/session id (UUID). When provided, forks this session.",
+          "note": "all three nouns colliding in one public help string; the id it takes is a ThreadId"
+        },
+        {
+          "file": "codex-rs/app-server-protocol/src/protocol/v2/thread_data.rs",
+          "start_line": 202,
+          "end_line": 202,
+          "snippet": "/// Session id shared by threads that belong to the same session tree.",
+          "note": "API meaning: session = tree of threads, not one thread"
+        },
+        {
+          "file": "codex-rs/protocol/src/protocol.rs",
+          "start_line": 2567,
+          "end_line": 2567,
+          "snippet": "// Conversation kept for backward compatibility.",
+          "note": "the retired noun still on the wire (conversation_id: ThreadId five lines below)"
+        }
+      ],
+      "recommendation": "Adopt one glossary sentence repo-wide: 'a Thread is one conversation; a Session is the tree a root thread and its forks/sub-agents share'. Sweep CLI help text to say thread (or at least stop mixing 'Conversation/session'), rename the engine's Session struct only when convenient, and keep conversation_* names solely on frozen v1/compat surfaces.",
+      "tags": [
+        "rename",
+        "homonym",
+        "session",
+        "thread",
+        "conversation"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    },
+    {
+      "id": "domain-map-scan/language-drift/task-turn-rename",
+      "group": "language-drift",
+      "title": "'Turn' absorbed what protocol v1 called a 'Task'; the wire and engine internals still say task",
+      "description": "Protocol v1's documented model is Session -> Task -> Turn: a Task is 'Codex executing work in response to user input' and a Turn is 'one cycle of iteration in a Task' (one model request + tool execution). The v2 public API collapsed this: its Turn is the whole user-input-to-completion unit - v1's Task - and the inner model-request cycle no longer has a public name. The seams are visible on both sides: the v1 doc itself notes that EventMsg::TurnStarted/TurnComplete serialize as task_started/task_complete for wire compatibility, and inside codex-core the running turn is still an ActiveTurn holding a RunningTask (task: Option<RunningTask>). Canonical direction: Turn for the public unit, task surviving as engine-internal execution vocabulary and frozen wire tags. Reading old docs or wire dumps with the new vocabulary (or vice versa) silently shifts the meaning one level, so the stale v1 definition is the main trap for newcomers and log readers. Note 'task' also means a Codex Cloud work item in the cloud-tasks crates - a third, unrelated referent.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/docs/protocol_v1.md",
+          "start_line": 24,
+          "end_line": 24,
+          "snippet": "A `Task` is `Codex` executing work in response to user input.",
+          "note": "old meaning: task = the unit v2 now calls a turn"
+        },
+        {
+          "file": "codex-rs/docs/protocol_v1.md",
+          "start_line": 95,
+          "end_line": 95,
+          "snippet": "`EventMsg::TurnStarted` and `EventMsg::TurnComplete` serialize as `task_started` / `task_complete`",
+          "note": "the rename frozen mid-flight on the wire"
+        },
+        {
+          "file": "codex-rs/core/src/state/turn.rs",
+          "start_line": 33,
+          "end_line": 33,
+          "snippet": "pub(crate) task: Option<RunningTask>,",
+          "note": "engine internals: the turn's execution is still a task"
+        }
+      ],
+      "recommendation": "Add a short vocabulary note to protocol_v1.md (or its successor) stating the mapping explicitly: v1 Task = v2 Turn; v1 Turn = one model-request cycle, now unnamed publicly; wire tags task_* are frozen aliases. That one paragraph disarms the trap without any code churn.",
+      "tags": [
+        "rename",
+        "task",
+        "turn",
+        "stale-docs"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    },
+    {
+      "id": "domain-map-scan/language-drift/item-polysemy",
+      "group": "language-drift",
+      "title": "TurnItem and ThreadItem are the same concept under two names; 'item' spans four types in all",
+      "description": "The glossary item entry records the four-layer item family; the drift is that the two central layers name the identical concept differently: codex-protocol's TurnItem and app-server-protocol v2's ThreadItem carry the same variants (UserMessage, AgentMessage, Reasoning, CommandExecution, McpToolCall, ...) and are mechanically mapped into each other - one concept, two names, split exactly on the crate boundary. The names also disagree about ownership: the engine says items belong to turns (TurnItem), while the API type says they belong to threads (ThreadItem) even though the v2 Turn struct is what actually contains them ('Thread items currently included in this turn payload'). Add ResponseItem (model wire) and RolloutItem (persistence envelope) and 'item' requires a qualifier to be unambiguous anywhere in the codebase. This reads as a deliberate context translation rather than an accident - the mapping layer is explicit - but no comment states why the public name differs, so the alternative reading (an unfinished alignment) stays open.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/protocol/src/items.rs",
+          "start_line": 44,
+          "end_line": 45,
+          "snippet": "pub enum TurnItem {",
+          "note": "engine name for the concept (first variant UserMessage on the next line)"
+        },
+        {
+          "file": "codex-rs/app-server-protocol/src/protocol/v2/item.rs",
+          "start_line": 231,
+          "end_line": 234,
+          "snippet": "pub enum ThreadItem {",
+          "note": "API name for the same concept and variants"
+        },
+        {
+          "file": "codex-rs/app-server-protocol/src/protocol/v2/thread_data.rs",
+          "start_line": 353,
+          "end_line": 354,
+          "snippet": "/// Thread items currently included in this turn payload.",
+          "note": "the naming tension in one line: thread items, living on a Turn"
+        }
+      ],
+      "recommendation": "Document the intended distinction (or its absence) once, in either crate's module doc: 'TurnItem is the engine-canonical form; ThreadItem is its public projection'. If the split is not intentional, converge on one name when v1 compatibility allows.",
+      "tags": [
+        "synonym",
+        "item",
+        "wire-types"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    },
+    {
+      "id": "domain-map-scan/language-drift/profile-homonym",
+      "group": "language-drift",
+      "title": "'Profile' is a homonym: config.toml preset profiles vs sandbox permission profiles",
+      "description": "Two unrelated load-bearing meanings share the word profile. ConfigProfile (codex-config) is a named bundle of common configuration options a user defines in config.toml and layers over the base config (the CLI's --profile / <name>.config.toml mechanism). PermissionProfile (codex-protocol) is the canonical runtime permissions value - sandbox construction mode plus filesystem/network policy - selected per thread via built-in ids like :read-only or named entries in the [profiles] permission tables of config requirements. Both are user-selectable by name, both live in configuration, and thread/start's field for the permission kind is even called permissions with a doc saying 'Named profile id' - so 'set the profile' is genuinely ambiguous in support conversations and config reviews. The API's choice to call the field permissions (not profile) suggests the visible canonical direction: permission profile is being spoken as 'permissions', leaving bare 'profile' to mean the config preset.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/config/src/profile_toml.rs",
+          "start_line": 20,
+          "end_line": 21,
+          "snippet": "/// Collection of common configuration options that a user can define as a unit",
+          "note": "meaning 1: ConfigProfile, defined three lines below"
+        },
+        {
+          "file": "codex-rs/protocol/src/models.rs",
+          "start_line": 411,
+          "end_line": 411,
+          "snippet": "pub enum PermissionProfile {",
+          "note": "meaning 2: runtime permissions"
+        },
+        {
+          "file": "codex-rs/app-server-protocol/src/protocol/v2/thread.rs",
+          "start_line": 95,
+          "end_line": 95,
+          "snippet": "pub permissions: Option<String>,",
+          "note": "the API side-steps the homonym by saying 'permissions' for a named profile id"
+        }
+      ],
+      "recommendation": "Standardize qualifiers in docs and help text: 'config profile' vs 'permission profile' (or 'permissions'), never bare 'profile'. When naming new API/config surface, follow the permissions precedent set by thread/start.",
+      "tags": [
+        "homonym",
+        "profile",
+        "config",
+        "permissions"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    },
+    {
+      "id": "domain-map-scan/language-drift/docs-external-stubs",
+      "group": "language-drift",
+      "title": "The domain vocabulary is defined almost nowhere in-repo: docs/ pages are external stubs, protocol doc is v1-era",
+      "description": "For a codebase whose nouns take real effort to reverse-engineer, the repo itself offers little help: the top-level docs/ pages for skills, sandbox/approvals and non-interactive mode are one-line stubs pointing at developers.openai.com, and the only substantive in-repo protocol document (codex-rs/docs/protocol_v1.md) describes the v1 Session/Task/Turn model that the task-turn drift finding shows is one generation behind the public v2 API. The practical consequence: the defining doc comments collected in this scan's glossary are the only in-repo source of truth for what Thread, Turn, Rollout, Session or Skill mean, and terms like 'rollout' have no prose definition anywhere in the tree. This is a deliberate docs-live-elsewhere strategy, but it couples onboarding correctness to an external site that cannot be versioned with the code.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "docs/skills.md",
+          "start_line": 3,
+          "end_line": 3,
+          "snippet": "For information about skills, refer to [this documentation](https://developers.openai.com/codex/skills).",
+          "note": "entire in-repo content for the Skill concept"
+        },
+        {
+          "file": "docs/exec.md",
+          "start_line": 3,
+          "end_line": 3,
+          "snippet": "For information about non-interactive mode, see [this documentation](https://developers.openai.com/codex/noninteractive).",
+          "note": "same pattern for the exec capability"
+        },
+        {
+          "file": "codex-rs/docs/protocol_v1.md",
+          "start_line": 35,
+          "end_line": 35,
+          "snippet": "One cycle of iteration in a `Task`, consists of:",
+          "note": "the one substantive protocol doc defines Turn with the superseded v1 meaning"
+        }
+      ],
+      "recommendation": "Add a one-page in-repo glossary (ten nouns, one sentence each, linking the defining types) - AGENTS.md is the natural host since agents and new contributors both read it - and stamp protocol_v1.md with a banner mapping its vocabulary to v2's.",
+      "tags": [
+        "documentation",
+        "undefined-jargon",
+        "onboarding"
+      ],
+      "sokrates_refs": [
+        "component:codex-rs"
+      ]
+    }
+  ]
+}

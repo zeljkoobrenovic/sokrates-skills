@@ -1,0 +1,458 @@
+{
+  "scanner": "security-scan",
+  "scanner_version": "1.0",
+  "analyzed_at": "2026-08-24",
+  "target": {
+    "name": "Codex",
+    "src_root": "../../.."
+  },
+  "summary": "No critical or high findings. A line-level sweep of the Codex tree (secrets shapes, shell/SQL/path construction, crypto and randomness, unsafe blocks, extractors, dynamic execution in the TS/Python layers) comes back clean at the pattern level: the only credential-shaped literals in production code are intentional published identifiers (Statsig client key, Sentry DSN, OAuth public client id) already judged by the observability and security-design scans; every other hit is a test fixture under #[cfg(test)]. First-party command execution is argv-based throughout - the only string-to-shell sinks are the model's own commands (the product's purpose, gated by the approval+sandbox design) and static updater constants. SQL is uniformly parameterized, SHA-1 appears only in cache-key/git-blob-id roles, OAuth PKCE and state come from a CSPRNG, websocket bearer tokens are compared in constant time, and zero TLS-verification overrides exist anywhere in the tree. The two attention items are hygiene-grade: ~818 unsafe blocks across 141 files (concentrated in the sandbox/FFI crates where they belong) carry only ~89 SAFETY-style comments and no lint enforcement, and the curated-plugins zip extractor lacks the decompressed-size cap and mode sanitization that the sibling tar extractor has.",
+  "stats": {
+    "secret_candidates_reviewed": 35,
+    "injection_sites_traced": 9,
+    "unsafe_blocks_total": 818,
+    "unsafe_blocks_read": 20,
+    "files_with_unsafe": 141,
+    "safety_comments_total": 89,
+    "tls_override_hits": 0,
+    "sha1_call_sites_reviewed": 12
+  },
+  "findings": [
+    {
+      "id": "security-scan/secrets/published-identifiers",
+      "group": "secrets",
+      "title": "Embedded identifiers are intentional publishables: Statsig client key, Sentry DSN, OAuth public client id",
+      "description": "Three credential-shaped constants ship in the source, and all three are identifiers designed to be embedded in clients rather than secrets: the Statsig client API key used for the default metrics exporter (already judged by observability-scan as a low-severity default-destination issue, with a recommendation to treat it as rotatable config), the Sentry DSN used only for user-initiated feedback envelopes (DSNs are publishable by design), and the OAuth client id for the PKCE login flow (a public client - PKCE S256 exists precisely so no client secret is needed; an env var override CODEX_APP_SERVER_LOGIN_CLIENT_ID is provided). None grants access to user data by itself. Reported as inventory so future secret-scans do not re-flag them; the design-level judgments stand with the sibling scanners.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/otel/src/config.rs",
+          "start_line": 11,
+          "end_line": 11,
+          "snippet": "pub(crate) const STATSIG_API_KEY: &str = \"client-MkRuleRQBd6qakfnDYqJVR9JuXcY57Ljly3vi5JVUIO\";",
+          "note": "client-side Statsig key; posture judged by observability-scan"
+        },
+        {
+          "file": "codex-rs/feedback/src/lib.rs",
+          "start_line": 47,
+          "end_line": 47,
+          "snippet": "\"https://ae32ed50620d7a7792c1ce5df38b3e3e@o33249.ingest.us.sentry.io/4510195390611458\";",
+          "note": "Sentry DSN - publishable ingest identifier, used only for consent-based feedback upload"
+        },
+        {
+          "file": "codex-rs/login/src/auth/manager.rs",
+          "start_line": 1678,
+          "end_line": 1678,
+          "snippet": "pub const CLIENT_ID: &str = \"app_EMoamEEZ73f0CkXaXp7hrann\";",
+          "note": "OAuth public client id for the PKCE flow - no client secret exists"
+        }
+      ],
+      "tags": [
+        "secrets",
+        "identifiers",
+        "intentional",
+        "cross-ref"
+      ],
+      "sokrates_refs": [
+        "component:otel",
+        "component:feedback",
+        "component:login"
+      ]
+    },
+    {
+      "id": "security-scan/secrets/no-committed-credentials",
+      "group": "secrets",
+      "title": "Secrets hygiene clean: every credential-shaped hit outside the three publishables is a test fixture",
+      "description": "Sweeps for credential prefixes (sk-, ghp_, AKIA, xox, PEM private-key headers), api_key/secret/password assignments with long literal values, and long base64-like literals in config files produced ~35 candidates; every one was read in context and all are test fixtures: obviously-fake tokens in sanitizer and credential-broker tests, throwaway RSA keys inside #[cfg(test)] modules of the agent-identity and login crates, and 'bedrock-api-key-test'-style placeholders. The long literals in manifests are git revision pins, not tokens. Notably the test suite actively defends storage hygiene: one test re-executes itself under umask 000 to assert the OAuth token fallback file is still created 0600. No real credential material was found in the tree.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/agent-identity/src/lib.rs",
+          "start_line": 565,
+          "end_line": 565,
+          "snippet": "#[cfg(test)]",
+          "note": "test module boundary - the PEM key below it is a fixture"
+        },
+        {
+          "file": "codex-rs/agent-identity/src/lib.rs",
+          "start_line": 832,
+          "end_line": 832,
+          "snippet": "br#\"-----BEGIN PRIVATE KEY-----",
+          "note": "throwaway RSA key used only to sign test JWTs"
+        },
+        {
+          "file": "codex-rs/rmcp-client/src/oauth.rs",
+          "start_line": 1319,
+          "end_line": 1319,
+          "snippet": "assert_eq!(file.metadata()?.permissions().mode() & 0o777, 0o600);",
+          "note": "test asserting token file stays 0600 even under a permissive umask"
+        }
+      ],
+      "tags": [
+        "secrets",
+        "clean-bill",
+        "test-fixtures"
+      ],
+      "sokrates_refs": [
+        "component:agent_identity",
+        "component:rmcp_client"
+      ]
+    },
+    {
+      "id": "security-scan/injection/shell-command-construction",
+      "group": "injection",
+      "title": "Shell/command construction clean: argv-based first-party calls; string-to-shell only for model commands and static constants",
+      "description": "All first-party process launches reviewed build argv arrays and pass them without a shell: git/gh helpers push fixed flags plus caller args as separate argv entries, hooks and MCP header commands run user-configured (not attacker-supplied) command vectors, and the self-updater's cmd.exe /C path receives only static strings from the UpdateAction enum ('npm install -g @openai/codex' etc.) - the code even routes the PowerShell installer around cmd.exe specifically to avoid metacharacter parsing. The only place arbitrary strings reach 'sh -lc' is derive_exec_args, which wraps the model's own proposed command - that is the product's purpose, and it is gated by the approval policy and OS sandbox layers documented by security-design-scan, so it is a design boundary, not an injection defect. No format!-built command strings from external data were found.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/shell.rs",
+          "start_line": 25,
+          "end_line": 25,
+          "snippet": "let arg = if use_login_shell { \"-lc\" } else { \"-c\" };",
+          "note": "the one string-to-shell sink: the model's own command, approval+sandbox gated"
+        },
+        {
+          "file": "codex-rs/tui/src/update_action.rs",
+          "start_line": 44,
+          "end_line": 44,
+          "snippet": "UpdateAction::NpmGlobalLatest => (\"npm\", &[\"install\", \"-g\", \"@openai/codex\"]),",
+          "note": "updater commands are static constants, no interpolation"
+        },
+        {
+          "file": "codex-rs/tui/src/branch_summary.rs",
+          "start_line": 480,
+          "end_line": 480,
+          "snippet": "argv.push(codex_git_utils::SAFE_BARE_REPOSITORY_CONFIG.to_string());",
+          "note": "representative first-party pattern: argv vector, fixed flags, no shell"
+        }
+      ],
+      "tags": [
+        "injection",
+        "shell",
+        "clean-bill"
+      ],
+      "sokrates_refs": [
+        "component:core",
+        "component:tui"
+      ]
+    },
+    {
+      "id": "security-scan/injection/sql-parameterization",
+      "group": "injection",
+      "title": "SQL clean: all sqlx queries use bound parameters; no string-built SQL found",
+      "description": "The SQLite state layer (state crate, TUI log db, doctor thread inventory) issues queries exclusively through sqlx with '?' placeholders and .bind(), or as fixed DDL/PRAGMA strings. A sweep for format!-constructed SELECT/INSERT/UPDATE/DELETE strings and query(&format!(...)) calls across all Rust crates returned zero real hits. SQL injection surface: none found.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/state/src/runtime.rs",
+          "start_line": 585,
+          "end_line": 585,
+          "snippet": "sqlx::query(\"UPDATE threads SET updated_at_ms = ?, recency_at_ms = ? WHERE id = ?\")",
+          "note": "representative bound-parameter query in the state runtime"
+        }
+      ],
+      "tags": [
+        "injection",
+        "sql",
+        "sqlx",
+        "clean-bill"
+      ],
+      "sokrates_refs": [
+        "component:state"
+      ]
+    },
+    {
+      "id": "security-scan/crypto/sha1-non-security-roles",
+      "group": "crypto",
+      "title": "SHA-1 confined to non-security roles: cache keys, git blob ids, telemetry identity hashes",
+      "description": "SHA-1 appears at ~12 call sites (connectors directory cache, MCP tool-catalog cache, image/audio caches via a shared sha1_digest helper, git blob object ids in the turn diff tracker, analytics id hashing). Every use is identity/cache-keying where collision resistance against a motivated attacker is not load-bearing, and the shared helper's doc comment explicitly frames it as a cache-key utility. Security-relevant hashing uses SHA-256 throughout: PKCE S256 challenges, hook trust hashes (sha256: prefix), bundled-bubblewrap binary verification, and websocket token digests. Fitness-for-purpose verdict: appropriate.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/utils/cache/src/lib.rs",
+          "start_line": 132,
+          "end_line": 132,
+          "snippet": "/// Useful for content-based cache keys when you want to avoid staleness",
+          "note": "shared sha1_digest helper self-documents its cache-key role"
+        },
+        {
+          "file": "codex-rs/core/src/turn_diff_tracker.rs",
+          "start_line": 391,
+          "end_line": 391,
+          "snippet": "/// Compute the Git SHA-1 blob object ID for the given content (bytes).",
+          "note": "SHA-1 required here for git blob-id compatibility"
+        }
+      ],
+      "tags": [
+        "crypto",
+        "sha1",
+        "fitness-for-purpose",
+        "clean-bill"
+      ],
+      "sokrates_refs": [
+        "component:utils",
+        "component:core"
+      ]
+    },
+    {
+      "id": "security-scan/crypto/token-auth-hygiene",
+      "group": "crypto",
+      "title": "Websocket auth compares token digests in constant time; disabled JWT library checks are re-implemented manually",
+      "description": "The app-server transport's websocket auth is careful in two ways worth documenting. Capability-token mode hashes the presented bearer token with SHA-256 and compares against the expected digest with constant_time_eq_32, eliminating both timing oracles and accidental logging of raw tokens. Signed-bearer-token mode looks alarming at first read - validate_exp/validate_nbf/validate_aud are all set to false on the jsonwebtoken Validation - but this is a mitigated pattern, not a gap: decode only checks the HS256 signature, and validate_jwt_claims then enforces exp, nbf, iss and aud manually with an explicit max_clock_skew_seconds tolerance (exp is a required, non-optional claim in the deserialized struct). Grepped as a candidate finding, confirmed compensated after reading.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/app-server-transport/src/transport/auth.rs",
+          "start_line": 285,
+          "end_line": 285,
+          "snippet": "if constant_time_eq_32(token_sha256, &actual_sha256) {",
+          "note": "constant-time comparison of token digests"
+        },
+        {
+          "file": "codex-rs/app-server-transport/src/transport/auth.rs",
+          "start_line": 320,
+          "end_line": 320,
+          "snippet": "validation.validate_exp = false;",
+          "note": "library check disabled - candidate finding"
+        },
+        {
+          "file": "codex-rs/app-server-transport/src/transport/auth.rs",
+          "start_line": 336,
+          "end_line": 336,
+          "snippet": "if now > claims.exp.saturating_add(max_clock_skew_seconds) {",
+          "note": "...but expiry is re-enforced manually with clock-skew handling"
+        }
+      ],
+      "tags": [
+        "crypto",
+        "jwt",
+        "constant-time",
+        "mitigated"
+      ],
+      "sokrates_refs": [
+        "component:app_server_transport"
+      ]
+    },
+    {
+      "id": "security-scan/crypto/randomness-and-tls",
+      "group": "crypto",
+      "title": "Security-relevant randomness uses a CSPRNG; zero TLS-verification overrides in the tree",
+      "description": "The OAuth flow generates the PKCE code verifier (64 bytes) and the callback state token (32 bytes) with rand::rng() - rand 0.9's ThreadRng, a ChaCha-based CSPRNG seeded from OS entropy - which is adequate for both roles; the state token is single-use on a localhost callback, so its non-constant-time comparison offers no practical oracle. A sweep for TLS verification bypasses (danger_accept_invalid_certs, NoVerifier, rejectUnauthorized, NODE_TLS_REJECT_UNAUTHORIZED, verify=False) across Rust, TypeScript and Python found zero hits; HTTP uses reqwest over rustls per the workspace manifest. No home-rolled primitives were found - hashing, signatures (ed25519-dalek, jsonwebtoken) and TLS all come from standard crates.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/login/src/pkce.rs",
+          "start_line": 14,
+          "end_line": 14,
+          "snippet": "rand::rng().fill_bytes(&mut bytes);",
+          "note": "PKCE verifier entropy: 64 bytes from ThreadRng (CSPRNG)"
+        },
+        {
+          "file": "codex-rs/login/src/server.rs",
+          "start_line": 616,
+          "end_line": 616,
+          "snippet": "rand::rng().fill_bytes(&mut bytes);",
+          "note": "OAuth state token: 32 CSPRNG bytes"
+        }
+      ],
+      "tags": [
+        "crypto",
+        "randomness",
+        "tls",
+        "clean-bill"
+      ],
+      "sokrates_refs": [
+        "component:login"
+      ]
+    },
+    {
+      "id": "security-scan/unsafe-code/safety-comment-coverage",
+      "group": "unsafe-code",
+      "title": "~818 unsafe blocks in 141 files, rightly concentrated in sandbox/FFI crates, but SAFETY comments are sparse and unenforced",
+      "description": "The workspace contains roughly 818 unsafe blocks plus 49 unsafe fns across 141 files, overwhelmingly in the places that genuinely need them: linux-sandbox (fork/exec, capget, inotify), windows-sandbox-rs (token/ACL/WFP Win32 FFI), the macOS outbound-proxy FFI, pty, and shell-escalation fd-passing. Hygiene is uneven: only ~89 SAFETY-style comments exist tree-wide, and sampled FFI-heavy files (http-client macos proxy: 37 unsafe/0 SAFETY; windows token.rs: 23/0; shell-escalation socket.rs: 18/0) argue invariants only occasionally via doc comments (e.g. 'The caller guarantees that every element of buf is initialized' on assume_init). The load-bearing linux sandbox entry does document its subtle blocks (the capget ABI comment) while leaving trivial libc wrappers bare - a defensible norm, but nothing enforces it: the workspace lint table has rust = {} (no unsafe_code forbid for pure-logic crates) and clippy::undocumented_unsafe_blocks is not enabled. Read samples showed no incorrect-looking unsafe; this is a documentation/enforcement gap, not an observed soundness defect, hence low.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 500,
+          "end_line": 500,
+          "snippet": "rust = {}",
+          "note": "no workspace-level unsafe_code lint; undocumented_unsafe_blocks absent from the clippy table below"
+        },
+        {
+          "file": "codex-rs/shell-escalation/src/unix/socket.rs",
+          "start_line": 27,
+          "end_line": 27,
+          "snippet": "unsafe { std::slice::from_raw_parts(buf.as_ptr().cast(), buf.len()) }",
+          "note": "load-bearing fd-passing helper; invariant stated in doc comment, no per-block SAFETY"
+        },
+        {
+          "file": "codex-rs/linux-sandbox/src/linux_run_main.rs",
+          "start_line": 201,
+          "end_line": 201,
+          "snippet": "// SAFETY: capability ABI version 3 uses a [version, pid] header and",
+          "note": "the counter-example: subtle syscalls in the sandbox entry are documented"
+        }
+      ],
+      "recommendation": "Enable clippy::undocumented_unsafe_blocks (at least for the sandbox, escalation and FFI crates) and add #![forbid(unsafe_code)] or the workspace rust lint to the many pure-logic crates that need no unsafe, so the census stays confined and every remaining block carries its argument.",
+      "tags": [
+        "unsafe",
+        "rust",
+        "ffi",
+        "hygiene"
+      ],
+      "sokrates_refs": [
+        "component:linux_sandbox",
+        "component:windows_sandbox_rs",
+        "component:shell_escalation"
+      ]
+    },
+    {
+      "id": "security-scan/unsafe-code/dynamic-execution-contained",
+      "group": "unsafe-code",
+      "title": "Dynamic code execution is confined to an embedded V8 built with its sandbox feature; no eval in the scripting layers",
+      "description": "The only dynamic code execution engine in the product is the 'code mode' runtime, which embeds V8 with the v8_enable_sandbox feature enabled - V8's internal heap sandbox, an appropriate hardening choice for running model-generated JavaScript in-process. In the TypeScript SDK and CLI wrapper there is no eval/new Function and process launching uses node:child_process spawn with argv arrays (no shell:true anywhere); the Python layer's only exec() calls are import-star assertions in tests. Verdict: the scripting layers are clean, and the one deliberate code-execution surface ships with its engine-level sandbox on.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/code-mode-runtime/Cargo.toml",
+          "start_line": 24,
+          "end_line": 24,
+          "snippet": "v8 = { workspace = true, features = [\"v8_enable_sandbox\"] }",
+          "note": "V8 heap sandbox enabled for the code-mode runtime"
+        },
+        {
+          "file": "sdk/typescript/src/exec.ts",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "import { spawn } from \"node:child_process\";",
+          "note": "TS SDK launches the binary via spawn argv, never a shell string"
+        }
+      ],
+      "tags": [
+        "dynamic-execution",
+        "v8",
+        "clean-bill"
+      ],
+      "sokrates_refs": [
+        "component:code_mode_runtime"
+      ]
+    },
+    {
+      "id": "security-scan/input-handling/plugin-tar-extraction-hardened",
+      "group": "input-handling",
+      "title": "Plugin bundle tar extractor is hardened: traversal rejected component-wise, links refused, total size capped",
+      "description": "The tar.gz unpacker for plugin bundles - a path where third-party archive content meets the local filesystem - implements the full defensive checklist: every entry path is rebuilt component-by-component with ParentDir, RootDir and Prefix components rejected outright (zip-slip/traversal), hard-link and symlink entries are refused entirely (closing the link-then-write escape), unsupported entry types error out, and a running decompressed-size total is enforced against a caller-supplied cap with checked arithmetic (decompression-bomb). The packing side mirrors this with a size-limited buffer. This is the strongest extractor implementation pattern available short of extracting into a sandboxed process.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core-plugins/src/plugin_bundle_archive.rs",
+          "start_line": 221,
+          "end_line": 221,
+          "snippet": "std::path::Component::ParentDir",
+          "note": "traversal components rejected during component-wise path rebuild"
+        },
+        {
+          "file": "codex-rs/core-plugins/src/plugin_bundle_archive.rs",
+          "start_line": 191,
+          "end_line": 191,
+          "snippet": "if entry_type.is_hard_link() || entry_type.is_symlink() {",
+          "note": "link entries refused - blocks link-then-write escapes"
+        },
+        {
+          "file": "codex-rs/core-plugins/src/plugin_bundle_archive.rs",
+          "start_line": 175,
+          "end_line": 175,
+          "snippet": "enforce_total_extracted_size(entry_size, &mut extracted_bytes, max_total_bytes)?;",
+          "note": "decompressed-size cap with overflow-checked accounting"
+        }
+      ],
+      "tags": [
+        "input-handling",
+        "archive",
+        "zip-slip",
+        "strength"
+      ],
+      "sokrates_refs": [
+        "component:core_plugins"
+      ]
+    },
+    {
+      "id": "security-scan/input-handling/curated-zip-extraction-gaps",
+      "group": "input-handling",
+      "title": "Curated-plugins zip extractor lacks the size cap and mode sanitization its sibling tar extractor has",
+      "description": "extract_zipball_to_dir, which unpacks the curated-plugins zipball during startup sync, guards traversal correctly (zip's enclosed_name() plus a Normal-components-only rebuild) but, unlike the plugin tar extractor in the same crate, imposes no cap on total decompressed size (std::io::copy per entry with no accounting - a zip bomb inflates unchecked into CODEX_HOME) and applies the archive's unix permission bits verbatim via set_permissions, so archive-supplied modes (including setuid/setgid bits, inert for user-owned files but still undesirable) land on disk unfiltered. Exploitability is limited: the bytes come only from pinned first-party sources (api.github.com zipball of openai/plugins, or the chatgpt.com backend export) over HTTPS, so an attacker needs upstream or CA compromise - hence low, as an internal-consistency hardening gap rather than a reachable vulnerability.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core-plugins/src/startup_sync.rs",
+          "start_line": 1054,
+          "end_line": 1054,
+          "snippet": "let Some(relative_path) = entry.enclosed_name() else {",
+          "note": "traversal is guarded - this part is correct"
+        },
+        {
+          "file": "codex-rs/core-plugins/src/startup_sync.rs",
+          "start_line": 1101,
+          "end_line": 1101,
+          "snippet": "std::io::copy(&mut entry, &mut output).map_err(|err| {",
+          "note": "uncapped per-entry copy: no decompressed-size accounting"
+        },
+        {
+          "file": "codex-rs/core-plugins/src/startup_sync.rs",
+          "start_line": 1120,
+          "end_line": 1120,
+          "snippet": "std::fs::set_permissions(output_path, std::fs::Permissions::from_mode(mode)).map_err(|err| {",
+          "note": "archive-supplied unix mode applied without masking"
+        }
+      ],
+      "recommendation": "Reuse the tar path's total-size enforcement for the zip extractor and mask applied modes to permission bits (mode & 0o777, or just preserve the executable bit), so both extractors offer the same guarantees regardless of source trust.",
+      "tags": [
+        "input-handling",
+        "archive",
+        "zip",
+        "hardening"
+      ],
+      "sokrates_refs": [
+        "component:core_plugins"
+      ]
+    },
+    {
+      "id": "security-scan/audit-coverage/sweep-coverage",
+      "group": "audit-coverage",
+      "title": "Coverage: what this scan swept, and what it could not",
+      "description": "Swept and judged in this run: (1) secrets - credential prefixes, assignment shapes, PEM headers, and long base64-ish literals across Rust/TS/Python/config, ~35 candidates all read in context; (2) injection - shell invocation sites, format!-built commands, sqlx call sites, and the updater/git/hook launch paths, with representative input-to-sink traces; (3) crypto - hash-algorithm roles, RNG sources, TLS-override patterns, token comparison, JWT validation; (4) unsafe/native - a census of unsafe blocks with deep reads in the linux sandbox entry and shell-escalation fd-passing, plus SAFETY-comment density sampling of the four heaviest FFI files; (5) input handling - both archive extractors read line-by-line, dynamic execution in TS/Python swept; (6) the shell-escalation channel checked for external attack surface (none: it uses inherited socketpairs, not filesystem sockets). Not covered: dependency CVE status (no advisory database in this scan - the repo does run cargo-deny with an [advisories] table, so the mechanism exists); fuzzing or dynamic testing of parsers (tree-sitter shell parsing, protocol deserializers) - only their construction was reviewed; exhaustive TOCTOU analysis of check-then-use filesystem paths (the design scan documents the deliberate validate-but-still-sandbox stance that bounds this class); Windows FFI call-correctness in windows-sandbox-rs (counted and sampled, not audited call-by-call); and third_party/ plus vendored code, skipped per the Sokrates ignore rules with no local patches to vendored source observed in the sweeps.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/deny.toml",
+          "start_line": 65,
+          "end_line": 65,
+          "snippet": "[advisories]",
+          "note": "dependency-advisory mechanism present (cargo-deny); CVE adjudication itself is out of this scan's scope"
+        }
+      ],
+      "tags": [
+        "coverage",
+        "clean-bill",
+        "scope"
+      ],
+      "sokrates_refs": [
+        "component:codex_rs"
+      ]
+    }
+  ]
+}

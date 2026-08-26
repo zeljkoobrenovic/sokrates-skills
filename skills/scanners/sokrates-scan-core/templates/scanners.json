@@ -1,0 +1,132 @@
+{
+  "_comment": "Scanner display metadata embedded into the AI Insights Explorer by render_findings.py. Order of entries = display order (generic first, then more specialised). A scanner missing here still renders, with a title-cased id and no descriptions.",
+  "scanners": [
+    {
+      "id": "domain-map-scan",
+      "name": "Domain Map",
+      "emoji": "🗺️",
+      "description": "Maps the domain language of the codebase: the core concepts with code-anchored definitions, which components own which vocabulary, how product capabilities map onto code, and where naming drifts (synonyms, homonyms, renames in flight).",
+      "groups": {
+        "glossary": "The core concepts of the system — one entry per major concept with its definition anchored in code, its identity and lifecycle, and the component that owns it.",
+        "bounded-contexts": "The context map: which components own which vocabulary, where a concept is shared or translated across components, and which definition is canonical.",
+        "capabilities": "Product capabilities mapped to the concepts and components that implement them — the \"to change X, look here\" table.",
+        "language-drift": "Places where the ubiquitous language has drifted: synonyms for one concept, one name for several concepts, misleading names, undefined jargon, renames only half done."
+      }
+    },
+    {
+      "id": "architecture-scan",
+      "name": "Architecture",
+      "emoji": "🏛️",
+      "description": "Infers the architecture actually implemented in the code: overall style and shape, what each major component is responsible for, the load-bearing boundaries and contracts, where dependency direction is violated, how parts communicate at runtime, and which migrations are in progress.",
+      "groups": {
+        "style": "The shape narrative: overall architectural style(s), layer composition, and what the structure is optimised for.",
+        "components": "The real component map — responsibility statements for major components and a verdict on where the Sokrates decomposition matches or misleads.",
+        "boundaries": "Load-bearing contracts between components: protocol layers, seam interfaces, implied dependency-direction rules, versioning and compatibility guarantees.",
+        "violations": "Deviations from the evident intent: dependency cycles, skip-layer imports, grab-bag modules, duplicated concepts across a boundary, unjustified hubs.",
+        "communication": "How parts talk at runtime: channels, events, actors, IPC/RPC between processes, sync vs. async seams, ordering and backpressure assumptions.",
+        "evolution": "Architecture in motion: migrations in progress, deprecated-but-still-wired paths, parallel old/new structures, extension points and plugin surfaces."
+      }
+    },
+    {
+      "id": "tech-stack-scan",
+      "name": "Tech Stack",
+      "emoji": "🧰",
+      "description": "Inventories the technology stack with file/line evidence: languages and runtimes, frameworks, significant libraries, build tooling, CI/CD, infrastructure, databases and storage, external services, and the protocols and formats that shape interfaces.",
+      "groups": {
+        "languages-runtimes": "Programming languages with their approximate share, plus runtimes and pinned versions (Node, JVM, Python, Rust toolchains).",
+        "frameworks": "Application-shaping frameworks: web, UI, async runtimes, test and CLI frameworks.",
+        "libraries": "Significant libraries that do not shape the architecture, grouped per ecosystem where minor.",
+        "build-tooling": "Build systems, package managers, monorepo/workspace tooling, linters, formatters, and code generation.",
+        "ci-cd": "CI providers and pipelines, release automation, artifact publishing.",
+        "infrastructure": "Containers, orchestration, infrastructure-as-code, cloud providers, and development environments.",
+        "databases-storage": "Databases, caches, queues and brokers, file/blob storage — both declared drivers and connection/configuration evidence.",
+        "external-services": "Third-party APIs and SaaS the code calls: payment, auth, LLM APIs, telemetry backends.",
+        "protocols-formats": "Wire protocols and interchange formats that shape interfaces: gRPC/protobuf, GraphQL, WebSocket, JSON-RPC, OpenAPI."
+      }
+    },
+    {
+      "id": "cicd-scan",
+      "name": "CI/CD",
+      "emoji": "🔁",
+      "description": "Reconstructs the CI/CD process as an evidence-backed narrative: what triggers a build, how code is built and tested, which quality gates guard merges, how releases are versioned and published, where artifacts are deployed and how users receive them — and the pipeline's own hygiene risks.",
+      "groups": {
+        "triggers": "The pipeline entry points: what runs on pull request, push, tag, schedule or manual dispatch, including path filters and concurrency rules.",
+        "build": "How source becomes artifacts per ecosystem: build commands, target matrix, caching, and reproducibility measures such as lockfile enforcement and pinned toolchains.",
+        "testing": "What is tested, when, and on which matrix: unit/integration/e2e split, OS and version matrix, what a PR must pass vs. what runs post-merge — and what is visibly not tested.",
+        "quality-gates": "Non-test merge gates: lint, format and typecheck jobs, security and license scanning, codegen-freshness checks, required reviews, merge queues.",
+        "release": "How a release is cut: version bumping, changelog, tagging convention, artifact publishing to registries, signing, notarisation and provenance.",
+        "deployment": "Where artifacts go and how users get them: deploy targets, environments and promotion, install channels, auto-update, rollback story.",
+        "pipeline-hygiene": "The pipeline's own security and reliability posture: unpinned third-party actions or images, over-broad credentials, secrets that could leak, missing gates on the release path, flaky or slow jobs."
+      }
+    },
+    {
+      "id": "observability-scan",
+      "name": "Observability",
+      "emoji": "📡",
+      "description": "Maps how the system observes itself: logging practice and hygiene, metrics and what they measure, tracing and context propagation, error and crash reporting, health and diagnostic surfaces, where telemetry flows — and what monitoring the emitted signals can and cannot support.",
+      "groups": {
+        "logging": "Logging frameworks and conventions: structured vs. freeform, level discipline, destinations and rotation; hygiene issues such as sensitive data in logs or missing redaction.",
+        "metrics": "What is measured and how: counters, gauges and histograms and their subjects, naming conventions, cardinality risks, emission paths.",
+        "tracing": "Spans and context propagation: instrumentation coverage, cross-process and async propagation, sampling.",
+        "error-reporting": "Crash and error capture: panic/exception hooks, error-reporting services, user-facing vs. operator-facing error paths — including swallowed errors and silent failures.",
+        "health-diagnostics": "Health and readiness surfaces, self-diagnostic commands, debug endpoints or views, diagnostic bundles users can send.",
+        "telemetry-pipeline": "Where the data goes: exporters, backends, enabling configuration, on/off defaults, sampling and batching, privacy and opt-out posture.",
+        "monitoring-posture": "The synthesis: which alerts and dashboards the emitted signals can support per subsystem, and the blind spots that emit nothing."
+      }
+    },
+    {
+      "id": "security-design-scan",
+      "name": "Security Design",
+      "emoji": "🛡️",
+      "description": "Maps how security is designed into the system: where trust boundaries lie and what crosses them, how execution is sandboxed and privileges separated, how identity, auth and permissions work, how secrets and sensitive data are handled by design, how third-party code and content are trusted — and the overall posture with its gaps.",
+      "groups": {
+        "trust-boundaries": "The boundary map: where untrusted data enters, what sits on each side, which crossings are checked and which are trusted by design.",
+        "sandboxing-isolation": "Execution confinement and privilege separation: OS sandboxes, process and worker isolation, filesystem restriction, network confinement and egress policy, escape hatches.",
+        "identity-access": "Authentication and authorisation design: identity and credential flows, token lifecycle and storage, permission and policy models, approval and consent flows.",
+        "secrets-data-protection": "How secrets and sensitive data are handled by design: storage location and permissions, in-memory handling, redaction layers, what is never persisted, crypto choices in their design role.",
+        "input-validation": "Validation posture at the boundaries: parsers and schema checks, constraint enforcement, canonicalisation, injection-resistant construction — and boundaries crossed unvalidated.",
+        "third-party-trust": "Runtime trust in code and content the team did not write: plugin and extension vetting, installer and update verification, dependency trust at load time, model-output containment.",
+        "security-posture": "The synthesis: the layered narrative, defence-in-depth assessment, deliberate trade-offs, and the gap list a reviewer should probe next."
+      }
+    },
+    {
+      "id": "security-scan",
+      "name": "Security Audit",
+      "emoji": "🔐",
+      "description": "Code-level security audit: hunts concrete dangerous patterns and judges each in context — secrets in the tree, injection-prone command/SQL/path construction, weak or home-rolled crypto, unsafe-code hygiene, risky input handling — and states explicitly what was swept and found clean.",
+      "groups": {
+        "secrets": "Credential material in the tree: real leaks, intentionally published identifiers, and the overall secrets-hygiene verdict.",
+        "injection": "Command, SQL, path or template construction from attacker-influenceable data, with representative traced paths and mitigated-by-design verdicts.",
+        "crypto": "Algorithm fitness for purpose, randomness sources, TLS overrides, secret comparison, home-rolled primitives.",
+        "unsafe-code": "Unsafe blocks, FFI seams and dynamic code execution: counts, the load-bearing instances, and safety-argument hygiene.",
+        "input-handling": "Deserialisation of untrusted data, archive extraction, size and recursion limits on parsers, check-then-use (TOCTOU) shapes.",
+        "audit-coverage": "What was swept and found clean, and what was not covered — the honest coverage statement of this audit."
+      }
+    },
+    {
+      "id": "risk-synthesis-scan",
+      "name": "Risk Synthesis",
+      "emoji": "🔥",
+      "description": "Turns Sokrates' quantitative risk signals into explained, actionable findings: what each hotspot file does and why its complexity, churn and ownership make it risky, where knowledge is concentrated in too few people, and why coupled files keep changing together.",
+      "groups": {
+        "hotspots": "One finding per risky file: what it does, why it keeps changing, whether its complexity is essential or accidental, and what a targeted improvement would be.",
+        "knowledge-risk": "Bus-factor concentration: how much of the codebase depends on one or two contributors, and the single-owner areas that matter — where losing a person means losing knowledge.",
+        "change-coupling": "Files that repeatedly change together and the semantic reason why: shared protocol, duplicated logic, a leaky boundary, or legitimately cohesive code."
+      }
+    },
+    {
+      "id": "evolution-scan",
+      "name": "Evolution",
+      "emoji": "🕰️",
+      "description": "Tells the codebase's history as a story from its git log: the eras of development and what each was about, how the code grew and where it came from, how the center of activity shifted between areas, who arrived and who left, which modules were born, rewritten or abandoned, and where velocity and work mix are heading.",
+      "groups": {
+        "eras": "The timeline as chapters: each era's date range, what the project was then, what the big commits built, and what closed the era.",
+        "growth": "How the codebase got its size: commits, files and lines per period, where the bulk came from (feature work, imports, generated or vendored code), and how much of what was ever written survives.",
+        "focus-shift": "Where the center of activity moved: which areas dominated each period and dominate now, what is emerging or accelerating, and what is cooling or dormant — finished or neglected.",
+        "people": "The team over time: size and concentration per period, arrivals and what they brought, departures and what they left behind, and whether ownership of the core has moved.",
+        "lifecycle": "Births, rewrites and deaths of modules: what replaced what and when, migrations completed or stalled with both halves alive, directories deleted wholesale, and the oldest surviving code.",
+        "trajectory": "The synthesis: velocity trend over the last quarters, the current mix of features vs. fixes vs. refactoring compared to a year ago, the direction the last period implies, and the risks that follow."
+      }
+    }
+  ]
+}

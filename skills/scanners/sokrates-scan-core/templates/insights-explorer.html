@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AI Insights Explorer</title>
+    <!--
+      Sokrates AI Insights Explorer template.
+      Placeholders substituted by render_findings.py:
+        ${data}        - JSON array of scanner findings documents
+        ${icons}       - JSON object: scanner id -> PNG data URI (from templates/icons/)
+        ${scanners}    - JSON array of scanner display metadata (from templates/scanners.json)
+        ${generatedAt} - ISO timestamp of generation
+      Everything else is self-contained (no external scripts).
+    -->
+    <!-- Same font setup as the generated Sokrates HTML reports: only Ubuntu is loaded (bold weights added). -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Ubuntu:400,500,700">
+    <style>
+        :root {
+            --bg: #ffffff;
+            --panel: #f8f8f8;
+            --panel-2: #f1f1f1;
+            --border: #e0e0e0;
+            --text: #303030;
+            --muted: #808080;
+            --faint: #b8b8b8;
+            --accent: #4a90d9;
+            --accent-soft: #e8f1fb;
+            --code-bg: #f4f6f8;
+            --sev-critical: #bd0026;
+            --sev-high: #f03b20;
+            --sev-medium: #fdae61;
+            --sev-low: #6192c3;
+            --sev-info: #b8b8b8;
+            --sidebar-w: 272px;
+            --shadow-sm: 0 1px 2px rgba(20, 30, 50, 0.06), 0 1px 6px rgba(20, 30, 50, 0.05);
+            --shadow-md: 0 2px 6px rgba(20, 30, 50, 0.08), 0 8px 24px rgba(20, 30, 50, 0.08);
+            --shadow-lg: 0 6px 14px rgba(20, 30, 50, 0.12), 0 16px 40px rgba(20, 30, 50, 0.12);
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+
+        body {
+            font-family: Roboto, Vollkorn, Ubuntu, Optima, Segoe, "Segoe UI", Candara, Calibri, Arial, sans-serif;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        code, pre, .mono {
+            font-family: Menlo, Consolas, monospace;
+            font-size: 12.5px;
+        }
+
+        /* ---------- layout ---------- */
+        #app { display: flex; min-height: 100vh; }
+
+        #sidebar {
+            width: var(--sidebar-w);
+            flex: 0 0 var(--sidebar-w);
+            border-right: 1px solid var(--border);
+            background: #fbfbfc; box-shadow: 1px 0 8px rgba(20, 30, 50, 0.04);
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+            padding: 18px 14px;
+        }
+
+        #main { flex: 1 1 auto; min-width: 0; padding: 22px 34px 80px 34px; }
+
+        @media (max-width: 900px) {
+            #app { flex-direction: column; }
+            #sidebar { width: auto; flex: none; height: auto; position: static; border-right: none; border-bottom: 1px solid var(--border); }
+            #main { padding: 16px; }
+        }
+
+        /* ---------- sidebar ---------- */
+        .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+        .brand .logo {
+            width: 34px; height: 34px; border-radius: 8px;
+            background: linear-gradient(135deg, #4a90d9, #6dc3a7);
+            color: white; font-weight: 700; display: flex; align-items: center; justify-content: center;
+            font-size: 15px; letter-spacing: -0.5px;
+        }
+        .brand .logo.img { background: none; border-radius: 0; width: 44px; height: 44px; }
+        .brand .logo.img img { width: 44px; height: 44px; object-fit: contain; }
+        .brand h1 { font-size: 16px; margin: 0; font-weight: 700; }
+        .brand .sub { font-size: 11.5px; color: var(--muted); margin: 0; }
+
+        .project-name { font-size: 13px; color: var(--muted); margin: 10px 0 18px 0; }
+        .project-name b { color: var(--text); }
+
+        .nav-title {
+            font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+            color: var(--muted); margin: 18px 0 6px 6px;
+        }
+
+        .nav-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 7px 8px; border-radius: 7px; cursor: pointer;
+            color: var(--text); font-size: 13.5px; user-select: none;
+        }
+        .nav-item:hover { background: var(--panel-2); }
+        .nav-item.active { background: var(--accent-soft); color: #1b4f8a; font-weight: 500; }
+        .nav-item .name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .nav-item .count { font-size: 11.5px; color: var(--muted); }
+        .nav-item .dots { display: flex; gap: 2px; }
+        .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+        .sicon { display: inline-block; width: 1.4em; text-align: center; margin-right: 6px; font-style: normal; vertical-align: middle; }
+        img.sicon { width: 18px; height: 18px; object-fit: contain; margin-top: -2px; }
+        .sicon.big { font-size: 1.1em; margin-right: 8px; }
+        img.sicon.big { width: 28px; height: 28px; margin-top: -4px; }
+
+        .sidebar-foot { margin-top: 28px; font-size: 11px; color: var(--faint); line-height: 1.4; }
+
+        /* ---------- header ---------- */
+        .page-head { margin-bottom: 18px; }
+        .page-head h2 { margin: 0 0 4px 0; font-size: 42px; font-weight: 400; letter-spacing: -0.3px; line-height: 1.1; }
+        .scanner-head { display: flex; align-items: center; gap: 20px; }
+        .scanner-head h2 { font-size: 42px; line-height: 1.1; }
+        .sicon.page { font-size: 64px; width: 88px; margin: 0; padding: 2px; flex: 0 0 88px; line-height: 1; box-shadow: none; background: none; border: none; }
+        img.sicon.page { width: 108px; height: 108px; margin: 0; padding: 2px; box-shadow: none; filter: none; }
+        .page-head .meta { color: var(--muted); font-size: 13px; }
+        .page-head .meta code { background: var(--panel); padding: 1px 5px; border-radius: 4px; }
+        a.json-link code { color: var(--accent); }
+        a.json-link:hover code { text-decoration: underline; }
+
+        .summary {
+            background: white; border: 1px solid #c0c0c0; border-radius: 10px; box-shadow: var(--shadow-sm);
+            padding: 12px 18px; margin: 14px 0 18px 0; font-size: 15px;
+            line-height: 1.35; margin-bottom: 42px; background-color: #f0f0f0;
+        }
+        .summary-head { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
+            font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted)}
+        .summary-head .caret { color: var(--faint); font-size: 12px; }
+        .summary-head .hint { text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--faint); margin-left: 6px; }
+        .summary-head:hover { color: var(--text); }
+        .summary-body { margin-top: 8px; }
+        ul.bullets { margin: 0; padding-left: 20px; }
+        ul.bullets b, .f-rec b, .summary b, .f-desc b {
+            font-weight: 700; color: #14203a;
+            background: linear-gradient(transparent 62%, rgba(74, 144, 217, 0.22) 62%);
+            padding: 0 2px; border-radius: 2px;
+        }
+        code.inline { background: var(--panel-2); padding: 0 4px; border-radius: 3px; font-size: 0.9em; }
+        ul.bullets li { margin: 14px 0; line-height: 1.35; }
+        ul.bullets li::marker { color: var(--accent); }
+
+        /* ---------- tiles ---------- */
+        .tiles { display: flex; flex-wrap: wrap; gap: 12px; margin: 14px 0 18px 0; }
+        .tile {
+            min-width: 120px; flex: 0 1 auto;
+            background: white; border: 1px solid rgba(0,0,0,0.05); border-radius: 10px;
+            padding: 10px 16px; cursor: default; box-shadow: var(--shadow-sm);
+        }
+        .tile .v { font-size: 24px; font-weight: 700; line-height: 1.15; }
+        .tile .l { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+        .tile .bar { height: 4px; border-radius: 2px; margin-top: 6px; }
+
+        /* ---------- toolbar ---------- */
+        .toolbar {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+            position: sticky; top: 0; z-index: 5;
+            background: rgba(255,255,255,0.96); backdrop-filter: blur(4px);
+            padding: 10px 0; margin: 0 0 12px 0; border-bottom: 1px solid var(--border);
+        }
+        .toolbar input[type=text] {
+            font-family: inherit; font-size: 14px; height: 34px; width: 340px; max-width: 100%;
+            border: 1px solid grey; border-radius: 4px; padding: 0 12px; outline: none;
+        }
+        .toolbar input[type=text]:focus { border-color: grey; }
+        ::placeholder { color: var(--faint); opacity: 1; }
+
+        .chips { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+        .chip {
+            font-size: 12px; padding: 3px 9px; border-radius: 4px; cursor: pointer; user-select: none;
+            border: 1px solid var(--border); background: white; color: var(--text); white-space: nowrap;
+        }
+        .chip:hover { border-color: var(--accent); }
+        .chip.off { opacity: 0.38; }
+        .chip .n { color: var(--muted); margin-left: 4px; }
+        .chip.sev { border-width: 1px; border-left-width: 5px; }
+        .toolbar .spacer { flex: 1 1 auto; }
+        .toolbar select {
+            font-family: inherit; font-size: 13px; height: 32px; border: 1px solid var(--border);
+            border-radius: 8px; padding: 0 8px; background: white; color: var(--text);
+        }
+        .btn {
+            font-family: inherit; font-size: 12.5px; height: 32px; padding: 0 12px; cursor: pointer;
+            border: 1px solid var(--border); border-radius: 8px; background: white; color: var(--text);
+        }
+        .btn:hover { border-color: var(--accent); color: var(--accent); }
+        .result-count { font-size: 12.5px; color: var(--muted); }
+
+        /* ---------- severity badges ---------- */
+        .badge {
+            display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+            text-transform: uppercase; padding: 2px 8px; border-radius: 4px; color: white; white-space: nowrap;
+            min-width: 62px; text-align: center;
+        }
+        .badge.critical { background: var(--sev-critical); }
+        .badge.high { background: var(--sev-high); }
+        .badge.medium { background: var(--sev-medium); color: #402000; }
+        .badge.low { background: var(--sev-low); }
+        .badge.info { background: var(--sev-info); color: #333; }
+
+        .pill {
+            display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 999px;
+            border: 1px solid var(--border); color: var(--muted); background: white; white-space: nowrap;
+        }
+        .pill.certain { border-color: #7fbf7b; color: #2b7a2b; }
+        .pill.likely { border-color: #c9b26b; color: #7a6119; }
+        .pill.possible { border-color: #d9a7a7; color: #9a3c3c; }
+        .tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 4px; background: var(--panel-2); color: #555; margin-right: 4px; }
+
+        /* ---------- stacked severity bar ---------- */
+        .sevbar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--panel-2); }
+        .sevbar span { display: block; height: 100%; }
+
+        /* ---------- overview cards ---------- */
+        .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 44px; }
+        .card {
+            background: white; border: 1px solid rgba(0,0,0,0.35); border-radius: 12px; padding: 16px 18px;
+            cursor: pointer; box-shadow: var(--shadow-md); transition: box-shadow 0.15s, transform 0.15s;
+        }
+        .card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+        .card-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+        .card h3 { margin: 0 0 2px 0; font-size: 27px; font-weight: 400; letter-spacing: -0.3px; line-height: 1.15; }
+        .card .meta { font-size: 12px; color: var(--muted); }
+        .sicon.card { font-size: 48px; width: 64px; margin: 0; padding: 2px; flex: 0 0 64px; line-height: 1; box-shadow: none; background: none; border: none; }
+        img.sicon.card { width: 64px; height: 64px; margin: 0; padding: 2px; box-shadow: none; filter: none; }
+        .card .sum { font-size: 13.5px; color: #444; line-height: 1.5; }
+        .card .sum ul.bullets { padding-left: 18px; }
+        .card .sum li { margin: 7px 0; line-height: 1.35; }
+        .card .sum .more { color: var(--muted); font-size: 12px; margin-top: 4px; }
+        .card .counts { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0 6px 0; font-size: 12px; color: var(--muted); }
+        .card .counts b { color: var(--text); }
+
+        /* ---------- tables ---------- */
+        table.list { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+        table.list th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--border); }
+        table.list td { padding: 7px 8px; border-bottom: 1px solid var(--panel-2); vertical-align: top; }
+        table.list tr:hover td { background: var(--panel); }
+        table.list td.link { cursor: pointer; }
+        table.list .scanner { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+        /* ---------- groups & findings ---------- */
+        .group-nav { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 18px 0; }
+
+        .report-body { padding: 0 4px; }
+        @media (max-width: 900px) { .report-body { padding: 0 8px; } }
+        .group-section { margin: 0 0 30px 0; }
+        .group-desc { color: var(--muted); font-size: 13.5px; line-height: 1.5; margin: -4px 0 12px 0; }
+        .scanner-desc { color: #555; font-size: 14px; line-height: 1.55; margin: 8px 0 0 0; }
+        .card .scanner-desc { font-size: 13px; color: var(--muted); margin: 0 0 12px 0;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
+        .group-head {
+            display: flex; align-items: baseline; gap: 10px; cursor: pointer; user-select: none;
+            padding: 8px 0; border-bottom: 2px solid var(--border); margin-bottom: 10px;
+            border-top: 2px solid var(--border);margin-top: 42px;
+        }
+        .group-head h3 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.2px; }
+        .group-head .n { color: var(--muted); font-size: 13px; }
+        .group-head .caret { color: var(--faint); font-size: 12px; margin-left: auto; }
+
+        .finding {
+            border: 1px solid rgba(0,0,0,0.05); border-radius: 2px; margin-bottom: 10px; background: white;
+            overflow: hidden; box-shadow: var(--shadow-sm); transition: box-shadow 0.15s;
+        }
+        .finding:hover, .finding.open { box-shadow: var(--shadow-md); }
+        .finding.attn-critical { border-left: 5px solid var(--sev-critical); }
+        .finding.attn-high { border-left: 5px solid var(--sev-high); }
+        .finding.attn-medium { border-left: 5px solid var(--sev-medium); }
+        .finding.attn-low { border-left: 5px solid var(--sev-low); }
+        .finding.attn-info { border-left: 5px solid var(--border); }
+        .finding.highlight { box-shadow: 0 0 0 3px var(--accent-soft); border-color: var(--accent); }
+
+        .f-head {
+            display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; user-select: none;background: #fafbfc;
+        }
+        .f-head:hover { background: #fafbfc; }
+        .f-head .title { flex: 1 1 auto; font-weight: 500; font-size: 15px; }
+        .f-head .caret { color: var(--faint); font-size: 12px; transition: transform 0.15s; }
+        .finding.open .f-head .caret { transform: rotate(90deg); }
+
+        .f-body { display: none; padding: 4px 16px 14px 16px; border-top: 1px dashed var(--border); background-color: white }
+        .finding.open .f-body { display: block; background: white; }
+
+        .f-desc { font-size: 14.5px; line-height: 1.35; margin: 10px 0; }
+        .f-desc ul.bullets li { margin: 12px 0; }
+        .f-rec {
+            background: #fff8e8; border: 1px solid #f3dea0; border-radius: 8px; padding: 10px 14px; margin: 10px 0;
+            font-size: 14px;
+        }
+        .f-rec b { color: #7a5a00; }
+
+        .f-section-title { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 14px 0 6px 0; }
+
+        .evidence { border-radius: 8px; margin-bottom: 10px; overflow: hidden; box-shadow: var(--shadow-sm); }
+        .evidence .loc {
+            display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+            background: #2b2f36; color: #cfd3da; padding: 6px 14px 6px 24px; font-size: 12px;
+            border-bottom: 1px solid #3a3f47;
+        }
+        .evidence .loc .file { color: #8ec5ff; }
+        .evidence .loc .lines { color: #9aa1ab; }
+        .evidence .loc .note { color: #b8bec8; font-style: italic; margin-left: auto; }
+        .evidence pre {
+            margin: 0; padding: 14px 18px 14px 24px; background: #1b1e24; color: #e6e8ec;
+            overflow-x: auto; white-space: pre; line-height: 1.5; font-size: 13px;
+        }
+        .evidence pre mark { background: #6b5a00; color: #fff2a8; }
+
+        .f-foot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 12px; font-size: 12px; color: var(--muted); }
+        .f-foot .id { font-size: 11.5px; background: var(--panel); padding: 1px 6px; border-radius: 4px; cursor: pointer; }
+        .f-foot .id:hover { color: var(--accent); }
+        .ref { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 4px; background: #e9f2ec; color: #2b5e3a; }
+
+        table.attrs { border-collapse: collapse; font-size: 12.5px; margin-top: 4px; }
+        table.attrs td { padding: 2px 10px 2px 0; vertical-align: top; }
+        table.attrs td.k { color: var(--muted); white-space: nowrap; }
+
+        mark { background: #fff2a8; padding: 0 1px; border-radius: 2px; }
+
+        .empty { color: var(--muted); padding: 40px 0; text-align: center; }
+
+        .toast {
+            position: fixed; bottom: 18px; right: 18px; background: #303030; color: white; padding: 8px 14px;
+            border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity 0.2s; pointer-events: none;
+        }
+        .toast.show { opacity: 1; }
+
+        @media print {
+            #sidebar, .toolbar { display: none; }
+            #main { padding: 0; }
+            .f-body { display: block !important; }
+            .finding { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <aside id="sidebar">
+        <div class="brand">
+            <div class="logo" id="brand-logo">AI</div>
+            <div>
+                <h1>AI Insights</h1>
+                <p class="sub">Sokrates semantic scanners</p>
+            </div>
+        </div>
+        <div class="project-name" id="project-name"></div>
+        <div class="nav-title">Views</div>
+        <div id="nav-fixed"></div>
+        <div class="nav-title">Scanners</div>
+        <div id="nav-scanners"></div>
+        <div class="sidebar-foot" id="sidebar-foot"></div>
+    </aside>
+    <main id="main"></main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+    // Injected at generation time: an array of findings documents (one per scanner).
+    const RAW_DATA = ${data};
+    const GENERATED_AT = '${generatedAt}';
+    // scanner id -> PNG data URI (embedded from templates/icons/<scanner>.png); emoji fallback below.
+    const ICONS = ${icons};
+    // Display metadata per scanner: name, order, emoji, description, group explanations.
+    const SCANNERS_META = ${scanners};
+    const META = {};
+    (Array.isArray(SCANNERS_META) ? SCANNERS_META : []).forEach((m, i) => { if (m && m.id) META[m.id] = Object.assign({_order: i}, m); });
+
+    const SEVERITIES = ['critical', 'high', 'medium', 'low', 'info'];
+    const SEV_RANK = {critical: 0, high: 1, medium: 2, low: 3, info: 4};
+    const SEV_COLOR = {
+        critical: 'var(--sev-critical)', high: 'var(--sev-high)', medium: 'var(--sev-medium)',
+        low: 'var(--sev-low)', info: 'var(--sev-info)'
+    };
+    const CONFIDENCES = ['certain', 'likely', 'possible'];
+    // Unknown scanners fall back to a title-cased id, an emoji, no description, and sort last.
+    function scannerName(id) { return (META[id] && META[id].name) || titleCase(String(id).replace(/-scan$/, '')); }
+    function scannerDescription(id) { return (META[id] && META[id].description) || ''; }
+    function groupDescription(id, group) { return (META[id] && META[id].groups && META[id].groups[group]) || ''; }
+    function scannerRank(id) { return META[id] ? META[id]._order : 1e6; }
+    function scannerIcon(id, cls) {
+        const title = esc(scannerName(id));
+        if (ICONS && ICONS[id]) {
+            return '<img class="sicon' + (cls ? ' ' + cls : '') + '" src="' + ICONS[id] + '" alt="' + title + '" title="' + title + '">';
+        }
+        return '<span class="sicon' + (cls ? ' ' + cls : '') + '" title="' + title + '">' + ((META[id] && META[id].emoji) || '🔎') + '</span>';
+    }
+
+    // ---------- data preparation ----------
+    const docs = (Array.isArray(RAW_DATA) ? RAW_DATA : [])
+        .filter(d => d && d.scanner && Array.isArray(d.findings) && d.scanner !== 'combined')
+        .sort((a, b) => scannerRank(a.scanner) - scannerRank(b.scanner) || String(a.scanner).localeCompare(String(b.scanner)));
+
+    docs.forEach(d => {
+        d.findings.forEach(f => {
+            f._scanner = d.scanner;
+            f.severity = SEV_RANK[f.severity] === undefined ? 'info' : f.severity;
+            f.confidence = CONFIDENCES.includes(f.confidence) ? f.confidence : 'possible';
+            f.group = f.group || 'other';
+            f._search = [f.id, f.title, f.description, f.recommendation, f.group,
+                (f.tags || []).join(' '), (f.sokrates_refs || []).join(' '),
+                (f.evidence || []).map(e => (e.file || '') + ' ' + (e.snippet || '') + ' ' + (e.note || '')).join(' ')
+            ].join(' \n ').toLowerCase();
+        });
+    });
+
+    const allFindings = docs.flatMap(d => d.findings);
+    const projectName = (docs.find(d => d.target && d.target.name) || {target: {name: 'Project'}}).target.name;
+
+    // ---------- state ----------
+    const state = {
+        view: 'overview',        // 'overview' | 'attention' | scanner name
+        query: '',
+        severities: new Set(SEVERITIES),
+        confidences: new Set(CONFIDENCES),
+        groups: null,            // Set of active groups for the current scanner, or null = all
+        sort: 'severity',
+        open: new Set(),         // open finding ids
+        collapsedGroups: new Set(),
+        summaryCollapsed: new Set()  // scanners whose summary box is collapsed
+    };
+
+    // ---------- helpers ----------
+    function esc(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function titleCase(s) {
+        return String(s).replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function sevCounts(findings) {
+        const c = {critical: 0, high: 0, medium: 0, low: 0, info: 0};
+        findings.forEach(f => c[f.severity]++);
+        return c;
+    }
+
+    function worstSeverity(findings) {
+        return findings.reduce((w, f) => SEV_RANK[f.severity] < SEV_RANK[w] ? f.severity : w, 'info');
+    }
+
+    function sevBar(findings, width) {
+        const c = sevCounts(findings);
+        const total = findings.length || 1;
+        return '<div class="sevbar" style="' + (width ? 'width:' + width : '') + '" title="' +
+            SEVERITIES.map(s => c[s] + ' ' + s).join(', ') + '">' +
+            SEVERITIES.filter(s => c[s]).map(s =>
+                '<span style="width:' + (100 * c[s] / total) + '%; background:' + SEV_COLOR[s] + '"></span>').join('') +
+            '</div>';
+    }
+
+    function sevDots(findings) {
+        const c = sevCounts(findings);
+        return '<span class="dots">' + SEVERITIES.filter(s => c[s] && s !== 'info')
+            .map(s => '<span class="dot" style="background:' + SEV_COLOR[s] + '" title="' + c[s] + ' ' + s + '"></span>').join('') + '</span>';
+    }
+
+    function badge(sev) { return '<span class="badge ' + sev + '">' + sev + '</span>'; }
+    // Finding lists show no severity badges; severity is conveyed by the card's left border colour
+    // (and a small dot in tables).
+    function listBadge(sev) { return ''; }
+    function sevDot(sev) { return '<span class="dot" style="background:' + SEV_COLOR[sev] + '" title="' + sev + '"></span>'; }
+    function pill(conf) { return '<span class="pill ' + conf + '" title="confidence">' + conf + '</span>'; }
+
+    function terms() {
+        return state.query.split(';').map(t => t.trim().toLowerCase()).filter(Boolean);
+    }
+
+    function matches(f) {
+        if (!state.severities.has(f.severity)) return false;
+        if (!state.confidences.has(f.confidence)) return false;
+        if (state.groups && !state.groups.has(f.group)) return false;
+        const ts = terms();
+        return ts.every(t => f._search.indexOf(t) >= 0);
+    }
+
+    function hl(text) {
+        const ts = terms();
+        let out = esc(text);
+        ts.forEach(t => {
+            if (!t) return;
+            const re = new RegExp('(' + t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
+            out = out.replace(re, '<mark>$1</mark>');
+        });
+        return out;
+    }
+
+    function sortFindings(list) {
+        const key = state.sort;
+        return list.slice().sort((a, b) => {
+            if (key === 'title') return a.title.localeCompare(b.title);
+            if (key === 'confidence') {
+                const d = CONFIDENCES.indexOf(a.confidence) - CONFIDENCES.indexOf(b.confidence);
+                return d || SEV_RANK[a.severity] - SEV_RANK[b.severity];
+            }
+            if (key === 'evidence') {
+                const d = (b.evidence || []).length - (a.evidence || []).length;
+                return d || SEV_RANK[a.severity] - SEV_RANK[b.severity];
+            }
+            const d = SEV_RANK[a.severity] - SEV_RANK[b.severity];
+            return d || a.title.localeCompare(b.title);
+        });
+    }
+
+    // Splits a narrative paragraph into sentences (one bullet each); tolerant of common
+    // abbreviations, decimals, and quoted/parenthesised sentence starts.
+    function sentences(text) {
+        const t = String(text || '').replace(/\s+/g, ' ').trim();
+        if (!t) return [];
+        const out = [];
+        let buf = '';
+        const parts = t.split(/(?<=[.!?])\s+(?=["'(\[]?[A-Z0-9])/);
+        parts.forEach(part => {
+            buf = buf ? buf + ' ' + part : part;
+            if (/\b(e\.g|i\.e|etc|vs|cf|approx|ca|no|vol|fig|Mr|Mrs|Ms|Dr|St)\.$/i.test(buf)) return;
+            out.push(buf); buf = '';
+        });
+        if (buf) out.push(buf);
+        return out;
+    }
+
+    // Emphasis for prose. Renders **bold** and `code` written by scanners, then automatically
+    // emphasises key phrases: quantities ("168 findings", "42%"), proper nouns and technologies
+    // (GitHub Actions, Rust, Tokio, JSON-RPC), quoted terms ("bus factor"), and code-like identifiers
+    // (codex-rs, cargo-deny, tokio::spawn, .github/workflows). Input is already HTML-escaped and may
+    // contain <mark> tags; rules never touch text that is already inside <b> or <code>.
+    const EMPHASIS_RULES = [
+        // scanner-authored markup
+        [/\*\*([^*]+?)\*\*/g, (m, x) => '<b>' + x + '</b>'],
+        [/`([^`]+?)`/g, (m, x) => '<code class="inline">' + x + '</code>'],
+        // quoted terms: "bus factor", 'thread'
+        [/&quot;([^&<>]{2,60}?)&quot;/g, (m, x) => '&quot;<b>' + x + '</b>&quot;'],
+        [/(^|[\s(])'([^'<>]{2,40}?)'(?=[\s.,;:)]|$)/g, (m, pre, x) => pre + "'<b>" + x + "</b>'"],
+        // quantities: 51 crates · 42% · 1.2 MB · 3 of 8 crates
+        [/(^|[\s(])(~?\d(?:[\d,.]*\d)?(?:\s?(?:%|KB|MB|GB|k|M|LOC)|\s+(?:of\s+\d(?:[\d,.]*\d)?\s+)?[A-Za-z][\w-]*s)?)(?=[\s.,;:)]|$)/g,
+            (m, pre, x) => pre + '<b>' + x + '</b>'],
+        // code-like identifiers: tokio::spawn, .github/workflows, Cargo.toml, snake_case, codex-rs/core
+        // (a plain hyphenated word like first-party is prose, not code — use `backticks` for crate names)
+        [/(^|[\s(])((?:\.?[A-Za-z]\w*)(?:(?:[-_./]|::)\w{2,})+(?:\.\w+)?)(?=[\s.,;:)]|$)/g,
+            (m, pre, x) => /[_./]|::/.test(x) || /\d/.test(x) ? pre + '<code class="inline">' + x + '</code>' : m],
+        // proper nouns / technologies mid-sentence: GitHub Actions, Rust, Tokio, JSON-RPC, OpenAI, C++
+        [/([a-z0-9,;:)]\s)((?:[A-Z][\w+#-]*)(?:\s[A-Z][\w+#-]*)*)(?=[\s.,;:)]|$)/g,
+            (m, pre, x) => (x.length < 2 || /^(A|I|The|An|In|On|At|By|To|For|Of|And|Or|But|If|It|Its|This|That|These|Those|As|So|No|Not)$/.test(x))
+                ? m : pre + '<b>' + x + '</b>']
+    ];
+
+    function applyOutsideTags(html, re, fn) {
+        // Apply a replacement only to text that is not inside <b>…</b> or <code>…</code>.
+        const parts = String(html).split(/(<[^>]+>)/);
+        let depth = 0;
+        return parts.map(part => {
+            if (part.startsWith('<')) {
+                if (/^<(b|code)\b/.test(part)) depth++;
+                else if (/^<\/(b|code)\b/.test(part)) depth = Math.max(0, depth - 1);
+                return part;
+            }
+            return depth > 0 ? part : part.replace(re, fn);
+        }).join('');
+    }
+
+    function emphasize(html) {
+        return EMPHASIS_RULES.reduce((acc, [re, fn]) => applyOutsideTags(acc, re, fn), String(html));
+    }
+
+    function bullets(text, max, fmt) {
+        const ss = sentences(text);
+        if (!ss.length) return '';
+        const shown = max ? ss.slice(0, max) : ss;
+        const f = x => emphasize((fmt || esc)(x));
+        return '<ul class="bullets">' + shown.map(x => '<li>' + f(x) + '</li>').join('') + '</ul>' +
+            (max && ss.length > max ? '<div class="more">+ ' + (ss.length - max) + ' more…</div>' : '');
+    }
+
+    function fmtDate(s) { return s ? String(s).replace('T', ' ').replace(/Z$/, ' UTC') : '?'; }
+
+    function toast(msg) {
+        const el = document.getElementById('toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        setTimeout(() => el.classList.remove('show'), 1500);
+    }
+
+    // ---------- navigation ----------
+    function go(view, findingId) {
+        state.view = view;
+        state.groups = null;
+        if (findingId) state.open.add(findingId);
+        location.hash = findingId ? encodeURIComponent(findingId) : (view === 'overview' ? '' : 'view=' + view);
+        render();
+        if (findingId) {
+            setTimeout(() => {
+                const el = document.getElementById('f-' + cssId(findingId));
+                if (el) {
+                    el.scrollIntoView({behavior: 'smooth', block: 'center'});
+                    el.classList.add('highlight');
+                    setTimeout(() => el.classList.remove('highlight'), 2500);
+                }
+            }, 30);
+        } else {
+            window.scrollTo(0, 0);
+        }
+    }
+
+    function cssId(s) { return String(s).replace(/[^a-zA-Z0-9_-]/g, '_'); }
+
+    function readHash() {
+        const h = decodeURIComponent(location.hash.replace(/^#/, ''));
+        if (!h) return;
+        if (h.startsWith('view=')) {
+            const v = h.slice(5);
+            if (v === 'attention' || docs.some(d => d.scanner === v)) state.view = v;
+            return;
+        }
+        const f = allFindings.find(f => f.id === h);
+        if (f) {
+            state.view = f._scanner;
+            state.open.add(f.id);
+            setTimeout(() => {
+                const el = document.getElementById('f-' + cssId(f.id));
+                if (el) el.scrollIntoView({block: 'center'});
+            }, 30);
+        }
+    }
+
+    // ---------- sidebar ----------
+    // Generic page icons (logo / overview / attention) come from templates/icons/<name>.png when present.
+    function pageIcon(name, cls, fallbackHtml) {
+        if (ICONS && ICONS[name]) return '<img class="sicon ' + (cls || '') + '" src="' + ICONS[name] + '" alt="">';
+        return fallbackHtml || '';
+    }
+
+    function renderSidebar() {
+        const logo = document.getElementById('brand-logo');
+        if (ICONS && ICONS.logo) { logo.innerHTML = '<img src="' + ICONS.logo + '" alt="AI Insights">'; logo.classList.add('img'); }
+        document.getElementById('project-name').innerHTML = 'Project: <b>' + esc(projectName) + '</b>';
+        const attention = allFindings.filter(f => f.severity !== 'info');
+        document.getElementById('nav-fixed').innerHTML =
+            navItem('overview', pageIcon('overview', '', '<span class="sicon">⌂</span>') + 'Overview', allFindings.length, '') +
+            navItem('attention', pageIcon('attention', '', '<span class="sicon">⚑</span>') + 'Attention items', attention.length, sevDots(attention));
+        document.getElementById('nav-scanners').innerHTML = docs.map(d =>
+            navItem(d.scanner, scannerIcon(d.scanner) + esc(scannerName(d.scanner)), d.findings.length, sevDots(d.findings))
+        ).join('');
+        document.getElementById('sidebar-foot').innerHTML =
+            docs.length + ' scanner' + (docs.length === 1 ? '' : 's') + ' · ' + allFindings.length + ' findings<br>' +
+            'generated ' + esc(fmtDate(GENERATED_AT)) + '<br>' +
+            '<a href="combined-report.json" target="_blank" title="all scanners merged into one findings document">combined-report.json</a><br>' +
+            '<a href="https://sokrates.dev" target="_blank">sokrates.dev</a>';
+    }
+
+    function navItem(view, label, count, extra) {
+        return '<div class="nav-item' + (state.view === view ? ' active' : '') + '" onclick="go(\'' + esc(view) + '\')">' +
+            '<span class="name">' + label + '</span>' + (extra || '') + '<span class="count">' + count + '</span></div>';
+    }
+
+    // ---------- main views ----------
+    function render() {
+        renderSidebar();
+        const main = document.getElementById('main');
+        if (!docs.length) {
+            main.innerHTML = '<div class="empty">No findings documents were embedded in this explorer.</div>';
+            return;
+        }
+        if (state.view === 'overview') main.innerHTML = renderOverview();
+        else if (state.view === 'attention') main.innerHTML = renderAttention();
+        else main.innerHTML = renderScanner(docs.find(d => d.scanner === state.view));
+    }
+
+    function tiles(findings) {
+        const c = sevCounts(findings);
+        let html = '<div class="tiles">' +
+            '<div class="tile"><div class="v">' + findings.length + '</div><div class="l">findings</div>' + sevBar(findings) + '</div>';
+        SEVERITIES.forEach(s => {
+            html += '<div class="tile">' +
+                '<div class="v" style="color:' + (s === 'info' ? 'var(--muted)' : SEV_COLOR[s]) + '">' + c[s] + '</div>' +
+                '<div class="l">' + s + '</div><div class="bar" style="background:' + SEV_COLOR[s] + '"></div></div>';
+        });
+        return html + '</div>';
+    }
+
+    function renderOverview() {
+        const dates = docs.map(d => (d.analyzed_at || '').slice(0, 10)).filter(Boolean).sort();
+        const commit = (docs.find(d => d.target && d.target.commit) || {target: {}}).target.commit;
+        let html = '<div class="page-head scanner-head">' + pageIcon('overview', 'page') + '<div>' +
+            '<h2>AI insights — Overview</h2>' +
+            '<div class="meta">' + docs.length + ' scanners · ' + allFindings.length + ' findings' +
+            (dates.length ? ' · analyzed ' + dates[0] + (dates[dates.length - 1] !== dates[0] ? ' – ' + dates[dates.length - 1] : '') : '') +
+            (commit ? ' · commit <code>' + esc(String(commit).slice(0, 12)) + '</code>' : '') + '</div></div></div>';
+        html += tiles(allFindings);
+
+        html += '<div class="cards">';
+        docs.forEach(d => {
+            const c = sevCounts(d.findings);
+            const groups = new Set(d.findings.map(f => f.group));
+            html += '<div class="card" onclick="go(\'' + esc(d.scanner) + '\')">' +
+                '<div class="card-head">' + scannerIcon(d.scanner, 'card') + '<div>' +
+                '<h3>' + esc(scannerName(d.scanner)) + '</h3>' +
+                '<div class="meta"><code>' + esc(d.scanner) + '</code> v' + esc(d.scanner_version || '?') + ' · ' + esc((d.analyzed_at || '').slice(0, 10)) +
+                (d._file ? ' · <a class="json-link" href="' + esc(d._file) + '" target="_blank" onclick="event.stopPropagation()" title="open the raw findings JSON">json</a>' : '') + '</div>' +
+                '</div></div>' +
+                (scannerDescription(d.scanner) ? '<div class="scanner-desc" title="' + esc(scannerDescription(d.scanner)) + '">' + esc(scannerDescription(d.scanner)) + '</div>' : '') +
+                sevBar(d.findings) +
+                '<div class="counts"><span><b>' + d.findings.length + '</b> findings</span><span><b>' + groups.size + '</b> groups</span>' +
+                SEVERITIES.filter(s => c[s] && s !== 'info').map(s => '<span style="color:' + SEV_COLOR[s] + '"><b>' + c[s] + '</b> ' + s + '</span>').join('') +
+                '</div><div class="sum">' + bullets(d.summary, 3) + '</div></div>';
+        });
+        html += '</div>';
+
+        const attention = sortFindings(allFindings.filter(f => f.severity !== 'info')).slice(0, 12);
+        if (attention.length) {
+            html += '<h3 style="margin-top: 30px">Top attention items</h3>' + attentionTable(attention) +
+                '<p style="margin-top: 8px"><a href="#" onclick="go(\'attention\'); return false;">All ' +
+                allFindings.filter(f => f.severity !== 'info').length + ' attention items →</a></p>';
+        }
+        return html;
+    }
+
+    function attentionTable(list) {
+        return '<table class="list"><thead><tr><th></th><th>Finding</th><th>Scanner</th><th>Group</th><th>Confidence</th></tr></thead><tbody>' +
+            list.map(f => '<tr onclick="go(\'' + esc(f._scanner) + '\', \'' + esc(f.id) + '\')" style="cursor:pointer">' +
+                '<td style="text-align:center">' + sevDot(f.severity) + '</td><td>' + scannerIcon(f._scanner) + hl(f.title) + '</td>' +
+                '<td class="scanner">' + esc(scannerName(f._scanner)) + '</td><td class="scanner">' + esc(f.group) + '</td><td>' + pill(f.confidence) + '</td></tr>').join('') +
+            '</tbody></table>';
+    }
+
+    function toolbar(findings, showGroups) {
+        const c = sevCounts(findings);
+        const cc = {certain: 0, likely: 0, possible: 0};
+        findings.forEach(f => cc[f.confidence]++);
+        let html = '<div class="toolbar">' +
+            '<input id="filter" type="text" placeholder="search… (use ; for multiple terms)" value="' + esc(state.query) + '" oninput="onQuery(this.value)">' +
+            '<div class="chips">' + SEVERITIES.map(s =>
+                '<span class="chip sev' + (state.severities.has(s) ? '' : ' off') + '" style="border-left-color:' + SEV_COLOR[s] + '" onclick="toggleSev(\'' + s + '\')">' +
+                s + '<span class="n">' + c[s] + '</span></span>').join('') + '</div>' +
+            '<div class="chips">' + CONFIDENCES.map(k =>
+                '<span class="chip' + (state.confidences.has(k) ? '' : ' off') + '" onclick="toggleConf(\'' + k + '\')">' + k + '<span class="n">' + cc[k] + '</span></span>').join('') + '</div>' +
+            '<span class="spacer"></span>' +
+            '<select onchange="state.sort=this.value; render()">' +
+            [['severity', 'sort: severity'], ['title', 'sort: title'], ['confidence', 'sort: confidence'], ['evidence', 'sort: evidence count']]
+                .map(o => '<option value="' + o[0] + '"' + (state.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select>' +
+            '<button class="btn" onclick="expandAll(true)">expand all</button>' +
+            '<button class="btn" onclick="expandAll(false)">collapse all</button>' +
+            '</div>';
+        return html;
+    }
+
+    function renderAttention() {
+        const base = allFindings.filter(f => f.severity !== 'info');
+        const visible = sortFindings(base.filter(matches));
+        let html = '<div class="page-head scanner-head">' + pageIcon('attention', 'page') + '<div><h2>Attention items</h2>' +
+            '<div class="meta">All findings with severity above <i>info</i>, across ' + docs.length + ' scanners</div></div></div>';
+        html += toolbar(base, false);
+        html += '<div class="result-count" style="margin-bottom: 10px">' + visible.length + ' of ' + base.length + ' shown</div>';
+        html += visible.length ? visible.map(f => findingCard(f, true)).join('') : '<div class="empty">Nothing matches the current filters.</div>';
+        return html;
+    }
+
+    function renderScanner(d) {
+        if (!d) return '<div class="empty">Unknown scanner.</div>';
+        const findings = d.findings;
+        let html = '<div class="page-head scanner-head">' + scannerIcon(d.scanner, 'page') + '<div>' +
+            '<h2>' + esc(scannerName(d.scanner)) + '</h2>' +
+            '<div class="meta"><code>' + esc(d.scanner) + '</code> v' + esc(d.scanner_version || '?') +
+            ' · analyzed ' + esc(fmtDate(d.analyzed_at)) +
+            (d.target && d.target.commit ? ' · commit <code>' + esc(String(d.target.commit).slice(0, 12)) + '</code>' : '') +
+            (d._file ? ' · <a class="json-link" href="' + esc(d._file) + '" target="_blank" title="open the raw findings JSON"><code>' + esc(d._file) + '</code></a>' : '') + '</div>' +
+            (scannerDescription(d.scanner) ? '<div class="scanner-desc">' + esc(scannerDescription(d.scanner)) + '</div>' : '') + '</div></div>';
+        if (d.summary) {
+            const open = !state.summaryCollapsed.has(d.scanner);
+            html += '<div class="summary' + (open ? ' open' : '') + '">' +
+                '<div class="summary-head" onclick="toggleSummary(\'' + esc(d.scanner) + '\')">' +
+                '<span class="caret">' + (open ? '▾' : '▸') + '</span> Summary' +
+                (open ? '' : '<span class="hint">' + sentences(d.summary).length + ' points — click to expand</span>') + '</div>' +
+                (open ? '<div class="summary-body">' + bullets(d.summary) + '</div>' : '') + '</div>';
+        }
+
+        // group navigation
+        const groupMap = {};
+        findings.forEach(f => (groupMap[f.group] = groupMap[f.group] || []).push(f));
+        const groupNames = Object.keys(groupMap).sort((a, b) =>
+            SEV_RANK[worstSeverity(groupMap[a])] - SEV_RANK[worstSeverity(groupMap[b])] || groupMap[b].length - groupMap[a].length);
+
+        html += '<div class="report-body">';
+        html += toolbar(findings, true);
+        html += '<div class="group-nav">' + groupNames.map(g => {
+            const on = !state.groups || state.groups.has(g);
+            const gd = groupDescription(d.scanner, g);
+            return '<span class="chip' + (on ? '' : ' off') + '" onclick="toggleGroup(\'' + esc(g) + '\', event)" title="' + esc(gd ? gd + ' — ' : '') + 'click: toggle · shift+click: only this group">' +
+                '<span class="dot" style="background:' + SEV_COLOR[worstSeverity(groupMap[g])] + '; margin-right:5px"></span>' +
+                esc(titleCase(g)) + '<span class="n">' + groupMap[g].length + '</span></span>';
+        }).join('') + '</div>';
+
+        let shown = 0;
+        let body = '';
+        groupNames.forEach(g => {
+            const visible = sortFindings(groupMap[g].filter(matches));
+            if (!visible.length) return;
+            shown += visible.length;
+            const collapsed = state.collapsedGroups.has(g);
+            body += '<section class="group-section"><div class="group-head" onclick="toggleGroupCollapse(\'' + esc(g) + '\')">' +
+                '<h3>' + esc(titleCase(g)) + '</h3><span class="n">' + visible.length + (visible.length !== groupMap[g].length ? ' of ' + groupMap[g].length : '') + '</span>' +
+                sevBar(visible, '90px') + '<span class="caret">' + (collapsed ? '▸' : '▾') + '</span></div>' +
+                (groupDescription(d.scanner, g) ? '<div class="group-desc">' + esc(groupDescription(d.scanner, g)) + '</div>' : '') +
+                (collapsed ? '' : visible.map(f => findingCard(f, false)).join('')) + '</section>';
+        });
+        html += '<div class="result-count" style="margin-bottom: 10px">' + shown + ' of ' + findings.length + ' findings shown</div>';
+        html += body || '<div class="empty">Nothing matches the current filters.</div>';
+        html += '</div>';
+        return html;
+    }
+
+    function findingCard(f, showScanner) {
+        const open = state.open.has(f.id);
+        const evidence = f.evidence || [];
+        let html = '<div class="finding attn-' + f.severity + (open ? ' open' : '') + '" id="f-' + cssId(f.id) + '">' +
+            '<div class="f-head" onclick="toggleOpen(\'' + esc(f.id) + '\')">' +
+            listBadge(f.severity) + scannerIcon(f._scanner) + '<span class="title">' + hl(f.title) + '</span>' +
+            (showScanner ? '<span class="tag">' + esc(scannerName(f._scanner)) + '</span>' : '') +
+            '<span class="tag">' + esc(f.group) + '</span>' + pill(f.confidence) +
+            '<span class="pill" title="evidence citations">' + evidence.length + ' ev</span>' +
+            '<span class="caret">▶</span></div>';
+        html += '<div class="f-body">';
+        html += '<div class="f-desc">' + bullets(f.description, 0, hl) + '</div>';
+        if (f.recommendation) html += '<div class="f-rec"><b>Recommendation.</b> ' + emphasize(hl(f.recommendation)) + '</div>';
+        if (evidence.length) {
+            html += '<div class="f-section-title">Evidence</div>';
+            evidence.forEach(e => {
+                const lines = e.start_line === e.end_line || !e.end_line ? 'line ' + e.start_line : 'lines ' + e.start_line + '–' + e.end_line;
+                html += '<div class="evidence"><div class="loc"><span class="file mono">' + hl(e.file) + '</span>' +
+                    '<span class="lines">' + esc(lines) + '</span>' +
+                    (e.note ? '<span class="note">' + hl(e.note) + '</span>' : '') + '</div>' +
+                    '<pre>' + hl(e.snippet) + '</pre></div>';
+            });
+        } else if (f.confidence === 'possible') {
+            html += '<div class="f-section-title">Evidence</div><div style="font-size:12.5px;color:var(--muted)">No file citation — inference only.</div>';
+        }
+        if (f.attributes && typeof f.attributes === 'object' && Object.keys(f.attributes).length) {
+            html += '<div class="f-section-title">Attributes</div><table class="attrs">' +
+                Object.keys(f.attributes).map(k => '<tr><td class="k">' + esc(k) + '</td><td>' +
+                    esc(typeof f.attributes[k] === 'object' ? JSON.stringify(f.attributes[k]) : f.attributes[k]) + '</td></tr>').join('') + '</table>';
+        }
+        html += '<div class="f-foot">' +
+            '<span class="id mono" onclick="copyLink(\'' + esc(f.id) + '\')" title="copy link">' + esc(f.id) + '</span>' +
+            (f.tags || []).map(t => '<span class="tag">' + hl(t) + '</span>').join('') +
+            (f.sokrates_refs || []).map(r => '<span class="ref mono">' + hl(r) + '</span>').join('') +
+            '</div></div></div>';
+        return html;
+    }
+
+    // ---------- interaction ----------
+    function onQuery(v) {
+        state.query = v;
+        const el = document.getElementById('filter');
+        const pos = el ? el.selectionStart : null;
+        render();
+        const el2 = document.getElementById('filter');
+        if (el2) { el2.focus(); if (pos != null) el2.setSelectionRange(pos, pos); }
+    }
+
+    function toggleSev(s) {
+        if (state.severities.has(s)) state.severities.delete(s); else state.severities.add(s);
+        if (!state.severities.size) SEVERITIES.forEach(x => state.severities.add(x));
+        render();
+    }
+
+    function toggleConf(c) {
+        if (state.confidences.has(c)) state.confidences.delete(c); else state.confidences.add(c);
+        if (!state.confidences.size) CONFIDENCES.forEach(x => state.confidences.add(x));
+        render();
+    }
+
+    function toggleGroup(g, ev) {
+        const d = docs.find(d => d.scanner === state.view);
+        const all = new Set(d.findings.map(f => f.group));
+        if (ev && ev.shiftKey) {
+            state.groups = new Set([g]);
+        } else {
+            if (!state.groups) state.groups = new Set(all);
+            if (state.groups.has(g)) state.groups.delete(g); else state.groups.add(g);
+            if (!state.groups.size || state.groups.size === all.size) state.groups = null;
+        }
+        render();
+    }
+
+    function toggleSummary(id) {
+        if (state.summaryCollapsed.has(id)) state.summaryCollapsed.delete(id); else state.summaryCollapsed.add(id);
+        render();
+    }
+
+    function toggleGroupCollapse(g) {
+        if (state.collapsedGroups.has(g)) state.collapsedGroups.delete(g); else state.collapsedGroups.add(g);
+        render();
+    }
+
+    function toggleOpen(id) {
+        if (state.open.has(id)) state.open.delete(id); else state.open.add(id);
+        const el = document.getElementById('f-' + cssId(id));
+        if (el) el.classList.toggle('open', state.open.has(id));
+    }
+
+    function expandAll(open) {
+        const list = state.view === 'attention' ? allFindings.filter(f => f.severity !== 'info')
+            : (docs.find(d => d.scanner === state.view) || {findings: []}).findings;
+        list.forEach(f => open ? state.open.add(f.id) : state.open.delete(f.id));
+        render();
+    }
+
+    function copyLink(id) {
+        const url = location.href.split('#')[0] + '#' + encodeURIComponent(id);
+        if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast('Link copied'), () => toast(url));
+        else toast(url);
+    }
+
+    window.addEventListener('hashchange', () => { readHash(); render(); });
+
+    readHash();
+    render();
+</script>
+</body>
+</html>

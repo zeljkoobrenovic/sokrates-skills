@@ -1,0 +1,41 @@
+---
+name: sokrates-repo-config
+description: Creates and tunes the per-repository Sokrates configuration (_sokrates/config.json) - source scope (srcRoot, extensions, ignore rules), classification of files into main/test/generated/build/other, logical decompositions into components (folder depth, explicit components, meta rules), concerns (features of interest), goals and controls, git-history and contributor settings, analysis limits and risk thresholds. Includes a preview script that simulates Sokrates' scoping on the real tree so a config can be checked before running the analysis. Use when the user wants to set up Sokrates for a repository, asks why files are missing/misclassified in a Sokrates report, wants better components, wants to exclude vendored or generated code, tune thresholds, or make init reproducible across many repositories.
+---
+
+# Sokrates repository configuration
+
+`sokrates init` writes a workable `_sokrates/config.json`, but the quality of every Sokrates report — and of every AI scanner built on it — depends on three things `init` cannot know: what the *real* source is (vs. vendored, generated, test, docs), how the system is *actually* divided into components, and which cross-cutting concerns matter. This skill makes those decisions explicitly and verifies them against the tree before Sokrates runs.
+
+Full field reference (read from the Java model, with the gotchas the docs get wrong): `references/config-reference.md`. Read it when touching a section you have not configured before.
+
+## Workflow
+
+1. **Establish the baseline.** If `_sokrates/config.json` does not exist, run `sokrates init` in the repository root (or write a config from the reference's shape — but `init` is better: it materialises the built-in scoping conventions that match this tree). If a config exists, keep it: edits are incremental, and `updateConfig`/`init` never need to be re-run.
+2. **Preview what the config does** — mandatory before and after every change:
+   ```bash
+   python3 <this-skill-path>/scripts/preview_config.py <repo>/_sokrates/config.json [--json <scratch>/preview.json]
+   ```
+   The script applies Sokrates' own rules (extension filter → size limits → `ignore` → scope precedence → folder-depth components → concerns) to the real files and reports: files excluded and why, extensions present but not configured, each scope's size and samples, each decomposition's components with LOC share, concern hits, whether git history is present — and lints: **regexes that don't compile** (Sokrates silently treats them as matching nothing — an ERROR here, invisible there), dead rules, main files that look like tests or generated code, single or giant components, unclassified files. `FAILED` means the config has errors; do not hand it over.
+3. **Fix the scope first** (the numbers in every report depend on it), in this order:
+   - `extensions`: add the ones the preview lists as present-but-unconfigured when they are source (`bazel`, `yml`, `kt`, …), remove ones that only carry data. Remember `yml` is normalised to `yaml` by `init` but the filter is exact — list both if both exist.
+   - `ignore`: vendored/third-party trees, build outputs, generated bundles, minified assets, data fixtures, and **always** `.*/_sokrates/.*` and `.*/_sokrates_landscape/.*` (init only adds them if the folder already existed — otherwise the analysis output ends up inside `main` on the second run; the preview shows this as a `_sokrates` component).
+   - `test` / `generated` / `buildAndDeployment` / `other`: add filters for what the preview flags in main. Precedence is **generated > other > test > build > main**, so a file matched by several scopes lands in the highest; `main` needs no filters of its own beyond `.*`. Filters within a scope are order-independent; `exception: true` vetoes.
+   - Size limits (`analysis.maxLines`, `maxLineLength`, `maxFileSizeBytes`) only if real source is being excluded as "too long lines" (minified or generated files usually *should* be excluded — classify them instead).
+4. **Design the decomposition(s).** The default is folder depth 1 on `main`. Judge the preview: one component holding most of the LOC → raise `componentsFolderDepth` (or set `minComponentsCount`); more than ~40 components → lower it or define explicit `components` with `sourceFileFilters`; a monorepo with heterogeneous parts → several named decompositions (e.g. `primary` by folder depth 2, `by-technology` with explicit components, `by-layer` with meta rules). Keep component names meaningful (they become `component:<name>` refs in scanner findings). Explicit components must be disjoint — the preview reports `Multiple Classifications`; fix with `exception` filters. Use `filters` + `includeRemainingFiles: false` to analyse a slice.
+5. **Concerns.** Keep `TODOs`; add concerns that matter to this codebase — security-sensitive code (`.*(password|secret|token|crypt).*` as content patterns on the right paths), feature flags, deprecated APIs, a framework being migrated away from. Content patterns must match a **whole line** (`.*X.*`); concerns match `main` only.
+6. **History and people.** Make sure `git-history.txt` exists (`sokrates extractGitHistory` in the repo root); set `fileHistoryAnalysis.bots` for CI accounts, `transformContributorEmails` to normalise identities (strip `+id` GitHub prefixes, unify domains), `ignoreContributors` for service accounts, `anonymizeContributors` when the report leaves the team.
+7. **Goals, thresholds, tags.** Adjust `goalsAndControls` ranges to the codebase's reality only when the defaults are meaningless (a 2M-LOC monorepo will never satisfy `LINES_OF_CODE_MAIN ≤ 200000`; set a goal that can be missed). Leave risk thresholds unless the organisation has its own standard. Add `tagRules` for technologies the defaults miss.
+8. **Re-preview, then hand over**: report what changed and why in scope numbers (files/LOC per scope before → after), the component list with shares, remaining warnings you chose to accept, and the exact command to run next (`sokrates generateReports` from the repo root, or `-confFile` if elsewhere).
+
+## Reusable conventions across many repositories
+
+When the same rules apply to a whole organisation, do not hand-edit each config: write an `analysis_conventions.json` (`sokrates createConventionsFile` gives the skeleton; reference §"analysis_conventions.json") with the shared ignore/test/generated rules, `extensions.alwaysExclude`, bots and `ignoreContributors`, thresholds, and `componentsFolderDepth`, and run `sokrates init -conventionsFile <file>` per repository. Verify one representative repository with the preview before rolling it out.
+
+## Rules of thumb
+
+- Every regex is anchored: path patterns match the **entire path including the srcRoot prefix** (start them with `.*`), content patterns match an **entire line**. Test a doubtful pattern with the preview rather than reasoning about it.
+- Prefer classifying over ignoring: ignored files disappear from every report; a `generated` or `other` file still counts in the inventory and can be reasoned about.
+- Do not touch `srcRoot` unless the config lives outside the repository; the default `..` is right for `<repo>/_sokrates/config.json`.
+- Keys not in the reference do nothing. In particular `trendAnalysis`, `compareResultsWith`, `excludeFiles`, `maxFileSize` are documentation ghosts.
+- After changing the config, existing `_sokrates/findings/ai-insights/*.json` from AI scanners may cite components that no longer exist — re-run the scanners after the next `generateReports` when component names changed.

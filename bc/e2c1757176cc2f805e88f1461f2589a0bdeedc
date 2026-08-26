@@ -1,0 +1,14 @@
+install.sh
+  h_32d60cd4daf66e 22,27,29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "bce2c1757176cc2f805e88f1461f2589a0bdeedc",
+  "prompts": {},
+  "humans": {
+    "h_32d60cd4daf66e": {
+      "author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

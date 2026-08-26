@@ -19,10 +19,12 @@ else
 fi
 for target in $TARGETS; do
   mkdir -p "$target"
+  n=0
   for skill in "$HERE"/skills/scanners/*/ "$HERE"/skills/config/*/; do
     name="$(basename "$skill")"
     [ -f "$skill/SKILL.md" ] || continue
     ln -sfn "${skill%/}" "$target/$name"
+    n=$((n + 1))
   done
-  echo "linked $(ls "$HERE"/skills/scanners "$HERE"/skills/config | grep -vc '^$\|README') skills into $target"
+  echo "linked $n skills into $target"
 done

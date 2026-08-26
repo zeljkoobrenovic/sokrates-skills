@@ -61,10 +61,16 @@ for s in skills/scanners/*/ skills/config/*/; do ln -s "$(pwd)/$s" ~/.claude/ski
 
 Then, in a project that has a Sokrates analysis (`_sokrates/` next to the source), ask your tool for e.g. "run a tech stack scan", "run a full scan", "define better components for this repo", or "merge duplicate contributors in this landscape".
 
-To show the explorer inside the main Sokrates HTML report, add it as a custom tab (run in the project folder, after the first scan):
+Typical sequence in a project:
+
+1. `sokrates init`, `sokrates extractGitHistory`, `sokrates generateReports`
+2. refine the configuration with the config skills ("check the Sokrates configuration", "define meaningful components", "which features of interest should Sokrates track?", "merge duplicate contributors"), then `sokrates generateReports` again
+3. run the scanners ("run a full scan") — results in `_sokrates/findings/ai-insights/index.html`
+4. embed the explorer in the main Sokrates report, once, then regenerate to see the new tab:
 
 ```bash
 java -jar sokrates.jar addCustomTab -label "AI Insights*" -iframeLink "../../findings/ai-insights/index.html"
+java -jar sokrates.jar generateReports
 ```
 
 Requirements: Python 3.9+ (standard library only) for the scripts; a Sokrates analysis (`sokrates init` → `sokrates generateReports`) for the scanners; `git-history.txt` (`sokrates extractGitHistory`) for history-based skills.

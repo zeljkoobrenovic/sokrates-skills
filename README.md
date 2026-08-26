@@ -51,15 +51,25 @@ The field references under `skills/config/*/references/` were read from the Sokr
 
 ## Install
 
-Link the skills you want into your tool's skills folder (Claude Code shown):
+Every skill is a folder with a `SKILL.md` (the open [Agent Skills](https://agentskills.io) format), so the same folders work in any tool that supports skills. `install.sh` symlinks all of them into the right places; `git pull` then updates every tool at once.
 
 ```bash
 git clone https://github.com/zeljkoobrenovic/sokrates-skills.git
 cd sokrates-skills
-for s in skills/scanners/*/ skills/config/*/; do ln -s "$(pwd)/$s" ~/.claude/skills/$(basename "$s"); done
+./install.sh            # → ~/.claude/skills (Claude Code) and ~/.agents/skills (Codex, Gemini CLI, Cursor, Copilot, …)
+./install.sh --project  # → ./.claude/skills and ./.agents/skills of the current project instead (shareable via git)
 ```
 
-Then, in a project that has a Sokrates analysis (`_sokrates/` next to the source), ask your tool for e.g. "run a tech stack scan", "run a full scan", "define better components for this repo", or "merge duplicate contributors in this landscape".
+| tool | reads skills from | invoke |
+|---|---|---|
+| **Claude Code** | `~/.claude/skills/` (personal), `.claude/skills/` (project) | automatically when relevant, or `/tech-stack-scan` |
+| **OpenAI Codex CLI** | `~/.agents/skills/` (personal), `.agents/skills/` (repository) | automatically, or `$tech-stack-scan` |
+| **Gemini CLI** | `~/.gemini/skills/` or `~/.agents/skills/` (user), `.gemini/skills/` or `.agents/skills/` (workspace); also `gemini skills install https://github.com/zeljkoobrenovic/sokrates-skills.git` | the agent activates a matching skill after a confirmation prompt; `gemini skills list --all` |
+| **Cursor** | `~/.cursor/skills/` or `~/.agents/skills/` (user), `.cursor/skills/` or `.agents/skills/` (project); `.claude/skills/` is read too | `/` in Agent chat, or automatically |
+| **GitHub Copilot** (CLI, VS Code, coding agent) | `~/.copilot/skills/` or `~/.agents/skills/` (personal), `.github/skills/`, `.agents/skills/` or `.claude/skills/` (repository) | automatically; `gh skill` to install from repositories |
+| any other Agent-Skills tool | its skills folder — `./install.sh <folder>` | see the tool's docs |
+
+Manual alternative: `ln -s "$(pwd)/skills/scanners/tech-stack-scan" ~/.agents/skills/tech-stack-scan` per skill, or copy the folders.
 
 Typical sequence in a project:
 

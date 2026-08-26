@@ -1,0 +1,21 @@
+README.md
+  s_3786983bc6bd72::t_ef10cfed07b354 64-69
+skills/scanners/sokrates-scan-core/SKILL.md
+  s_3786983bc6bd72::t_d37071143a1922 54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "270cdeec1c02931616dedaab36986d2f52bcc423",
+  "prompts": {},
+  "sessions": {
+    "s_3786983bc6bd72": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a1f85628-6910-42bd-a09c-cda8952fefb1",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

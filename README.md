@@ -47,7 +47,7 @@ The field references under `skills/config/*/references/` were read from the Sokr
 
 ## Example
 
-`examples/codex/ai-insights/index.html` is the explorer for [openai/codex](https://github.com/openai/codex) with all nine scanners (191 verified findings) — open it in a browser to see what the output looks like.
+**[Live: AI Insights Explorer for openai/codex](https://zeljkoobrenovic.github.io/sokrates-skills/examples/codex/ai-insights/)** — all nine scanners, 191 verified findings (source in `examples/codex/ai-insights/`).
 
 ## Install
 

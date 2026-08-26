@@ -1,0 +1,41 @@
+README.md
+  s_3786983bc6bd72::t_324bb5743fed92 48-51
+examples/README.md
+  s_3786983bc6bd72::t_599dc838af1a20 1-14
+examples/codex/ai-insights/architecture-scan.json
+  s_3786983bc6bd72::t_295cca9efe7046 1-700
+examples/codex/ai-insights/cicd-scan.json
+  s_3786983bc6bd72::t_9a41d38b0ca6b5 1-601
+examples/codex/ai-insights/domain-map-scan.json
+  s_3786983bc6bd72::t_70e68295d77445 1-805
+examples/codex/ai-insights/evolution-scan.json
+  s_3786983bc6bd72::t_81ae83e6164a2c 1-1341
+examples/codex/ai-insights/index.html
+  s_3786983bc6bd72::t_635beae791b63d 1-929
+examples/codex/ai-insights/observability-scan.json
+  s_3786983bc6bd72::t_a3906132ced99f 1-523
+examples/codex/ai-insights/risk-synthesis-scan.json
+  s_3786983bc6bd72::t_071dddb5f8a707 1-614
+examples/codex/ai-insights/security-design-scan.json
+  s_3786983bc6bd72::t_21e8c997721764 1-682
+examples/codex/ai-insights/security-scan.json
+  s_3786983bc6bd72::t_662360291a5674 1-458
+examples/codex/ai-insights/tech-stack-scan.json
+  s_3786983bc6bd72::t_dcc09726d9af55 1-1466
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "e5ce9732b29e865f312c9d60d9b8444226169b39",
+  "prompts": {},
+  "sessions": {
+    "s_3786983bc6bd72": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a1f85628-6910-42bd-a09c-cda8952fefb1",
+        "model": "unknown"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

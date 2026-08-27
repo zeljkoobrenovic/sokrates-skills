@@ -10,8 +10,9 @@ Sokrates measures: size, complexity, duplication, churn, coupling, contributors.
 skills/
 ├── scanners/    analysis skills — read a finished _sokrates/ analysis, write verifiable findings,
 │                render the AI Insights Explorer (one interactive HTML page per project)
-└── config/      configuration skills — create and tune _sokrates/config.json and
-                 _sokrates_landscape/ files, each with a checker that simulates Sokrates' rules
+├── config/      configuration skills — create and tune _sokrates/config.json and
+│                _sokrates_landscape/ files, each with a checker that simulates Sokrates' rules
+└── illustrators/ optional scripts that add generated visuals to scanner results
 ```
 
 ### Analysis skills (`skills/scanners/`)
@@ -46,9 +47,13 @@ Every finding carries file + line + verbatim snippet evidence that a script veri
 
 The field references under `skills/config/*/references/` were read from the Sokrates Java source, including the places where the documentation and the code disagree.
 
+### Illustrations (`skills/illustrators/`)
+
+`generate_summary_visuals.py` turns each scanner's summary into one calm, mostly visual illustration that tells its story with a few key words — a pipeline for CI/CD, a landscape with glowing hotspots for risks, growth rings for evolution. It uses Google's Gemini image model (`GEMINI_API_KEY`), saves the images in `ai-insights/visuals/`, records them in the findings JSON (`summary_visual`) and re-renders the explorer, which shows each image at the end of the foldable summary block. Optional: without it the explorer looks exactly as before.
+
 ## Example
 
-**[Live: AI Insights Explorer for openai/codex](https://zeljkoobrenovic.github.io/sokrates-skills/examples/codex/ai-insights/)** — all ten scanners, 228 verified findings (source in `examples/codex/ai-insights/`).
+**[Live: AI Insights Explorer for openai/codex](https://zeljkoobrenovic.github.io/sokrates-skills/examples/codex/ai-insights/)** — all ten scanners, 228 verified findings, each summary illustrated (source in `examples/codex/ai-insights/`).
 
 ## Install
 
@@ -77,7 +82,8 @@ Typical sequence in a project:
 1. `sokrates init`, `sokrates extractGitHistory`, `sokrates generateReports`
 2. refine the configuration with the config skills ("check the Sokrates configuration", "define meaningful components", "which features of interest should Sokrates track?", "merge duplicate contributors"), then `sokrates generateReports` again
 3. run the scanners ("run a full scan") — results in `_sokrates/findings/ai-insights/index.html`
-4. embed the explorer in the main Sokrates report, once, then regenerate to see the new tab:
+4. optionally illustrate the summaries: `GEMINI_API_KEY=... python3 skills/illustrators/generate_summary_visuals.py <project>/_sokrates/findings/ai-insights`
+5. embed the explorer in the main Sokrates report, once, then regenerate to see the new tab:
 
 ```bash
 java -jar sokrates.jar addCustomTab -label "AI Insights*" -iframeLink "../../findings/ai-insights/index.html"

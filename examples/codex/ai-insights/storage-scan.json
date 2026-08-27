@@ -1,0 +1,790 @@
+{
+  "scanner": "storage-scan",
+  "scanner_version": "1.0",
+  "analyzed_at": "2026-08-27T20:00:00Z",
+  "target": {
+    "name": "openai / codex",
+    "src_root": "../../.."
+  },
+  "summary": "Codex persists everything under one home directory (`CODEX_HOME`, default `~/.codex`). The **canonical record is append-only JSONL** rollouts under `sessions/`, compressed to zstd after 7 days; **six versioned SQLite databases** (WAL, synchronous=NORMAL, checksummed SQLx migrations) are explicitly rebuildable views over them, and a corrupt database is quarantined into `db-backups/` and refilled by backfill. Config, caches, secrets and plugin trees are written atomically; caches and secrets carry version fields and self-invalidate or fail closed. The data class most at risk is the rollout set: it is the only source of truth, holds the most sensitive content, has **no format version** and **no retention**. Two smaller gaps: `auth.json` is rewritten in place rather than atomically, and `history.jsonl` is uncapped unless configured. 16 findings, 3 above info (all low).",
+  "stats": {
+    "file_write_sites": 148,
+    "file_read_sites": 259,
+    "append_sites": 12,
+    "atomic_write_sites": 74,
+    "fsync_sites": 13,
+    "temp_file_sites": 83,
+    "serialization_sites": 707,
+    "serde_derive_sites": 2382,
+    "sql_sites": 623,
+    "transaction_sites": 63,
+    "migration_sites": 986,
+    "format_version_sites": 59,
+    "checksum_sites": 126,
+    "archive_sites": 29,
+    "db_pragma_sites": 10,
+    "lock_file_sites": 1088,
+    "data_dir_sites": 75,
+    "cleanup_sites": 286,
+    "cache_store_sites": 25,
+    "count_rule": "non-test files by path (test/tests/spec/mock/fixture segments, *_test.*, *Test.java, test_*.py); Rust #[cfg(test)] modules excluded; single-line regex matches; note: lock_file_sites is dominated by Mutex .lock() calls and migration_sites by external-agent-migration and rollout-migration code, neither of which is what the key names",
+    "data_classes": [
+      "session-rollouts",
+      "runtime-databases",
+      "config",
+      "credentials",
+      "managed-secrets",
+      "command-history",
+      "memories",
+      "plugins",
+      "caches",
+      "ephemera"
+    ],
+    "storage_backends": [
+      "filesystem (JSONL, JSONL+zstd, TOML, JSON, age-encrypted JSON, directory trees)",
+      "SQLite (WAL, six files, SQLx)",
+      "OS keyring (optional)"
+    ],
+    "formats": {
+      "rollout JSONL": "unversioned (cli_version in SessionMeta only)",
+      "*.sqlite": "filename suffix + SQLx checksummed migrations",
+      "config.toml": "tolerant reader, unversioned",
+      "auth.json": "unversioned",
+      "secrets *.age": "version field, rejects newer",
+      "cache JSON": "schema_version field, discard on mismatch",
+      "cloud-config cache": "version + HMAC + TTL",
+      "history.jsonl": "unversioned"
+    },
+    "migration_mechanism": "sqlx::migrate! embedded per database (50 state migrations), ignore_missing, forward-only; breaking changes by new filename + backfill from rollouts",
+    "write_safety": {
+      "session-rollouts": "append-only",
+      "runtime-databases": "database",
+      "config": "atomic",
+      "credentials": "in-place",
+      "managed-secrets": "atomic",
+      "command-history": "append-only",
+      "memories": "database",
+      "plugins": "atomic",
+      "caches": "atomic",
+      "ephemera": "in-place"
+    },
+    "retention": {
+      "session-rollouts": "unbounded",
+      "runtime-databases": "bounded (logs 10 days; others mirror rollouts)",
+      "config": "user-managed",
+      "credentials": "user-managed",
+      "managed-secrets": "user-managed",
+      "command-history": "unbounded (bounded if history.max_bytes set)",
+      "memories": "bounded",
+      "plugins": "user-managed",
+      "caches": "bounded (TTL)",
+      "ephemera": "ephemeral"
+    }
+  },
+  "findings": [
+    {
+      "id": "storage-scan/persistence-model/data-classes",
+      "group": "persistence-model",
+      "title": "Data-class inventory: everything persistent lives under CODEX_HOME as append-only JSONL, six versioned SQLite files, atomically written TOML/JSON, encrypted age files and a few caches",
+      "description": "Codex is a desktop/CLI agent with a **single home directory** (`CODEX_HOME`, default `~/.codex`) and no server-side database of its own. Ten data classes live there. **Session rollouts** are append-only JSONL under `sessions/YYYY/MM/DD/rollout-*.jsonl` (compressed to `.jsonl.zst` when cold) and are the canonical conversation record. **Runtime databases** are six SQLite files whose names carry a version suffix (`state_5.sqlite`, `logs_2.sqlite`, `goals_1.sqlite`, `memories_1.sqlite`, `queue_1.sqlite`, `thread_history_1.sqlite`) and are treated as rebuildable views over the rollouts. **User configuration** is `config.toml` plus layered profile files, written through `write_atomically`. **Credentials** are `auth.json` (0600, plain JSON) or the OS keyring; **managed secrets** are age-encrypted files (`local.age`, `codex_auth.age`, `mcp_oauth.age`) whose passphrase sits in the keyring. **Command history** is one global `history.jsonl`. **Memories** are DB rows plus a regenerated `raw_memories.md`. **Plugins** are staged directory trees under a versioned per-plugin root. **Caches** are small JSON files with a `schema_version` (remote plugin catalog, connector directory, apps tool cache, HMAC-signed cloud-config bundle). **Ephemera** are `shell_snapshots/`, `thread-writer-locks/`, `.tmp/` markers and `db-backups/`. Sensitivity is highest for `auth.json` and the rollouts (they contain prompts, tool output and file contents the agent read).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/utils/home-dir/src/lib.rs",
+          "start_line": 59,
+          "end_line": 59,
+          "snippet": "p.push(\".codex\");",
+          "note": "default data root"
+        },
+        {
+          "file": "codex-rs/state/src/sqlite.rs",
+          "start_line": 33,
+          "end_line": 33,
+          "snippet": "const STATE_DB_FILENAME: &str = \"state_5.sqlite\";",
+          "note": "versioned SQLite filename"
+        },
+        {
+          "file": "codex-rs/message-history/src/lib.rs",
+          "start_line": 52,
+          "end_line": 52,
+          "snippet": "const HISTORY_FILENAME: &str = \"history.jsonl\";"
+        }
+      ],
+      "tags": [
+        "inventory",
+        "codex-home"
+      ],
+      "sokrates_refs": [
+        "finding:functionality-scan/data/codex-home",
+        "finding:tech-stack-scan/databases-storage/sqlite-sqlx",
+        "finding:domain-language-scan/glossary/rollout",
+        "component:codex_rs"
+      ],
+      "attributes": {
+        "classes": {
+          "session-rollouts": {
+            "location": "sessions/YYYY/MM/DD/rollout-*.jsonl[.zst], archived_sessions/",
+            "format": "JSONL, zstd when cold",
+            "writer": "one background task per thread, guarded by writer lock",
+            "sensitivity": "high (prompts, tool output, file contents)"
+          },
+          "runtime-databases": {
+            "location": "<sqlite home>/{state_5,logs_2,goals_1,memories_1,queue_1,thread_history_1}.sqlite",
+            "format": "SQLite WAL",
+            "writer": "one process pool (5 conns) per db",
+            "sensitivity": "medium (metadata, memories, logs)"
+          },
+          "config": {
+            "location": "config.toml, <profile>.config.toml",
+            "format": "TOML",
+            "writer": "atomic temp+rename",
+            "sensitivity": "low-medium"
+          },
+          "credentials": {
+            "location": "auth.json or OS keyring",
+            "format": "JSON 0600",
+            "writer": "in-place truncate+write",
+            "sensitivity": "critical"
+          },
+          "managed-secrets": {
+            "location": "secrets/{local,codex_auth,mcp_oauth}.age",
+            "format": "age-encrypted JSON with version field",
+            "writer": "atomic",
+            "sensitivity": "critical"
+          },
+          "command-history": {
+            "location": "history.jsonl",
+            "format": "JSONL 0600",
+            "writer": "any TUI process, advisory lock",
+            "sensitivity": "medium"
+          },
+          "memories": {
+            "location": "memories_1.sqlite + raw_memories.md",
+            "format": "SQLite + regenerated markdown",
+            "writer": "memory pipeline",
+            "sensitivity": "medium"
+          },
+          "plugins": {
+            "location": "plugins/<id>/<version>/",
+            "format": "directory tree + metadata JSON",
+            "writer": "stage+rename with backup",
+            "sensitivity": "low"
+          },
+          "caches": {
+            "location": "cache JSON files (plugin catalog, connectors, apps tools, cloud-config)",
+            "format": "JSON with schema_version, HMAC for cloud-config",
+            "writer": "atomic",
+            "sensitivity": "low"
+          },
+          "ephemera": {
+            "location": "shell_snapshots/, thread-writer-locks/, .tmp/, db-backups/",
+            "format": "scripts, lock files, markers, moved db files",
+            "writer": "various",
+            "sensitivity": "low (shell env may leak vars)"
+          }
+        }
+      }
+    },
+    {
+      "id": "storage-scan/persistence-model/data-directory",
+      "group": "persistence-model",
+      "title": "Location resolution: CODEX_HOME env or ~/.codex, a separate SQLITE_HOME override for the databases, and a .tmp subfolder for cross-process markers",
+      "description": "All paths derive from one root. `find_codex_home` honours `CODEX_HOME` when set and **requires it to exist and be a directory** (a wrong value is fatal, not silently defaulted); otherwise it appends `.codex` to the platform home directory. The SQLite files have their own override: `resolve_sqlite_home_env` reads `codex_state::SQLITE_HOME_ENV`, which lets the databases live outside the home (and triggers a managed-requirements warning). Cross-process coordination artifacts (compression run marker, maintenance lock) are placed under `CODEX_HOME/.tmp`, and per-thread writer locks under `thread-writer-locks/`. Nothing is written relative to the working directory except the project's own `.codex/` config and instruction files, which are read, not persisted state.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/utils/home-dir/src/lib.rs",
+          "start_line": 14,
+          "end_line": 14,
+          "snippet": "let codex_home_env = std::env::var(\"CODEX_HOME\")"
+        },
+        {
+          "file": "codex-rs/core/src/config/mod.rs",
+          "start_line": 236,
+          "end_line": 236,
+          "snippet": "let raw = std::env::var(codex_state::SQLITE_HOME_ENV).ok()?;",
+          "note": "separate database home"
+        },
+        {
+          "file": "codex-rs/rollout/src/maintenance.rs",
+          "start_line": 27,
+          "end_line": 27,
+          "snippet": "let directory = codex_home.join(\".tmp\");"
+        }
+      ],
+      "tags": [
+        "paths",
+        "env"
+      ],
+      "sokrates_refs": [
+        "finding:functionality-scan/data/codex-home"
+      ]
+    },
+    {
+      "id": "storage-scan/persistence-model/store-session-rollouts",
+      "group": "persistence-model",
+      "title": "Session rollouts: append-only JSONL, one writer task per thread, compressed to zstd after 7 days, and the canonical source that every SQLite view is rebuilt from",
+      "description": "The rollout file is opened with `append(true)` and `create(true)` and the writer first makes sure the file is **newline-terminated** so a previous crash cannot glue two records together. Each thread has exactly one writer task; the live writer treats SQLite as a *rebuildable view* and forces the JSONL flush barrier to win before any projection into the database, so the database can lag the file but never lead it. A background worker compresses rollouts older than `MIN_ROLLOUT_AGE` (7 days) into `.jsonl.zst`; reading transparently handles both forms and appending to a compressed rollout materialises the plain file first. The first line is a `SessionMeta` record carrying `cli_version`, which is the only version marker in the format (see `schema-and-format/format-versioning`).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/rollout/src/recorder.rs",
+          "start_line": 1643,
+          "end_line": 1643,
+          "snippet": ".append(true)",
+          "note": "append-only open"
+        },
+        {
+          "file": "codex-rs/thread-store/src/local/live_writer.rs",
+          "start_line": 335,
+          "end_line": 335,
+          "snippet": "// SQLite is a rebuildable view. The flush barrier must win before projection starts so it"
+        },
+        {
+          "file": "codex-rs/rollout/src/compression.rs",
+          "start_line": 256,
+          "end_line": 256,
+          "snippet": "const MIN_ROLLOUT_AGE: Duration = Duration::from_secs(7 * 24 * 60 * 60);",
+          "note": "cold threshold"
+        }
+      ],
+      "tags": [
+        "jsonl",
+        "append-only",
+        "zstd"
+      ],
+      "sokrates_refs": [
+        "finding:domain-language-scan/glossary/rollout",
+        "finding:architecture-scan/evolution/rollout-jsonl-to-sqlite-state",
+        "finding:reliability-scan/resources/rollout-writer-buffer-and-retry",
+        "finding:performance-scan/io-and-memory/output-writing",
+        "component:codex_rs"
+      ]
+    },
+    {
+      "id": "storage-scan/persistence-model/store-runtime-databases",
+      "group": "persistence-model",
+      "title": "Six independent SQLite databases opened in WAL mode with synchronous=NORMAL, incremental auto-vacuum, a 5-second busy timeout and a 5-connection pool each",
+      "description": "Instead of one database, `codex-state` keeps **six files** (`state_5`, `logs_2`, `goals_1`, `memories_1`, `queue_1`, `thread_history_1`) so that corruption or a breaking schema change in one does not take the others down. Every read-write pool is created with `journal_mode(Wal)`, `synchronous(Normal)`, `auto_vacuum(Incremental)`, `busy_timeout(5s)` and `max_connections(5)`; a separate single-connection read-only pool (`create_if_missing(false)`) serves `sqlite_integrity_check`. The state database is explicitly an **index over the rollouts** with a `backfill_state` row tracking how far the rebuild has progressed; `thread_history_1` is documented as the rebuildable paginated history. Failure to open the state database is a hard error at init, while the other five are opened best-effort with a warning. The bundled SQLite is pinned to a version with the WAL-reset corruption fix (tech-stack finding).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/state/src/sqlite.rs",
+          "start_line": 282,
+          "end_line": 282,
+          "snippet": ".journal_mode(SqliteJournalMode::Wal)"
+        },
+        {
+          "file": "codex-rs/state/src/sqlite.rs",
+          "start_line": 285,
+          "end_line": 285,
+          "snippet": ".busy_timeout(Duration::from_secs(5))"
+        },
+        {
+          "file": "codex-rs/state/src/runtime.rs",
+          "start_line": 320,
+          "end_line": 320,
+          "snippet": "/// Open and migrate the rebuildable paginated thread-history database."
+        }
+      ],
+      "tags": [
+        "sqlite",
+        "wal"
+      ],
+      "sokrates_refs": [
+        "finding:tech-stack-scan/databases-storage/sqlite-sqlx",
+        "finding:reliability-scan/resources/atomic-writes-and-sqlite-durability",
+        "finding:reliability-scan/degradation/designed-fallbacks"
+      ],
+      "attributes": {
+        "databases": [
+          "state_5.sqlite",
+          "logs_2.sqlite",
+          "goals_1.sqlite",
+          "memories_1.sqlite",
+          "queue_1.sqlite",
+          "thread_history_1.sqlite"
+        ],
+        "pragmas": {
+          "journal_mode": "WAL",
+          "synchronous": "NORMAL",
+          "auto_vacuum": "INCREMENTAL",
+          "busy_timeout": "5s"
+        },
+        "pool": "5 connections rw, 1 read-only"
+      }
+    },
+    {
+      "id": "storage-scan/access-patterns/database-access",
+      "group": "access-patterns",
+      "title": "Database access is hand-written SQL through SQLx with bound parameters and explicit transactions; no ORM",
+      "description": "All ~600 SQL sites are literal statements passed to `sqlx::query` / `query_scalar` with `.bind(...)` parameters (no string-built SQL, no ORM, no query builder except `QueryBuilder` for the log-pruning window query). Multi-statement updates in `projects.rs` and `memories.rs` open an explicit transaction with `self.pool.begin().await` and commit at the end; the memories store alone has 24 transaction sites. The `codex-rollout` crate talks to the state database only through `codex-state`'s `StateRuntime` API, and `thread-store` layers a `LocalThreadStore` over both the rollout files and the databases, so callers never hold a raw connection. Reads that must not create a database go through the read-only pool.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/state/src/runtime/projects.rs",
+          "start_line": 55,
+          "end_line": 55,
+          "snippet": "let mut tx = self.pool.begin().await?;"
+        },
+        {
+          "file": "codex-rs/state/src/runtime/threads.rs",
+          "start_line": 57,
+          "end_line": 57,
+          "snippet": ".bind(id.to_string())",
+          "note": "parameter binding"
+        },
+        {
+          "file": "codex-rs/state/src/sqlite.rs",
+          "start_line": 298,
+          "end_line": 298,
+          "snippet": ".read_only(true)"
+        }
+      ],
+      "tags": [
+        "sqlx",
+        "sql",
+        "transactions"
+      ],
+      "sokrates_refs": [
+        "finding:tech-stack-scan/databases-storage/sqlite-sqlx",
+        "finding:architecture-scan/components/component-map"
+      ]
+    },
+    {
+      "id": "storage-scan/access-patterns/locking",
+      "group": "access-patterns",
+      "title": "Four lock layers guard concurrent writers: per-thread writer locks, a coordination lock over the lock directory, a rollout-maintenance lock, and an advisory lock with retry on history.jsonl",
+      "description": "Codex expects several processes (TUI, app-server daemon, `codex exec`) to share one home, and protects each shared artifact with OS file locks rather than a database. A thread's rollout may have one live appender: `WriterLockCoordinator::acquire` opens `thread-writer-locks/<thread_id>.lock` and `try_lock`s it, returning a `Conflict` error (\"already has an active writer\") instead of blocking; stale locks left by dead processes are removed under a `.coordination.lock` taken first. Jobs that **replace** rollout files (compression, legacy migration) take a separate nonblocking `rollout-maintenance.lock` under `.tmp` so they never rename over each other. `history.jsonl` is appended under `try_lock` with up to 10 retries at 100 ms, then fails with `WouldBlock` rather than blocking the TUI. SQLite concurrency is left to WAL plus the 5 s busy timeout. In-process, `codex_core::session` uses ~100 `.lock()` calls on mutexes, which the counting script mis-reports as file locks.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/thread-store/src/local/writer_lock.rs",
+          "start_line": 64,
+          "end_line": 64,
+          "snippet": "match file.try_lock() {"
+        },
+        {
+          "file": "codex-rs/rollout/src/maintenance.rs",
+          "start_line": 16,
+          "end_line": 16,
+          "snippet": "const ROLLOUT_MAINTENANCE_LOCK: &str = \"rollout-maintenance.lock\";"
+        },
+        {
+          "file": "codex-rs/message-history/src/lib.rs",
+          "start_line": 163,
+          "end_line": 163,
+          "snippet": "match history_file.try_lock() {"
+        }
+      ],
+      "tags": [
+        "locking",
+        "multi-process"
+      ],
+      "sokrates_refs": [
+        "finding:performance-scan/concurrency/hot-locks"
+      ]
+    },
+    {
+      "id": "storage-scan/schema-and-format/migrations",
+      "group": "schema-and-format",
+      "title": "Schema is owned by embedded SQLx migrations (50 for the state db, one migrator per database); newer-than-binary versions are tolerated, known versions are checksum-checked",
+      "description": "Each of the six databases has its own migration directory compiled in with `sqlx::migrate!` and applied at open. `runtime_migrator` wraps every migrator with `ignore_missing: true`, documented as deliberately relaxing the \"database is ahead of me\" case so an older binary can still open a database migrated by a newer one running in parallel, while migrations the binary does know are still validated by checksum. A one-off `repair_legacy_recency_migration_version` rewrites the `_sqlx_migrations` row for version 39 when its checksum matches under a different number, which is what a renumbered migration in the field required. Breaking changes are handled by **bumping the filename** (`state_5.sqlite` is the fifth incarnation) rather than by an in-place migration, and rollouts are backfilled into the new file. Migrations are forward-only; there are no down scripts, but since every database is rebuildable from JSONL that is a reasonable trade.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/state/src/migrations.rs",
+          "start_line": 6,
+          "end_line": 6,
+          "snippet": "pub(crate) static STATE_MIGRATOR: Migrator = sqlx::migrate!(\"./migrations\");"
+        },
+        {
+          "file": "codex-rs/state/src/migrations.rs",
+          "start_line": 22,
+          "end_line": 22,
+          "snippet": "ignore_missing: true,",
+          "note": "tolerate newer applied versions"
+        },
+        {
+          "file": "codex-rs/state/src/migrations.rs",
+          "start_line": 18,
+          "end_line": 18,
+          "snippet": "/// checksum, so this only relaxes the \"database is ahead of me\" case."
+        }
+      ],
+      "tags": [
+        "migrations",
+        "sqlx"
+      ],
+      "attributes": {
+        "state_migrations": 50,
+        "migrators": [
+          "state",
+          "logs",
+          "goals",
+          "memories",
+          "queue",
+          "thread_history"
+        ],
+        "down_migrations": "none"
+      }
+    },
+    {
+      "id": "storage-scan/schema-and-format/format-versioning",
+      "group": "schema-and-format",
+      "title": "On-disk formats are versioned inconsistently: SQLite by filename suffix, caches and secrets by an explicit version field, rollouts and auth.json by nothing",
+      "description": "Versioning exists wherever a format was designed recently and is absent in the two oldest, most valuable files. **Versioned**: SQLite files carry the version in the name; the remote plugin catalog cache, connector directory cache (`schema_version: 1`), apps tools cache (`CODEX_APPS_TOOLS_CACHE_SCHEMA_VERSION = 4`) and cloud-config bundle cache (`version: 1`) all check the field and discard the file on mismatch; the encrypted secrets file has a `version: u8` and **refuses** files newer than `SECRETS_VERSION`; plugin install metadata has `schema_version`. **Unversioned**: rollout JSONL lines have no format version, only the `cli_version` string in the first `SessionMeta` line, so readers must infer the dialect (the legacy rollout canonicaliser exists because of this); `auth.json` and `config.toml` have no version and rely on tolerant parsing. The consequence is contained because rollout readers skip lines they cannot parse (reliability's finding) and because the legacy migration pipeline canonicalises old rollouts, but a future incompatible rollout record has no way to declare itself.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/secrets/src/local.rs",
+          "start_line": 60,
+          "end_line": 60,
+          "snippet": "version: u8,",
+          "note": "secrets file version field"
+        },
+        {
+          "file": "codex-rs/core-plugins/src/remote/catalog_cache.rs",
+          "start_line": 107,
+          "end_line": 107,
+          "snippet": "if cache.schema_version != REMOTE_PLUGIN_CATALOG_DISK_CACHE_SCHEMA_VERSION {"
+        },
+        {
+          "file": "codex-rs/rollout/src/recorder.rs",
+          "start_line": 867,
+          "end_line": 867,
+          "snippet": "cli_version: env!(\"CARGO_PKG_VERSION\").to_string(),",
+          "note": "only version marker in a rollout"
+        }
+      ],
+      "recommendation": "Add an explicit `format_version` (or `schema_version`) to `SessionMetaLine` and to `auth.json`, written by new binaries and ignored by old ones, so a future incompatible change can be detected on read rather than inferred from `cli_version` heuristics.",
+      "tags": [
+        "versioning",
+        "jsonl"
+      ],
+      "sokrates_refs": [
+        "finding:reliability-scan/handling/rollout-resume-skips-malformed-lines",
+        "finding:domain-language-scan/bounded-contexts/persistence-legacy-context"
+      ],
+      "attributes": {
+        "versioned": [
+          "sqlite filenames",
+          "plugin catalog cache",
+          "connector directory cache",
+          "apps tools cache (v4)",
+          "cloud-config cache",
+          "secrets .age files",
+          "plugin install metadata"
+        ],
+        "unversioned": [
+          "rollout JSONL",
+          "auth.json",
+          "config.toml",
+          "history.jsonl"
+        ]
+      }
+    },
+    {
+      "id": "storage-scan/schema-and-format/compatibility",
+      "group": "schema-and-format",
+      "title": "Readers are tolerant by default: config.toml ignores unknown keys, rollouts skip unparseable lines, caches self-delete on version mismatch, secrets fail closed on a newer version",
+      "description": "Forward compatibility is handled per data class. `ConfigToml` is a plain serde struct with `Default`; `deny_unknown_fields` is applied only through `#[schemars(...)]` for the generated JSON schema, so the **TOML parser accepts unknown keys** written by a newer Codex and editors get a strict schema. Rollouts written by a newer version are read line by line and unknown or malformed lines are skipped with a counter (reliability's `rollout-resume-skips-malformed-lines`). Cache files with a different `schema_version` are simply deleted and refetched. The secrets file is the strict exception: a `version` greater than the binary's `SECRETS_VERSION` is an error, which is right for encrypted credentials. The database side is covered by `ignore_missing` in the migrator. Backward compatibility of old data is handled by the legacy rollout migration (`rollout_migration.rs`), which canonicalises pre-ordinal rollouts and notes that malformed legacy records cannot be repaired because they have no ordinals.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/config/src/config_toml.rs",
+          "start_line": 152,
+          "end_line": 152,
+          "snippet": "#[schemars(deny_unknown_fields)]",
+          "note": "schema-only strictness; serde stays tolerant"
+        },
+        {
+          "file": "codex-rs/secrets/src/local.rs",
+          "start_line": 200,
+          "end_line": 200,
+          "snippet": "parsed.version <= SECRETS_VERSION,"
+        },
+        {
+          "file": "codex-rs/core-plugins/src/remote/catalog_cache.rs",
+          "start_line": 108,
+          "end_line": 108,
+          "snippet": "let _ = std::fs::remove_file(cache_path);",
+          "note": "stale-schema cache discarded"
+        }
+      ],
+      "tags": [
+        "compatibility",
+        "tolerant-readers"
+      ],
+      "sokrates_refs": [
+        "finding:reliability-scan/handling/rollout-resume-skips-malformed-lines",
+        "finding:reliability-scan/error-model/central-codex-err"
+      ]
+    },
+    {
+      "id": "storage-scan/integrity/write-durability",
+      "group": "integrity",
+      "title": "Durability follows reliability-scan's verdicts (atomic temp+rename for config-style files, buffered-but-unfsynced rollout appends, WAL/NORMAL SQLite); the storage-specific additions are fsync'd staging in migration and compression",
+      "description": "Reliability already judged the write paths: config, caches and plugin metadata go through `write_atomically` (`NamedTempFile::new_in(parent)` + `persist`), plugin trees are staged and renamed with a backup-and-rollback sequence, the rollout writer retries but never calls `sync_all`, and SQLite runs `synchronous=NORMAL`. What that finding does not cover is the two **rollout-replacing** jobs, which are the only places that fsync: compression writes to a temp file in the same directory, verifies the zstd stream, checks the source is unchanged, `sync_all`s and publishes with `persist_noclobber`; the legacy migration writes a durable `.pending` journal (`sync_all` on the file and `sync_parent_directory`) before replacing a rollout so a crash between the JSONL publish and the SQLite metadata step can be finished by the next run. `write_atomically` itself does not fsync the temp file before rename, so on a power loss a config file can come back empty even though it is never half-written.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/utils/path-utils/src/lib.rs",
+          "start_line": 130,
+          "end_line": 130,
+          "snippet": "let mut tmp = NamedTempFile::new_in(parent)?;"
+        },
+        {
+          "file": "codex-rs/rollout/src/compression.rs",
+          "start_line": 673,
+          "end_line": 673,
+          "snippet": "temp_file.as_file().sync_all()?;"
+        },
+        {
+          "file": "codex-rs/thread-store/src/local/rollout_migration/publish.rs",
+          "start_line": 246,
+          "end_line": 246,
+          "snippet": "file.sync_all().await.map_err(migration_error)?;",
+          "note": "migration journal fsync"
+        }
+      ],
+      "tags": [
+        "atomic-write",
+        "fsync"
+      ],
+      "sokrates_refs": [
+        "finding:reliability-scan/resources/atomic-writes-and-sqlite-durability",
+        "finding:reliability-scan/resources/rollout-writer-buffer-and-retry"
+      ]
+    },
+    {
+      "id": "storage-scan/integrity/auth-json-overwrite",
+      "group": "integrity",
+      "title": "auth.json is rewritten in place with truncate+write, so a crash mid-save leaves an empty or partial credentials file",
+      "description": "`FileAuthStorage::save` opens `auth.json` with `truncate(true).write(true).create(true)` and writes the serialized JSON directly, unlike every other config-style file, which goes through `write_atomically`. A crash, disk-full or kill between truncate and `write_all` leaves a zero-length or truncated file; the next `load` then fails to parse and the user is effectively logged out. The consequence is bounded: the file is small, the write is short, the data is regenerable by logging in again (or is in the keyring when `Keyring`/`Auto` store mode is selected), and the 0600 mode is preserved by `OpenOptions::mode`. That mitigation is why this is `low`, not `medium`. Security-design already covers the sensitivity of this file; this finding is only about write safety.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/login/src/auth/storage.rs",
+          "start_line": 210,
+          "end_line": 210,
+          "snippet": "options.truncate(true).write(true).create(true);"
+        },
+        {
+          "file": "codex-rs/login/src/auth/storage.rs",
+          "start_line": 216,
+          "end_line": 216,
+          "snippet": "file.write_all(json_data.as_bytes())?;"
+        }
+      ],
+      "recommendation": "Route `FileAuthStorage::save` through `write_atomically` (or a `NamedTempFile` in `CODEX_HOME` with the 0600 mode set before `persist`) so the credentials file is never observed half-written; refresh-token rotation makes this save path run often, not just at login.",
+      "tags": [
+        "credentials",
+        "in-place-write"
+      ],
+      "sokrates_refs": [
+        "finding:security-design-scan/secrets-data-protection/secret-storage-redaction",
+        "finding:reliability-scan/resources/atomic-writes-and-sqlite-durability"
+      ]
+    },
+    {
+      "id": "storage-scan/integrity/corruption-recovery",
+      "group": "integrity",
+      "title": "Corruption is detected and recovered per artifact: corrupt SQLite files are moved to db-backups and rebuilt from rollouts, tampered caches fail closed via HMAC, compressed rollouts are verified before publish",
+      "description": "The recovery story is the strongest part of the storage design. **SQLite**: `is_sqlite_corruption_error` matches SQLite codes 11/26 (`SQLITE_CORRUPT`, `SQLITE_NOTADB`); `backup_runtime_db_for_fresh_start` moves only the affected database and its WAL/SHM sidecars into `db-backups/<unique>/`, the TUI wraps this in `LocalStateDbStartupError` so the user is told which file was quarantined, and the fresh database is refilled by the backfill from rollouts (`backfill_state` watermark). `sqlite_integrity_check` exposes `PRAGMA integrity_check` over the read-only pool for `codex doctor`. **Rollouts**: a corrupt line is skipped on read; the legacy migration keeps either the original rollout or a recoverable paginated one and never both half-done. **Compression**: `verify_zstd` re-reads the temp file before `persist_noclobber`, and a source file that changed meanwhile aborts the publish. **Caches**: the cloud-config bundle cache is HMAC-signed and rejects invalid signatures, unsupported versions, identity mismatches and expiry; the other caches delete themselves on schema mismatch. **Secrets**: the age ciphertext is hashed with the passphrase into an in-memory cache key, so an edited file simply fails to decrypt. The one class with no detection is `auth.json` (parse error equals logout), handled in `auth-json-overwrite`.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/state/src/runtime/recovery.rs",
+          "start_line": 5,
+          "end_line": 5,
+          "snippet": "//! moves only that database file and its sidecars into a backup folder so the"
+        },
+        {
+          "file": "codex-rs/state/src/runtime/recovery.rs",
+          "start_line": 123,
+          "end_line": 123,
+          "snippet": "\"11\" | \"26\" | \"sqlite_corrupt\" | \"sqlite_notadb\""
+        },
+        {
+          "file": "codex-rs/cloud-config/src/cache.rs",
+          "start_line": 4,
+          "end_line": 4,
+          "snippet": "//! short TTL, and is HMAC-signed so malformed or edited files fail closed."
+        }
+      ],
+      "tags": [
+        "corruption",
+        "recovery",
+        "backfill"
+      ],
+      "sokrates_refs": [
+        "finding:reliability-scan/degradation/designed-fallbacks",
+        "finding:reliability-scan/handling/rollout-resume-skips-malformed-lines",
+        "finding:functionality-scan/features/maintenance-doctor-update-features"
+      ]
+    },
+    {
+      "id": "storage-scan/lifecycle/retention-session-rollouts",
+      "group": "lifecycle",
+      "title": "Session rollouts are never expired: they accumulate under sessions/ for the life of the install, only shrinking via zstd compression after 7 days or explicit user delete/archive",
+      "description": "There is no retention policy for the conversation record. `sessions/` grows by one file per thread forever; the only automatic process is the compression worker, which rewrites cold files as `.jsonl.zst` but deletes nothing. Removal happens only when the user runs `codex delete` (`delete_thread.rs` unlinks the canonical rollout) or archives (moves to `archived_sessions/`, which is likewise unbounded). Because rollouts contain prompts, tool output and the contents of files the agent read, this is also the largest **sensitive** footprint on the machine, and the performance scanner already noted that the filesystem listing fallback walks the whole tree. This is `low` rather than `high` because the data is user data the user expects to keep, it is compressed, and disk exhaustion in normal use is unlikely; it is not `info` because nothing bounds it and there is no configuration knob.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/rollout/src/compression.rs",
+          "start_line": 24,
+          "end_line": 24,
+          "snippet": "/// Starts a best-effort background job that compresses cold local rollout files."
+        },
+        {
+          "file": "codex-rs/thread-store/src/local/delete_thread.rs",
+          "start_line": 256,
+          "end_line": 256,
+          "snippet": "match std::fs::remove_file(&canonical_rollout_path) {",
+          "note": "only deletion path is user-driven"
+        }
+      ],
+      "recommendation": "Add an opt-in retention setting (e.g. `history.retention_days` or a size budget) applied by the existing compression worker, and surface the current `sessions/` size in `codex doctor`, so users with privacy or disk constraints are not left to prune the directory by hand.",
+      "tags": [
+        "retention",
+        "unbounded"
+      ],
+      "sokrates_refs": [
+        "finding:performance-scan/caching-and-reuse/recomputation-thread-listing",
+        "finding:functionality-scan/features/session-lifecycle",
+        "finding:domain-language-scan/glossary/rollout"
+      ]
+    },
+    {
+      "id": "storage-scan/lifecycle/cleanup",
+      "group": "lifecycle",
+      "title": "Ephemera are cleaned on best-effort triggers: stale shell snapshots and writer locks at session start, log rows after 10 days and a per-thread byte budget, the legacy TUI log at startup; db-backups, plugin backups on failed rollback, and an uncapped history.jsonl are not",
+      "description": "**Bounded**: `cleanup_stale_snapshots` runs in a spawned task on every session start and removes `shell_snapshots/` files whose owning thread is gone; `remove_stale_thread_locks` unlinks lock files that `try_lock` succeeds on; the logs database prunes rows older than `LOG_RETENTION_DAYS = 10` and enforces a strict per-thread byte cap after every insert; the compression run marker and staging temp files are considered stale after 6 hours and reclaimed; the legacy shared TUI log file is deleted at startup with a `TODO delete after 22/11/2026` marker. **Unbounded by default**: `history.max_bytes` is `Option<usize>` with no default, so the global `history.jsonl` grows without limit unless the user configures a cap, though it is then trimmed to an 80% soft cap under the write lock; `db-backups/` directories created by corruption recovery are never pruned; a plugin activation whose rollback also fails deliberately `keep()`s its backup directory for manual recovery. None of these is user data at risk, so the missing bounds are `info`.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/state/src/runtime/logs.rs",
+          "start_line": 3,
+          "end_line": 3,
+          "snippet": "const LOG_RETENTION_DAYS: i64 = 10;"
+        },
+        {
+          "file": "codex-rs/core/src/shell_snapshot.rs",
+          "start_line": 144,
+          "end_line": 144,
+          "snippet": "// Clean the (unlikely) leaked snapshot files."
+        },
+        {
+          "file": "codex-rs/config/src/types.rs",
+          "start_line": 202,
+          "end_line": 202,
+          "snippet": "pub max_bytes: Option<usize>,",
+          "note": "history cap is opt-in"
+        }
+      ],
+      "tags": [
+        "cleanup",
+        "retention"
+      ],
+      "sokrates_refs": [
+        "finding:reliability-scan/resources/shutdown-and-cancellation-order"
+      ],
+      "attributes": {
+        "bounded": [
+          "shell_snapshots",
+          "thread-writer-locks",
+          "logs table (10 days + byte budget)",
+          ".tmp markers (6 h)",
+          "legacy TUI log"
+        ],
+        "unbounded": [
+          "history.jsonl (unless history.max_bytes set)",
+          "db-backups/",
+          "plugin-backup-* on failed rollback"
+        ]
+      }
+    },
+    {
+      "id": "storage-scan/lifecycle/export-import",
+      "group": "lifecycle",
+      "title": "Import exists (external-agent migration from other coding agents); no export, backup or restore of CODEX_HOME itself",
+      "description": "The `external-agent-migration` crate and its app-server processor detect other agents' homes (config, hooks, MCP servers, memories, sessions) and import them into Codex, writing memories and config through the normal atomic paths and reporting what was migrated. In the other direction there is nothing: no `codex export`, no bundle of a thread for sharing beyond the `rollout-trace` debug bundle, and no backup/restore command. Because every database is rebuildable from `sessions/`, a user backup is simply a copy of `CODEX_HOME` minus the SQLite files, but that is undocumented and `auth.json` would be copied along with it. Uninstall leaves the whole directory behind.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/external-agent-migration/src/lib.rs",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "//! Migration helpers for importing external-agent configuration into Codex."
+        },
+        {
+          "file": "codex-rs/rollout-trace/src/writer.rs",
+          "start_line": 50,
+          "end_line": 50,
+          "snippet": "/// Creates a trace bundle directory and writes its manifest."
+        }
+      ],
+      "tags": [
+        "import",
+        "backup"
+      ],
+      "sokrates_refs": [
+        "finding:functionality-scan/features/external-agent-import"
+      ]
+    },
+    {
+      "id": "storage-scan/storage-posture/posture",
+      "group": "storage-posture",
+      "title": "Posture: a home-directory store whose canonical record is append-only JSONL with SQLite as a rebuildable index; strong corruption recovery, tolerant readers, weak spots are an unversioned rollout format, an in-place auth.json write and no retention of sessions",
+      "description": "Per data class. **Session rollouts**: durable enough (append-only, newline-repair on open, single locked writer, no fsync per reliability), forward-compatible by tolerant reading only, retention none. **Runtime databases**: durable (WAL, NORMAL), compatible (checksummed migrations, `ignore_missing`, filename versioning), corruption quarantined and rebuilt from rollouts. **Config**: atomic, tolerant of unknown keys, user-managed. **Credentials**: 0600 but written in place; regenerable by re-login. **Managed secrets**: atomic, encrypted, versioned, fail closed. **Caches**: atomic, versioned, TTL-bounded, self-invalidating. **History**: locked appends, cap opt-in. **Ephemera**: cleaned on session start. The riskiest data class is the **session rollouts**, not because of write safety but because they are the only source of truth, carry the most sensitive content, have no format version and no retention. The strongest mechanisms are the SQLite backup-and-rebuild path and the fsync'd journal in the rollout migration. The three highest-leverage changes are `schema-and-format/format-versioning`, `integrity/auth-json-overwrite` and `lifecycle/retention-session-rollouts`.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/utils/home-dir/src/lib.rs",
+          "start_line": 13,
+          "end_line": 13,
+          "snippet": "pub fn find_codex_home() -> std::io::Result<AbsolutePathBuf> {"
+        },
+        {
+          "file": "codex-rs/thread-store/src/local/live_writer.rs",
+          "start_line": 336,
+          "end_line": 336,
+          "snippet": "// can lag JSONL after failure, but can never get ahead of canonical history."
+        }
+      ],
+      "tags": [
+        "posture"
+      ],
+      "sokrates_refs": [
+        "finding:storage-scan/schema-and-format/format-versioning",
+        "finding:storage-scan/integrity/auth-json-overwrite",
+        "finding:storage-scan/lifecycle/retention-session-rollouts",
+        "finding:reliability-scan/reliability-posture/synthesis",
+        "finding:architecture-scan/evolution/rollout-jsonl-to-sqlite-state"
+      ]
+    }
+  ],
+  "summary_visual": {
+    "file": "visuals/storage-scan.jpeg",
+    "credit": "Illustration generated by Google Gemini (gemini-3-pro-image-preview)",
+    "generated_at": "2026-08-27T14:29:55Z",
+    "prompt": "Create a single, calm, aesthetically pleasing illustration that tells the story of the analysis summary below - a reader should grasp its one or two big ideas at a glance. Text is welcome but sparse: a few short labels or key words (roughly 3 to 8, one to three words each) that anchor the story; no sentences, no numbers, no dates, no titles, no legends, no dense diagrams or flowcharts, no dashboards or screenshots. Let shapes, metaphor, composition and colour carry most of the meaning. Style: polished flat vector illustration, crisp outlines, minimal shading, generous margins so nothing touches the edges, a disciplined palette of deep blue, teal, soft green and warm orange accents on a light background. Uncluttered - a few well-chosen elements and plenty of negative space. No photorealism, no 3D render, no clip-art collage, no people's faces.\nVisual motif for this kind of analysis (storage-scan): shelves, vaults and drawers holding different kinds of records, one sealed and labelled with a version, one spilling out.\nSubject: the software project 'openai / codex'.\nStory to tell (pick the essence, do not transcribe it): Codex persists everything under one home directory (CODEX_HOME, default ~/.codex). The canonical record is append-only JSONL rollouts under sessions/, compressed to zstd after 7 days; six versioned SQLite databases (WAL, synchronous=NORMAL, checksummed SQLx migrations) are explicitly rebuildable views over them, and a corrupt database is quarantined into db-backups/ and refilled by backfill. Config, caches, secrets and plugin trees are written atomically; caches and secrets carry version fields and self-invalidate or fail closed. The data class most at risk is the rollout set: it is the only source of truth, holds the most sensitive content, has no format version and no retention. Two smaller gaps: auth.json is rewritten in place rather than atomically, and history.jsonl is uncapped unless configured. 16 findings, 3 above info (all low)."
+  }
+}

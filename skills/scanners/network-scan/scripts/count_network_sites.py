@@ -25,7 +25,7 @@ EXTS = {
     "config": {".toml", ".yaml", ".yml", ".json", ".env", ".ini", ".properties", ".sql"},
     "markup": {".html", ".htm", ".vue", ".svelte"},
 }
-SKIP_DIRS = {"node_modules", "target", "build", "dist", "out", ".git", "vendor", "venv", ".venv",
+SKIP_DIRS = {"node_modules", "target", "build", "dist", "out", ".git", ".github", "vendor", "venv", ".venv",
              "__pycache__", "_sokrates", "_sokrates_landscape"}
 TEST_SEGMENT = re.compile(r"(^|[._-])(tests?|spec|specs|mocks?|fixtures?|testdata|test[-_]support)([._-]|$)", re.I)
 TEST_FILE = re.compile(r"(_tests?\.\w+$|Tests?\.java$|\.spec\.\w+$|\.test\.\w+$|^test_.*\.py$|^tests?\.rs$|^conftest\.py$)", re.I)
@@ -37,26 +37,26 @@ RUST_MOD_OPEN = re.compile(r"^\s*(pub(\([^)]*\))?\s+)?mod\s+\w+\s*\{")
 # key -> (regex, languages or None for all, note). Keys ending in _candidates/_keyword_files are leads.
 PATTERNS = {
     "http_client_sites": (re.compile(r"reqwest::Client|Client::builder\(\)|ClientBuilder|HttpClient\.new(Builder|HttpClient)\(|HttpURLConnection|\.openConnection\(\)|\.openStream\(\)|HttpClients\.|OkHttpClient|RestTemplate|WebClient\.|new HttpClient\(|axios\.create\(|axios\.|\bfetch\(|got\(|undici|requests\.(get|post|put|delete|Session)\(|httpx\.|aiohttp\.|urllib\.request|http\.(Get|Post|Client)\{|http\.NewRequest\(|curl_easy|cloneRepository\(|CloneCommand|\.fetch\(\)\.|setURI\(|Desktop\.getDesktop\(\)\.browse\(|WebEngine.*\.load\("), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "HTTP client construction and calls"),
-    "server_listen_sites": (re.compile(r"TcpListener::bind|UdpSocket::bind|ServerSocket\(|socket\.bind\(|\.bind\(\s*\(|\.bind\(\s*['\"]\d|\.listen\(\s*\d|server\.listen\(|HttpServer::new|axum::Server|Router::new\(\)|warp::serve|actix_web|ServerSocket\(|SpringBootApplication|@RestController|@GetMapping|@PostMapping|app\.(get|post|put|delete|listen)\(|createServer\(|express\(\)|fastify\(|uvicorn|FastAPI\(|Flask\(|@app\.route|http\.ListenAndServe|net\.Listen\("), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "servers, listeners and routes"),
+    "server_listen_sites": (re.compile(r"TcpListener::bind|UnixListener::bind|UdpSocket::bind|ServerSocket\(|socket\.bind\(|\.bind\(\s*\(\s*['\"]|\.bind\(\s*['\"]\d|\.bind\(\s*&?(addr|address|bind_addr|socket_addr|listen)|\.listen\(\s*\d|server\.listen\(|HttpServer::new|axum::Server|Router::new\(\)|warp::serve|actix_web|ServerSocket\(|SpringBootApplication|@RestController|@GetMapping|@PostMapping|app\.(get|post|put|delete|listen)\(|createServer\(|express\(\)|fastify\(|uvicorn|FastAPI\(|Flask\(|@app\.route|http\.ListenAndServe|net\.Listen\("), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "servers, listeners and routes"),
     "port_literal_sites": (re.compile(r"(port|PORT)\s*[:=]\s*\d{2,5}|:\d{4,5}[\"'/]|0\.0\.0\.0|127\.0\.0\.1|localhost:\d+"), ['rust', 'java', 'csharp', 'js', 'python', 'go', 'config'], "port and bind-address literals"),
     "websocket_sites": (re.compile(r"WebSocket|tokio_tungstenite|tungstenite|ws://|wss://|socket\.io|SockJS|@ServerEndpoint"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "WebSocket usage"),
     "sse_stream_sites": (re.compile(r"text/event-stream|EventSource|eventsource|bytes_stream\(\)|\.stream\(\)\.await|StreamingResponse|ServerSentEvent|SseEmitter|data:\s*\[DONE\]"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "SSE / streamed responses"),
-    "grpc_rpc_sites": (re.compile(r"tonic::|\bgrpc(::|\.|-)|GrpcChannel|ManagedChannel|@GrpcService|jsonrpc|JSON-RPC|\brpc::|mcp::|McpServer|McpClient|stdio transport"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "gRPC / RPC / MCP layers"),
+    "grpc_sites": (re.compile(r"tonic::|\bgrpc(::|\.|-)|GrpcChannel|ManagedChannel|@GrpcService|prost::"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "gRPC usage"),
+    "rpc_transport_sites": (re.compile(r"(JsonRpc\w+|McpServer|McpClient|McpConnection\w*|RmcpClient)::(new|connect|serve|spawn|builder)\(|rmcp::transport|StdioTransport|SseTransport|StreamableHttp"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "JSON-RPC / MCP transport construction"),
     "raw_socket_sites": (re.compile(r"TcpStream::connect|UnixStream|UnixListener|new Socket\(|SocketChannel|net\.createConnection|net\.Socket|socket\.socket\(|net\.Dial\(|named pipe|\\\\\\\\\.\\\\pipe"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "raw TCP/Unix sockets and pipes"),
     "url_literal_sites": (re.compile(r"https?://(?!www\.w3\.org|schemas\.|xmlns|example\.com|localhost)[a-zA-Z0-9.-]+\.[a-z]{2,}[^\s\"')]*"), ['rust', 'java', 'csharp', 'js', 'python', 'go', 'config'], "URL literals (hosts the code knows about)"),
     "endpoint_env_sites": (re.compile(r"(getenv|env::var|process\.env\.|os\.environ|System\.getenv)\s*\(?\s*[\"']?[A-Z0-9_]*(URL|HOST|ENDPOINT|BASE|API|PORT|PROXY|SOCKET|ADDR)[A-Z0-9_]*"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "env vars that set endpoints, hosts, ports or proxies"),
     "proxy_sites": (re.compile(r"HTTPS?_PROXY|https?_proxy|NO_PROXY|no_proxy|\.proxy\(|Proxy\.|ProxySelector|proxy:\s*|HttpsProxyAgent|ProxyAgent|system_proxy|\.no_proxy\("), ['rust', 'java', 'csharp', 'js', 'python', 'go', 'config'], "proxy configuration"),
     "tls_config_sites": (re.compile(r"rustls|native_tls|openssl::|danger_accept_invalid_(certs|hostnames)|rejectUnauthorized|NODE_TLS_REJECT_UNAUTHORIZED|verify\s*=\s*False|InsecureSkipVerify|TrustManager|SSLContext|ssl\.create_default_context|add_root_certificate|ca_bundle|REQUESTS_CA_BUNDLE|SSL_CERT_FILE|min_tls_version|tls_built_in_root_certs|webpki"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "TLS configuration (verification, roots, versions)"),
-    "tls_disabled_candidates": (re.compile(r"danger_accept_invalid_(certs|hostnames)\(true\)|rejectUnauthorized:\s*false|verify\s*=\s*False|InsecureSkipVerify:\s*true|NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*['\"]?0|TrustAllCerts|ALLOW_ALL_HOSTNAME_VERIFIER"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "lead: TLS verification disabled — read whether on a default path (security-scan owns the audit)"),
-    "client_timeout_sites": (re.compile(r"\.timeout\(Duration|\.connect_timeout\(|\.read_timeout\(|\.pool_idle_timeout\(|connectTimeout|readTimeout|\.timeout\(\s*\d|timeout:\s*\d|timeout\s*=\s*\d|AbortSignal\.timeout\(|http\.Client\{[^}]*Timeout"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "timeouts set on clients/requests"),
+    "tls_disabled_candidates": (re.compile(r"danger_accept_invalid_(certs|hostnames)\(true\)|rejectUnauthorized:\s*false|(requests|httpx|session)\.\w+\([^)]*verify\s*=\s*False|ssl\._create_unverified_context|InsecureSkipVerify:\s*true|NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*['\"]?0|TrustAllCerts|ALLOW_ALL_HOSTNAME_VERIFIER"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "lead: TLS verification disabled — read whether on a default path (security-scan owns the audit)"),
+    "client_timeout_sites": (re.compile(r"\.timeout\(|\.connect_timeout\(|\.read_timeout\(|\.pool_idle_timeout\(|with_connect_timeout\(|tokio::time::timeout(_at)?\(|connectTimeout|readTimeout|timeout:\s*\d|timeout\s*=\s*\d|AbortSignal\.timeout\(|http\.Client\{[^}]*Timeout"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "timeouts set on clients/requests"),
     "keepalive_pool_sites": (re.compile(r"keep_alive|keepAlive|tcp_keepalive|pool_max_idle_per_host|pool_idle_timeout|maxSockets|PoolingHttpClientConnectionManager|HTTPAdapter\(pool|Agent\(\{\s*keepAlive|MaxIdleConns"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "keep-alive and pooling settings"),
     "reconnect_keyword_files": (re.compile(r"\b(reconnect|reconnection|backoff|retry_after|Retry-After)\b"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "files mentioning reconnection/backoff (reliability owns policy)"),
     "dns_ipv6_sites": (re.compile(r"resolve\(|Resolver|dns::|hickory|trust_dns|lookup_host|InetAddress\.getByName|dns\.lookup|socket\.getaddrinfo|::1\b|Ipv6Addr|AF_INET6|happy.eyeballs"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "DNS resolution and IPv6"),
     "user_agent_sites": (re.compile(r"User-Agent|user_agent\(|USER_AGENT|\.header\(\"User-Agent|userAgent"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "client identification headers"),
     "offline_check_sites": (re.compile(r"\b(offline|is_online|isOnline|navigator\.onLine|connectivity|network_available|no_network|NetworkUnreachable|ConnectionRefused|ECONNREFUSED|ENOTFOUND|dns error|UnknownHostException|ConnectException)\b"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "offline/connectivity checks and unreachable-error handling"),
     "update_check_sites": (re.compile(r"check_for_update|checkForUpdate|latest_version|latest-version|update_available|releases/latest|version_check|UpdateChecker"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "update checks (incidental network use)"),
-    "payload_local_content_candidates": (re.compile(r"(read_to_string|readFileSync|readFileToString|fs::read)\([^)]*\)[^;\n]*(body|json|payload|request|send)|(body|json|payload)\([^)]*(content|contents|file_text|source)"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "lead: request bodies built from local file contents"),
-    "auth_header_sites": (re.compile(r"Authorization|Bearer\s|api[-_]?key|x-api-key|OAuth|oauth2|client_credentials|refresh_token"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "auth on the wire (security-design owns the design)"),
+    "auth_header_sites": (re.compile(r"\.header\(\s*\"?(Authorization|AUTHORIZATION)|\"Authorization\"|header::AUTHORIZATION|Bearer \{|\"Bearer |x-api-key|X-Api-Key"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "auth on the wire (security-design owns the design)"),
 }
 
 
@@ -155,6 +155,12 @@ def main(argv=None) -> int:
         print(f"  {k:36s} {n:6d}   {notes.get(k, '')}")
     print()
     for key, rows in sorted(hits.items()):
+        if key in leads:
+            print(f"{key} — first {min(len(rows), args.top * 2)} sites:")
+            for f, l, snip in rows[: args.top * 2]:
+                print(f"  {f}:{l}  {snip[:90]}")
+            print()
+            continue
         per_file = defaultdict(int)
         for f, _, _ in rows:
             per_file[f] += 1

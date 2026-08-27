@@ -1,0 +1,855 @@
+{
+  "scanner": "network-scan",
+  "scanner_version": "1.0",
+  "analyzed_at": "2026-08-27T20:00:00Z",
+  "target": {
+    "name": "openai / codex",
+    "src_root": "../../.."
+  },
+  "summary": "Codex is an agent runtime that is both a network client and a local server. By default it talks to exactly one remote host per turn, the model API at `chatgpt.com/backend-api/codex` (ChatGPT login) or `api.openai.com/v1` (API key), over HTTPS with SSE streaming or a Responses-over-WebSocket connection that falls back to HTTPS for the session; the only other default-path traffic is a cached 20-hour update check against GitHub and npm and, in release builds, Statsig metrics. Bedrock, local Ollama or LM Studio, HTTP MCP servers and the ChatGPT remote-control relay are opt-in. Inbound, the app-server speaks JSON-RPC on stdio by default and refuses a non-loopback WebSocket bind without auth; the login callback and the managed sandbox proxy are clamped to 127.0.0.1. Connection handling is centralised in an `HttpClientFactory` and a route-aware client pool that reuses one client per resolved proxy route, verifies TLS against platform roots plus `CODEX_CA_CERTIFICATE`/`SSL_CERT_FILE`, retries Windows TLS protocol errors through rustls, and honours proxy environment variables everywhere. Two gaps stand out: PAC and system-proxy resolution is complete but gated behind the under-development `respect_system_proxy` feature, and the default client sets no connect or total timeout, so unary backend calls fail on the OS timeout rather than by design. There is no offline mode: startup works without network, the first turn does not, and `codex doctor` is where TLS, proxy and PAC failures get named. 16 findings, 2 low, none above.",
+  "stats": {
+    "auth_header_sites": 1280,
+    "client_timeout_sites": 24,
+    "dns_ipv6_sites": 210,
+    "endpoint_env_sites": 24,
+    "grpc_rpc_sites": 2260,
+    "http_client_sites": 98,
+    "offline_check_sites": 30,
+    "port_literal_sites": 56,
+    "proxy_sites": 502,
+    "raw_socket_sites": 106,
+    "server_listen_sites": 550,
+    "sse_stream_sites": 35,
+    "tls_config_sites": 177,
+    "update_check_sites": 79,
+    "url_literal_sites": 1332,
+    "user_agent_sites": 71,
+    "websocket_sites": 513,
+    "count_rule": "count_network_sites.py: regex shapes per non-test file (config, js, python, rust); leads (*_candidates, *_keyword_files) excluded",
+    "endpoint_classes": [
+      "model-api",
+      "chatgpt-backend",
+      "update-check",
+      "telemetry",
+      "feedback",
+      "bedrock",
+      "local-model",
+      "mcp-http",
+      "remote-control",
+      "app-server",
+      "login-callback",
+      "managed-proxy"
+    ],
+    "outbound_endpoints": {
+      "model-api": "chatgpt.com/backend-api/codex (ChatGPT auth) or api.openai.com/v1 (API key); configurable",
+      "chatgpt-backend": "chatgpt.com/backend-api; configurable",
+      "update-check": "api.github.com, registry.npmjs.org",
+      "telemetry": "ab.chatgpt.com (release builds, opt-out)",
+      "feedback": "sentry.io (user-initiated)",
+      "bedrock": "bedrock-mantle.us-east-1.api.aws (opt-in)",
+      "local-model": "localhost:11434 (opt-in)",
+      "mcp-http": "configurable (opt-in)",
+      "remote-control": "chatgpt.com (opt-in)"
+    },
+    "listeners": [
+      "stdio",
+      "unix socket",
+      "ws:configurable (opt-in)",
+      "http:1455 (login)",
+      "http:3128 (managed proxy)",
+      "socks5:8081 (managed proxy)"
+    ],
+    "protocols": [
+      "HTTPS",
+      "SSE",
+      "WebSocket (Responses)",
+      "MCP over stdio",
+      "MCP streamable HTTP",
+      "JSON-RPC over stdio/unix/WebSocket",
+      "OTLP HTTP/gRPC",
+      "HTTP CONNECT and SOCKS5 (managed proxy)"
+    ],
+    "tls_verification": "platform-roots",
+    "proxy_support": "env-vars",
+    "offline_mode": "none",
+    "findings_by_severity": {
+      "info": 14,
+      "low": 2
+    }
+  },
+  "findings": [
+    {
+      "id": "network-scan/topology/endpoints",
+      "group": "topology",
+      "title": "Endpoint inventory: one model API by default, plus login, updates, telemetry and opt-in local or remote peers",
+      "description": "Codex is **both a client and a server**: it calls a model provider over HTTPS and serves JSON-RPC to front ends. On the default path the only outbound endpoint a turn needs is the **model API**: `https://chatgpt.com/backend-api/codex` when signed in with ChatGPT, `https://api.openai.com/v1` when an API key is used, chosen by auth mode in `to_api_provider`. Around it sit auxiliary outbound endpoints: the ChatGPT backend for login token exchange, model catalog, cloud tasks and product analytics; `api.github.com` and the npm registry for the TUI update check; `ab.chatgpt.com` for Statsig metrics in release builds; Sentry only when the user submits feedback. Opt-in endpoints: Amazon Bedrock (`bedrock-mantle.us-east-1.api.aws`), local Ollama (`localhost:11434`) or LM Studio servers, user-configured MCP servers over streamable HTTP, and a remote-control relay on `chatgpt.com`. Inbound: the app-server listens on stdio by default and optionally on a unix socket or a WebSocket port; sign-in opens a short-lived loopback HTTP callback; the managed network proxy listens on loopback for sandboxed children. The full table is in `attributes`; siblings own what each integration does and the auth policy.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 39,
+          "end_line": 39,
+          "snippet": "pub const CHATGPT_CODEX_BASE_URL: &str = \"https://chatgpt.com/backend-api/codex\";",
+          "note": "default base URL under ChatGPT auth"
+        },
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 302,
+          "end_line": 302,
+          "snippet": "\"https://api.openai.com/v1\"",
+          "note": "default base URL under API-key auth"
+        },
+        {
+          "file": "codex-rs/tui/src/updates.rs",
+          "start_line": 62,
+          "end_line": 62,
+          "snippet": "const LATEST_RELEASE_URL: &str = \"https://api.github.com/repos/openai/codex/releases/latest\";",
+          "note": "update check endpoint"
+        }
+      ],
+      "tags": [
+        "topology",
+        "endpoints"
+      ],
+      "sokrates_refs": [
+        "finding:tech-stack-scan/external-services/openai-api",
+        "finding:tech-stack-scan/external-services/amazon-bedrock",
+        "finding:tech-stack-scan/external-services/local-llm-runtimes",
+        "finding:functionality-scan/integrations/model-providers",
+        "finding:observability-scan/telemetry-pipeline/statsig-metrics-default-on",
+        "finding:security-design-scan/identity-access/auth-credential-flows",
+        "component:codex_rs"
+      ],
+      "attributes": {
+        "endpoints": [
+          {
+            "class": "model-api",
+            "direction": "outbound",
+            "protocol": "HTTPS + SSE, Responses-over-WebSocket when supported",
+            "default": "chatgpt.com/backend-api/codex (ChatGPT auth) or api.openai.com/v1 (API key)",
+            "configurable": "model_providers.<id>.base_url",
+            "auth": "ChatGPT OAuth token or API key",
+            "path": "default"
+          },
+          {
+            "class": "chatgpt-backend",
+            "direction": "outbound",
+            "protocol": "HTTPS",
+            "default": "chatgpt.com/backend-api",
+            "configurable": "chatgpt_base_url",
+            "auth": "ChatGPT token",
+            "path": "default when signed in (login, models, analytics, cloud tasks)"
+          },
+          {
+            "class": "update-check",
+            "direction": "outbound",
+            "protocol": "HTTPS",
+            "default": "api.github.com, registry.npmjs.org",
+            "configurable": "no",
+            "auth": "none",
+            "path": "default in TUI, cached 20 h"
+          },
+          {
+            "class": "telemetry",
+            "direction": "outbound",
+            "protocol": "OTLP-HTTP / OTLP-gRPC",
+            "default": "ab.chatgpt.com (Statsig, release builds)",
+            "configurable": "otel.* exporters",
+            "auth": "embedded client key / configured headers",
+            "path": "default in release TUI, opt-out"
+          },
+          {
+            "class": "feedback",
+            "direction": "outbound",
+            "protocol": "HTTPS",
+            "default": "sentry.io ingest",
+            "configurable": "no",
+            "auth": "DSN",
+            "path": "user-initiated only"
+          },
+          {
+            "class": "bedrock",
+            "direction": "outbound",
+            "protocol": "HTTPS + SSE",
+            "default": "bedrock-mantle.us-east-1.api.aws",
+            "configurable": "provider base_url",
+            "auth": "AWS SigV4",
+            "path": "opt-in"
+          },
+          {
+            "class": "local-model",
+            "direction": "outbound",
+            "protocol": "HTTP",
+            "default": "localhost:11434 (Ollama), LM Studio port",
+            "configurable": "provider base_url",
+            "auth": "none",
+            "path": "opt-in (--oss)"
+          },
+          {
+            "class": "mcp-http",
+            "direction": "outbound",
+            "protocol": "MCP streamable HTTP (+SSE), optional OAuth",
+            "default": "none",
+            "configurable": "mcp_servers.<name>.url",
+            "auth": "OAuth or bearer",
+            "path": "opt-in"
+          },
+          {
+            "class": "remote-control",
+            "direction": "outbound",
+            "protocol": "WSS",
+            "default": "chatgpt.com relay",
+            "configurable": "chatgpt.com hosts or localhost only",
+            "auth": "ChatGPT token",
+            "path": "opt-in"
+          },
+          {
+            "class": "app-server",
+            "direction": "inbound",
+            "protocol": "JSON-RPC over stdio / unix socket / WebSocket",
+            "default": "stdio://",
+            "configurable": "--listen",
+            "auth": "--ws-auth required off loopback",
+            "path": "default (stdio)"
+          },
+          {
+            "class": "login-callback",
+            "direction": "inbound",
+            "protocol": "HTTP",
+            "default": "127.0.0.1:1455",
+            "configurable": "fallback port",
+            "auth": "PKCE state token",
+            "path": "during sign-in only"
+          },
+          {
+            "class": "managed-proxy",
+            "direction": "inbound (from sandboxed children)",
+            "protocol": "HTTP CONNECT, SOCKS5",
+            "default": "127.0.0.1:3128 and :8081",
+            "configurable": "network.proxy_url / socks_url",
+            "auth": "none (loopback clamped)",
+            "path": "opt-in (network_proxy feature)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "network-scan/topology/listeners",
+      "group": "topology",
+      "title": "Listeners: stdio by default; every TCP listener is loopback-only unless explicitly authenticated",
+      "description": "The app-server's `--listen` defaults to `stdio://`; `unix://` and `ws://IP:PORT` are opt-in. The WebSocket transport **refuses a non-loopback bind without auth**: `is_unauthenticated_non_loopback_listener` errors out unless `--ws-auth capability-token` or `signed-bearer-token` is given, and it exposes `/readyz` and `/healthz` routes. A unix control socket (`app-server-control.sock`) is created with restricted permissions for the daemon and IDE clients. The OAuth sign-in callback binds `127.0.0.1:1455` (fallback port if taken) but advertises `http://localhost:<port>/auth/callback`, so a browser resolving `localhost` to `::1` first must fall back to IPv4. The managed network proxy defaults to `127.0.0.1:3128` (HTTP) and `:8081` (SOCKS5) and **clamps any non-loopback bind back to 127.0.0.1** unless an override setting is set, logging it as DANGEROUS. Auth and trust for these listeners are security-design's domain.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/app-server-transport/src/transport/mod.rs",
+          "start_line": 114,
+          "end_line": 114,
+          "snippet": "pub const DEFAULT_LISTEN_URL: &'static str = \"stdio://\";"
+        },
+        {
+          "file": "codex-rs/app-server-transport/src/transport/websocket.rs",
+          "start_line": 135,
+          "end_line": 135,
+          "snippet": "if is_unauthenticated_non_loopback_listener(bind_address, &auth_policy) {",
+          "note": "non-loopback WebSocket bind refused without auth"
+        },
+        {
+          "file": "codex-rs/network-proxy/src/config.rs",
+          "start_line": 344,
+          "end_line": 344,
+          "snippet": "\"{name} requested non-loopback bind ({addr}); clamping to 127.0.0.1:{port} (set {override_setting_name} to override)\","
+        }
+      ],
+      "tags": [
+        "topology",
+        "listeners",
+        "loopback"
+      ],
+      "sokrates_refs": [
+        "finding:security-design-scan/identity-access/auth-credential-flows",
+        "finding:security-design-scan/trust-boundaries/network-egress",
+        "finding:architecture-scan/communication/json-rpc-many-transports"
+      ],
+      "attributes": {
+        "listeners": [
+          "stdio (default)",
+          "unix socket app-server-control.sock",
+          "ws://IP:PORT (opt-in, auth required off loopback)",
+          "http 127.0.0.1:1455 login callback",
+          "http 127.0.0.1:3128 managed proxy",
+          "socks5 127.0.0.1:8081 managed proxy"
+        ],
+        "login_callback_bind_vs_redirect": "binds 127.0.0.1, redirect uses localhost"
+      }
+    },
+    {
+      "id": "network-scan/topology/outbound-model-api",
+      "group": "topology",
+      "title": "Model API: base URL chosen by auth mode, WebSocket transport preferred with session-scoped fallback to HTTPS",
+      "description": "The model endpoint is resolved per provider in `to_api_provider`: an explicit `base_url` wins, otherwise ChatGPT-family auth modes get the Codex backend and everything else gets `api.openai.com/v1`. Providers with `supports_websockets` open a **Responses-over-WebSocket** connection lazily and reuse it across turns, sending the beta header `responses_websockets=2026-02-06`; the connection attempt is bounded by `DEFAULT_WEBSOCKET_CONNECT_TIMEOUT_MS` (15 s). Once retries are exhausted on WebSocket the session flips `disable_websockets` and uses HTTPS + SSE for the rest of the session (the policy is reliability's finding). Bedrock cannot combine with WebSockets (`validate` rejects it), so it is always HTTPS + SSE with SigV4. Request bodies to the Responses API can be **zstd-compressed**.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 146,
+          "end_line": 146,
+          "snippet": "pub supports_websockets: bool,"
+        },
+        {
+          "file": "codex-rs/core/src/client.rs",
+          "start_line": 158,
+          "end_line": 158,
+          "snippet": "const RESPONSES_WEBSOCKETS_V2_BETA_HEADER_VALUE: &str = \"responses_websockets=2026-02-06\";"
+        },
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 30,
+          "end_line": 30,
+          "snippet": "pub const DEFAULT_WEBSOCKET_CONNECT_TIMEOUT_MS: u64 = 15_000;"
+        }
+      ],
+      "tags": [
+        "model-api",
+        "websocket",
+        "sse"
+      ],
+      "sokrates_refs": [
+        "finding:reliability-scan/recovery/outgoing-retry-policies",
+        "finding:reliability-scan/degradation/designed-fallbacks",
+        "finding:tech-stack-scan/protocols-formats/websocket",
+        "finding:tech-stack-scan/protocols-formats/sse"
+      ]
+    },
+    {
+      "id": "network-scan/protocols/streaming-model-api",
+      "group": "protocols",
+      "title": "Streaming as used: SSE with a per-event idle timeout, terminal events decide success, WebSocket reuses incremental payloads",
+      "description": "Model responses arrive as an SSE stream parsed by `codex-client::sse_stream`, which wraps every `stream.next()` in `tokio::time::timeout(idle_timeout)`; the default is `DEFAULT_STREAM_IDLE_TIMEOUT_MS` (300 s), per provider via `stream_idle_timeout_ms`. The stream ends on `response.completed` (carrying token usage) or `response.failed`, which is turned into an `ApiError::Stream` and fed to the retry logic; a dropped connection without a terminal event is an idle timeout, not silent success. Over WebSocket the session keeps the last full request so following turns can send **incremental request payloads**; request compression is `zstd` when enabled. Ollama model pulls use the same streamed-response pattern until a success event or the server closes. The app-server side is JSON-RPC framed per transport (architecture owns the seam).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/codex-client/src/sse.rs",
+          "start_line": 23,
+          "end_line": 23,
+          "snippet": "match timeout(idle_timeout, stream.next()).await {",
+          "note": "per-event idle timeout on the SSE reader"
+        },
+        {
+          "file": "codex-rs/codex-api/src/sse/responses.rs",
+          "start_line": 408,
+          "end_line": 408,
+          "snippet": "\"response.failed\" => {",
+          "note": "terminal failure event"
+        },
+        {
+          "file": "codex-rs/codex-api/src/endpoint/responses.rs",
+          "start_line": 137,
+          "end_line": 137,
+          "snippet": "Compression::Zstd => RequestCompression::Zstd,"
+        }
+      ],
+      "tags": [
+        "sse",
+        "streaming",
+        "websocket"
+      ],
+      "sokrates_refs": [
+        "finding:reliability-scan/recovery/outgoing-retry-policies",
+        "finding:architecture-scan/communication/json-rpc-many-transports"
+      ]
+    },
+    {
+      "id": "network-scan/protocols/rpc-mcp",
+      "group": "protocols",
+      "title": "MCP as used: stdio child processes and streamable-HTTP transports (plain, OAuth, access-token) through the shared HTTP client",
+      "description": "The `rmcp-client` crate wraps the `rmcp` SDK with three streamable-HTTP variants: `StreamableHttp`, `StreamableHttpWithOAuth` and `StreamableHttpWithAccessTokenOnly`, plus stdio for child-process servers. HTTP MCP traffic goes through a `StreamableHttpClientAdapter` over the workspace `HttpClient`, so proxy and CA handling match the model client; OAuth for MCP servers has its own token store and refresh transaction (the largest auth-header footprint in the count script). Startup and per-call timeouts for MCP servers are reliability's finding. Codex also serves MCP itself (`codex mcp-server`, deprecated) over stdio.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/rmcp-client/src/rmcp_client.rs",
+          "start_line": 110,
+          "end_line": 110,
+          "snippet": "StreamableHttp {"
+        },
+        {
+          "file": "codex-rs/rmcp-client/src/rmcp_client.rs",
+          "start_line": 113,
+          "end_line": 113,
+          "snippet": "StreamableHttpWithOAuth {"
+        }
+      ],
+      "tags": [
+        "mcp",
+        "rpc"
+      ],
+      "sokrates_refs": [
+        "finding:reliability-scan/isolation/mcp-server-timeouts",
+        "finding:tech-stack-scan/protocols-formats/mcp",
+        "finding:functionality-scan/features/mcp-client",
+        "finding:security-design-scan/third-party-trust/mcp-annotation-trust"
+      ]
+    },
+    {
+      "id": "network-scan/connection-management/client-lifecycle",
+      "group": "connection-management",
+      "title": "One HttpClientFactory per config; clients are pooled per resolved proxy route (16 routes) and legacy builders are deprecated",
+      "description": "Product traffic is meant to enter through `HttpClientFactory::build_client` (fixed destination) or `RouteAwareClientPool` (varying URLs and redirects). The pool **reuses one reqwest client per resolved route** (`MAX_CACHED_ROUTES` = 16) so PAC or system-proxy decisions and connection reuse line up per destination; redirects are re-resolved hop by hop with sensitive headers stripped. A rustls sub-cache retries an origin with rustls when the platform TLS backend fails on a protocol-version error. Older entry points (`build_with_transport_default_proxy`, `*_with_custom_ca_fallback`) are `#[deprecated]` and documented as legacy-only, so **construction is converging but not uniform**: the doctor, Ollama client and analytics client build their own pools with their own connect or request timeouts. Cookies are kept only for the ChatGPT Cloudflare cookie store.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/http-client/src/route_aware_client_pool.rs",
+          "start_line": 38,
+          "end_line": 38,
+          "snippet": "const MAX_CACHED_ROUTES: usize = 16;"
+        },
+        {
+          "file": "codex-rs/http-client/src/route_aware_client_pool.rs",
+          "start_line": 53,
+          "end_line": 53,
+          "snippet": "/// Reuses transport clients by resolved route while selecting a route for every request URL."
+        },
+        {
+          "file": "codex-rs/http-client/src/client_builder.rs",
+          "start_line": 168,
+          "end_line": 168,
+          "snippet": "#[deprecated(",
+          "note": "legacy builder paths marked deprecated"
+        }
+      ],
+      "tags": [
+        "reqwest",
+        "pooling",
+        "client"
+      ],
+      "sokrates_refs": [
+        "finding:tech-stack-scan/libraries/reqwest",
+        "component:codex_rs"
+      ]
+    },
+    {
+      "id": "network-scan/connection-management/timeouts",
+      "group": "connection-management",
+      "title": "No connect or total timeout on the default client; streams rely on the idle timeout, unary backend calls rely on the OS",
+      "description": "`HttpClientBuilder::default` sets `connect_timeout: None` and never sets a total request timeout; `connect_timeout` limits only connection establishment when a caller opts in. The model stream is protected by the 300 s idle timeout and WebSocket connects by 15 s (reliability's verdict). Unary calls on the ChatGPT backend (`backend-client`: models catalog, cloud tasks, usage) and the login token refresh construct `RouteAwareClientPool` **without a timeout**, so a black-holed TCP connect waits for the OS timeout (typically 60-130 s) before the retry/backoff sees an error. Where timeouts exist they are local: doctor probes 8 s, Ollama `OLLAMA_CONNECTION_TIMEOUT` on connect, analytics 10 s per post. Mitigation: every turn is interruptible and the calls are on an interactive path, so this is a slow failure, not a hang.",
+      "severity": "low",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/http-client/src/client_builder.rs",
+          "start_line": 306,
+          "end_line": 306,
+          "snippet": "connect_timeout: None,",
+          "note": "default builder"
+        },
+        {
+          "file": "codex-rs/http-client/src/client_builder.rs",
+          "start_line": 103,
+          "end_line": 103,
+          "snippet": "/// Limits only connection establishment, not the request as a whole."
+        },
+        {
+          "file": "codex-rs/backend-client/src/client.rs",
+          "start_line": 1177,
+          "end_line": 1177,
+          "snippet": "http: RouteAwareClientPool::new(",
+          "note": "backend client pool built without a timeout"
+        }
+      ],
+      "recommendation": "Give `HttpClientBuilder::default` a connect timeout (10-15 s, matching the WebSocket connect bound) and apply a per-request total timeout on unary backend calls, so unreachable hosts fail into the existing backoff instead of the OS connect timeout.",
+      "tags": [
+        "timeouts",
+        "reqwest"
+      ],
+      "sokrates_refs": [
+        "finding:reliability-scan/recovery/outgoing-retry-policies",
+        "finding:reliability-scan/isolation/mcp-server-timeouts"
+      ]
+    },
+    {
+      "id": "network-scan/connection-management/tls",
+      "group": "connection-management",
+      "title": "TLS: platform roots plus an optional custom CA bundle from CODEX_CA_CERTIFICATE or SSL_CERT_FILE; rustls fallback on Windows; no verification bypass",
+      "description": "Verification uses the platform native roots (`rustls_native_certs::load_native_certs`, errors logged but not fatal) with optional extra roots from `CODEX_CA_CERTIFICATE`, falling back to `SSL_CERT_FILE`; empty values are unset, and the Codex-specific variable wins. The reqwest client uses the transport default TLS backend unless the builder selects rustls; a **schannel protocol-version error** on Windows triggers a one-off retry through rustls for that origin. Custom-CA parse errors fail construction on the modern path and fall back to system roots on the deprecated legacy path with a warning event. WebSocket connects share the same rustls config (`build_rustls_client_config_with_custom_ca`), including TLS-to-proxy. No `danger_accept_invalid_certs` or equivalent exists (security-scan's sweep); the count script's single `verify=False` hit is a **post-publish verification flag** in the R2 release script, not TLS. OTLP exporters add mutual TLS (observability's finding). `codex doctor` checks that the CA env vars point at readable files.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/http-client/src/custom_ca.rs",
+          "start_line": 12,
+          "end_line": 12,
+          "snippet": "//! - read CA material from `CODEX_CA_CERTIFICATE`, falling back to `SSL_CERT_FILE`"
+        },
+        {
+          "file": "codex-rs/http-client/src/custom_ca.rs",
+          "start_line": 252,
+          "end_line": 252,
+          "snippet": "rustls_native_certs::load_native_certs();"
+        },
+        {
+          "file": "codex-rs/http-client/src/tls_backend_fallback.rs",
+          "start_line": 136,
+          "end_line": 136,
+          "snippet": "let is_schannel_protocol_version_error = error"
+        }
+      ],
+      "tags": [
+        "tls",
+        "rustls",
+        "custom-ca"
+      ],
+      "sokrates_refs": [
+        "finding:tech-stack-scan/libraries/rustls-aws-lc",
+        "finding:security-scan/crypto/randomness-and-tls",
+        "finding:observability-scan/telemetry-pipeline/configurable-otlp-export"
+      ],
+      "attributes": {
+        "tls_verification": "platform-roots",
+        "custom_roots_env": [
+          "CODEX_CA_CERTIFICATE",
+          "SSL_CERT_FILE"
+        ],
+        "precedence": "CODEX_CA_CERTIFICATE > SSL_CERT_FILE > platform roots"
+      }
+    },
+    {
+      "id": "network-scan/connection-management/proxy-support",
+      "group": "connection-management",
+      "title": "Proxy env vars work everywhere; PAC and system proxy exist but are behind an under-development feature flag",
+      "description": "Two proxy paths exist. With the default `OutboundProxyPolicy::ReqwestDefault`, reqwest and tokio-tungstenite read `HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY`/`NO_PROXY` themselves. With `RespectSystemProxy` the `outbound_proxy` module resolves per request URL: platform PAC/WinHTTP or macOS SystemConfiguration lookups (serialised through a permit and cached), then env variables by scheme kind, then direct; `ws`/`wss` are mapped to their HTTP equivalents so one policy applies. That richer path is gated on `Feature::RespectSystemProxy`, whose stage is `UnderDevelopment`, so **corporate PAC-only networks do not work out of the box**; the doctor detects the situation and tells the user to ask an administrator to run `codex features enable respect_system_proxy`. Authenticated proxies are recognised (`407` maps to a `ProxyAuthenticationRequired` failure class) but the count script found no credential-broker for the outbound path beyond URL-embedded credentials. The inbound managed proxy for sandboxed children is a separate mechanism (security-design's egress finding).",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/http-client/src/outbound_proxy.rs",
+          "start_line": 358,
+          "end_line": 358,
+          "snippet": "proxy_env_value(env, \"HTTPS_PROXY\").or_else(|| proxy_env_value(env, \"ALL_PROXY\"))"
+        },
+        {
+          "file": "codex-rs/features/src/lib.rs",
+          "start_line": 1109,
+          "end_line": 1109,
+          "snippet": "stage: Stage::UnderDevelopment,",
+          "note": "RespectSystemProxy feature stage"
+        },
+        {
+          "file": "codex-rs/cli/src/doctor/network.rs",
+          "start_line": 111,
+          "end_line": 111,
+          "snippet": "\"A macOS system proxy is configured but unused. If your organization requires it, ask your administrator whether to enable the under-development feature with `codex features enable respect_system_proxy`.\""
+        }
+      ],
+      "recommendation": "Promote `respect_system_proxy` past under-development (or default it on where a PAC/system proxy is detected and no env proxy is set); until then document the flag in the networking docs so enterprise users find it before the doctor does.",
+      "tags": [
+        "proxy",
+        "pac",
+        "env-vars"
+      ],
+      "sokrates_refs": [
+        "finding:security-design-scan/trust-boundaries/network-egress",
+        "finding:observability-scan/health-diagnostics/codex-doctor"
+      ],
+      "attributes": {
+        "proxy_env_vars": [
+          "HTTP_PROXY",
+          "HTTPS_PROXY",
+          "ALL_PROXY",
+          "NO_PROXY",
+          "lowercase variants"
+        ],
+        "system_proxy": "feature respect_system_proxy (UnderDevelopment)"
+      }
+    },
+    {
+      "id": "network-scan/connection-management/identification",
+      "group": "connection-management",
+      "title": "Every request identifies itself: originator/version (OS arch) terminal user-agent, plus session-id, thread-id and subagent headers",
+      "description": "`get_codex_user_agent` builds `<originator>/<version> (<os> <os-version>; <arch>) <terminal>` from `os_info` and terminal detection, with an optional suffix and header-value sanitisation; the default originator is `codex_cli_rs`, overridable per process and per thread (`originator` header) for IDE and desktop front ends. Model requests add `session-id`, `thread-id`, `x-client-request-id` and, for sub-agents, `x-openai-subagent`. This is more than most CLIs send and is worth knowing when reading data-in-transit: the **OS version, architecture and terminal program** ride on every call, including update checks.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/login/src/auth/default_client.rs",
+          "start_line": 40,
+          "end_line": 40,
+          "snippet": "pub const DEFAULT_ORIGINATOR: &str = \"codex_cli_rs\";"
+        },
+        {
+          "file": "codex-rs/login/src/auth/default_client.rs",
+          "start_line": 173,
+          "end_line": 173,
+          "snippet": "os_info.architecture().unwrap_or(\"unknown\"),",
+          "note": "user-agent includes OS and architecture"
+        },
+        {
+          "file": "codex-rs/codex-api/src/requests/headers.rs",
+          "start_line": 8,
+          "end_line": 8,
+          "snippet": "insert_header(&mut headers, \"session-id\", &id);"
+        }
+      ],
+      "tags": [
+        "user-agent",
+        "headers"
+      ],
+      "sokrates_refs": [
+        "finding:observability-scan/tracing/spans-w3c-propagation"
+      ]
+    },
+    {
+      "id": "network-scan/configurability/endpoint-config",
+      "group": "configurability",
+      "title": "Endpoints come from config.toml, not env vars: per-provider base_url, chatgpt_base_url, --listen; headers and keys come from env",
+      "description": "Precedence for the model endpoint is `model_providers.<id>.base_url` (config.toml) then the auth-mode default; there is **no `OPENAI_BASE_URL`-style environment override** in the Rust code (the count script's endpoint env hits are test servers, sample skills and the workload-identity token URL). Environment is used for secrets and headers instead: `env_key` names the API-key variable and `env_http_headers` maps header names to variables. The ChatGPT backend for login, models and cloud tasks is `chatgpt_base_url`; the remote-control relay URL is validated to `chatgpt.com`, `chatgpt-staging.com` or `localhost`. Inbound transports are flags: `--listen stdio://|unix://|ws://IP:PORT`, `--ws-auth`; the managed proxy ports are `network.proxy_url`/`socks_url`. Retry counts and timeouts are per provider (`request_max_retries`, `stream_max_retries`, `stream_idle_timeout_ms`, `websocket_connect_timeout_ms`). Enterprise requirement layers can pin some of these (security-design's managed-requirements finding).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 100,
+          "end_line": 100,
+          "snippet": "pub base_url: Option<String>,"
+        },
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 127,
+          "end_line": 127,
+          "snippet": "pub env_http_headers: Option<HashMap<String, String>>,"
+        },
+        {
+          "file": "codex-rs/core/src/config/mod.rs",
+          "start_line": 924,
+          "end_line": 924,
+          "snippet": "pub chatgpt_base_url: String,"
+        }
+      ],
+      "tags": [
+        "config",
+        "env-vars",
+        "base-url"
+      ],
+      "sokrates_refs": [
+        "finding:functionality-scan/entry-points/configuration-and-instruction-files",
+        "finding:security-design-scan/identity-access/managed-requirements"
+      ],
+      "attributes": {
+        "precedence_model_api": "model_providers.<id>.base_url > auth-mode default (chatgpt.com/backend-api/codex | api.openai.com/v1)",
+        "env_vars_endpoint": [],
+        "env_vars_secrets_headers": [
+          "<env_key>",
+          "<env_http_headers values>",
+          "CODEX_CA_CERTIFICATE",
+          "SSL_CERT_FILE",
+          "HTTP(S)_PROXY",
+          "ALL_PROXY",
+          "NO_PROXY"
+        ]
+      }
+    },
+    {
+      "id": "network-scan/configurability/hardcoded-hosts",
+      "group": "configurability",
+      "title": "Self-hosting the model is a config change; ChatGPT-account features, update checks, Statsig and Sentry are pinned to OpenAI hosts",
+      "description": "An **air-gapped or self-hosted deployment is feasible for the model path**: any OpenAI-compatible Responses endpoint (Ollama, LM Studio, a gateway) can be the provider with `wire_api = \"responses\"`; the legacy chat wire API was removed. What cannot be repointed: the remote-control relay (host allowlist `chatgpt.com`/`chatgpt-staging.com`/`localhost`), the update check (`api.github.com` and the npm registry), the Statsig metrics endpoint and the Sentry DSN. In a blocked network these produce warnings or silent skips rather than failures: the update check is background and cached, metrics are lossy, feedback is manual. ChatGPT-login-only features (cloud tasks, plan quotas, models catalog) follow `chatgpt_base_url` and so can be pointed at a proxy but need the real backend behind it.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/app-server-transport/src/transport/remote_control/protocol.rs",
+          "start_line": 271,
+          "end_line": 271,
+          "snippet": "\"invalid remote control URL `{remote_control_url}`; expected HTTPS URL for chatgpt.com or chatgpt-staging.com, or HTTP/HTTPS URL for localhost\""
+        },
+        {
+          "file": "codex-rs/tui/src/updates.rs",
+          "start_line": 62,
+          "end_line": 62,
+          "snippet": "const LATEST_RELEASE_URL: &str = \"https://api.github.com/repos/openai/codex/releases/latest\";"
+        },
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 53,
+          "end_line": 53,
+          "snippet": "\"https://bedrock-mantle.us-east-1.api.aws/openai/v1\";"
+        }
+      ],
+      "tags": [
+        "self-hosting",
+        "air-gapped",
+        "hardcoded"
+      ],
+      "sokrates_refs": [
+        "finding:tech-stack-scan/external-services/sentry",
+        "finding:observability-scan/telemetry-pipeline/statsig-metrics-default-on",
+        "finding:functionality-scan/features/remote-control",
+        "finding:functionality-scan/features/maintenance-doctor-update-features"
+      ]
+    },
+    {
+      "id": "network-scan/offline-behaviour/startup-dependencies",
+      "group": "offline-behaviour",
+      "title": "Startup tolerates no network: the model catalog is fetched only if uncached, the update check is background, local providers are probed once",
+      "description": "Session start refreshes the model catalog with `RefreshStrategy::OnlineIfUncached` for root sessions and `Offline` for sub-agents; the catalog is cached in `models_cache.json` and bundled defaults exist, so a first run without network still gets a model list but a **cold first run** will attempt the fetch. The TUI update check reads the cache first and refreshes in a background task only when the last check is older than 20 h, explicitly so startup is not blocked. The Ollama/LM Studio providers **probe the server on construction** (`probe_server` with a connect timeout) and fail fast with a readable error if the daemon is not running. The first turn is the real network dependency: nothing is prefetched that would let a turn run offline.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/session/mod.rs",
+          "start_line": 576,
+          "end_line": 576,
+          "snippet": "codex_models_manager::manager::RefreshStrategy::OnlineIfUncached"
+        },
+        {
+          "file": "codex-rs/tui/src/updates.rs",
+          "start_line": 41,
+          "end_line": 41,
+          "snippet": "// Refresh the cached latest version in the background so TUI startup"
+        },
+        {
+          "file": "codex-rs/ollama/src/client.rs",
+          "start_line": 93,
+          "end_line": 93,
+          "snippet": "client.probe_server().await?;"
+        }
+      ],
+      "tags": [
+        "startup",
+        "offline",
+        "cache"
+      ],
+      "sokrates_refs": [
+        "finding:functionality-scan/workflows/first-run",
+        "finding:tech-stack-scan/external-services/local-llm-runtimes"
+      ],
+      "attributes": {
+        "offline_mode": "none",
+        "startup_blocks_on_network": false
+      }
+    },
+    {
+      "id": "network-scan/offline-behaviour/connectivity-checks",
+      "group": "offline-behaviour",
+      "title": "codex doctor is the only connectivity check: probes with an 8 s budget and classifies failures (TLS, proxy auth, PAC, timeout)",
+      "description": "There is no runtime connectivity check or offline mode; a turn simply fails after the retry budget with a provider error that the TUI classifier maps to guidance (functionality and reliability say the same). Diagnosis lives in `codex doctor`: the network check prints which proxy env vars are set, the macOS system proxy mode (PAC/manual/direct), whether `respect_system_proxy` and the managed proxy are on, and whether the CA env vars point at readable files. Probes run through the same route-aware pool with an **8 s budget** (5 s for PAC resolution plus 3 s HTTP) and map `RouteFailureClass` into plain sentences such as `TLS handshake or certificate validation failed` or `proxy authentication required (HTTP 407)`. Under the seatbelt sandbox the probe uses a direct client instead.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/doctor/network.rs",
+          "start_line": 137,
+          "end_line": 137,
+          "snippet": ".timeout(Duration::from_secs(8))"
+        },
+        {
+          "file": "codex-rs/cli/src/doctor/network.rs",
+          "start_line": 151,
+          "end_line": 151,
+          "snippet": "Some(RouteFailureClass::TlsError) => \"TLS handshake or certificate validation failed\","
+        },
+        {
+          "file": "codex-rs/cli/src/doctor/network.rs",
+          "start_line": 54,
+          "end_line": 54,
+          "snippet": "for name in [\"CODEX_CA_CERTIFICATE\", \"SSL_CERT_FILE\"] {"
+        }
+      ],
+      "tags": [
+        "doctor",
+        "diagnostics",
+        "offline"
+      ],
+      "sokrates_refs": [
+        "finding:observability-scan/health-diagnostics/codex-doctor",
+        "finding:functionality-scan/integrations/model-providers",
+        "finding:reliability-scan/degradation/designed-fallbacks"
+      ]
+    },
+    {
+      "id": "network-scan/data-in-transit/payloads-model-api",
+      "group": "data-in-transit",
+      "title": "What crosses the wire per turn: prompt, instruction files and read file contents to the provider, tagged with session, thread, OS and terminal identity",
+      "description": "Functionality and security-design already list what leaves the machine as policy; the map here adds the envelope. Each model request carries the conversation input (user text, `AGENTS.md` and skill instructions, tool outputs including file contents the agent read, bounded per tool call) as a Responses API body, optionally zstd-compressed, with `session-id`, `thread-id`, `originator` and a user-agent naming OS version, architecture and terminal. Over WebSocket, later turns send incremental payloads rather than the full history. The ChatGPT backend additionally receives login tokens, analytics events (a bounded lossy queue) and cloud-task prompts; the update check sends only the user-agent; Sentry receives a redacted log ring only when the user submits feedback. Inbound trust: SSE events are deserialised into typed structs and the model's tool calls are treated as untrusted by the orchestrator (security-design's boundary map).",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/codex-api/src/requests/headers.rs",
+          "start_line": 11,
+          "end_line": 11,
+          "snippet": "insert_header(&mut headers, \"thread-id\", &id);"
+        },
+        {
+          "file": "codex-rs/codex-api/src/endpoint/responses.rs",
+          "start_line": 93,
+          "end_line": 93,
+          "snippet": "insert_header(&mut headers, \"x-openai-subagent\", &subagent);"
+        },
+        {
+          "file": "codex-rs/login/src/auth/default_client.rs",
+          "start_line": 173,
+          "end_line": 173,
+          "snippet": "os_info.architecture().unwrap_or(\"unknown\"),"
+        }
+      ],
+      "tags": [
+        "payload",
+        "privacy",
+        "headers"
+      ],
+      "sokrates_refs": [
+        "finding:functionality-scan/data/what-leaves-the-machine",
+        "finding:security-design-scan/trust-boundaries/boundary-map",
+        "finding:security-design-scan/secrets-data-protection/secret-storage-redaction",
+        "finding:observability-scan/telemetry-pipeline/analytics-events-backend",
+        "finding:observability-scan/error-reporting/sentry-consent-based-feedback"
+      ]
+    },
+    {
+      "id": "network-scan/network-posture/posture",
+      "group": "network-posture",
+      "title": "Connectivity posture: one configurable model endpoint over HTTPS/SSE or WebSocket, loopback-only listeners, strong TLS and env-proxy story, weak PAC and timeout defaults, no offline mode",
+      "description": "**Endpoint map**: by default Codex talks to one host, `chatgpt.com` (ChatGPT login) or `api.openai.com` (API key), plus background `api.github.com` update checks and `ab.chatgpt.com` metrics in release builds; Bedrock, local Ollama/LM Studio, HTTP MCP servers and the remote-control relay are opt-in. **Listeners** are stdio by default and every TCP listener is loopback-only unless authenticated. **Strongest handling**: the route-aware client pool with per-route reuse, custom CA via `CODEX_CA_CERTIFICATE`/`SSL_CERT_FILE` on top of platform roots, a rustls fallback for Windows TLS quirks, and a doctor that names TLS, proxy and PAC failures. **Weakest**: system/PAC proxy support is behind an under-development flag, and the default HTTP client has no connect or total timeout, so unreachable backends fail via the OS rather than by design. **Offline**: startup works, the first turn does not; there is no cached or degraded mode, only clear errors. **Deployability**: proxies via env vars yes, PAC after enabling a flag, air-gapped only with a self-hosted Responses-compatible provider and without ChatGPT-account features. Highest-leverage changes: `finding:network-scan/connection-management/proxy-support`, `finding:network-scan/connection-management/timeouts`, and documenting the endpoint table from `finding:network-scan/topology/endpoints` for enterprise allowlists.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 302,
+          "end_line": 302,
+          "snippet": "\"https://api.openai.com/v1\"",
+          "note": "endpoint resolution"
+        },
+        {
+          "file": "codex-rs/http-client/src/route_aware_client_pool.rs",
+          "start_line": 53,
+          "end_line": 53,
+          "snippet": "/// Reuses transport clients by resolved route while selecting a route for every request URL.",
+          "note": "client factory"
+        }
+      ],
+      "tags": [
+        "posture",
+        "synthesis"
+      ],
+      "sokrates_refs": [
+        "finding:network-scan/connection-management/proxy-support",
+        "finding:network-scan/connection-management/timeouts",
+        "finding:network-scan/topology/endpoints",
+        "finding:security-design-scan/trust-boundaries/network-egress",
+        "finding:reliability-scan/reliability-posture/synthesis"
+      ]
+    }
+  ],
+  "summary_visual": {
+    "file": "visuals/network-scan.jpeg",
+    "credit": "Illustration generated by Google Gemini (gemini-3-pro-image-preview)",
+    "generated_at": "2026-08-27T14:29:32Z",
+    "prompt": "Create a single, calm, aesthetically pleasing illustration that tells the story of the analysis summary below - a reader should grasp its one or two big ideas at a glance. Text is welcome but sparse: a few short labels or key words (roughly 3 to 8, one to three words each) that anchor the story; no sentences, no numbers, no dates, no titles, no legends, no dense diagrams or flowcharts, no dashboards or screenshots. Let shapes, metaphor, composition and colour carry most of the meaning. Style: polished flat vector illustration, crisp outlines, minimal shading, generous margins so nothing touches the edges, a disciplined palette of deep blue, teal, soft green and warm orange accents on a light background. Uncluttered - a few well-chosen elements and plenty of negative space. No photorealism, no 3D render, no clip-art collage, no people's faces.\nVisual motif for this kind of analysis (network-scan): a small machine connected by cables and beams to distant towers, one link dotted and broken, a proxy gate in between.\nSubject: the software project 'openai / codex'.\nStory to tell (pick the essence, do not transcribe it): Codex is an agent runtime that is both a network client and a local server. By default it talks to exactly one remote host per turn, the model API at chatgpt.com/backend-api/codex (ChatGPT login) or api.openai.com/v1 (API key), over HTTPS with SSE streaming or a Responses-over-WebSocket connection that falls back to HTTPS for the session; the only other default-path traffic is a cached 20-hour update check against GitHub and npm and, in release builds, Statsig metrics. Bedrock, local Ollama or LM Studio, HTTP MCP servers and the ChatGPT remote-control relay are opt-in. Inbound, the app-server speaks JSON-RPC on stdio by default and refuses a non-loopback WebSocket bind without auth; the login callback and the managed sandbox proxy are clamped to 127.0.0.1."
+  }
+}

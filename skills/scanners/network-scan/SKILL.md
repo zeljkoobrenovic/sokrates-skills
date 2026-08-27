@@ -17,8 +17,8 @@ Every network call is a dependency on something the program does not control. Th
 
 - **`tech-stack-scan`** (`external-services`, `protocols-formats`) names the services and protocols. Read it first; this scanner describes the *usage and behaviour*, never re-inventories.
 - **`functionality-scan`** (`integrations`) says what each integration does for the user; reference it and describe only the connectivity.
-- **`reliability-scan`** (`recovery/outgoing-retry`, `timeouts`, `reconnection`) owns retry and timeout *policy* as a failure posture. Reference those findings by id; here, cover what they do not: per-endpoint configuration, TLS/proxy handling, connection lifecycle, and the offline experience. If reliability has no network findings, `connection-management` may carry timeouts and reconnection with the reliability cross-reference noted as absent.
-- **`security-design-scan`** owns trust boundaries, auth flows and what data may leave the machine as *policy*; **`observability-scan`** (`telemetry-pipeline`) owns telemetry egress. `data-in-transit` here describes payload shapes and destinations as a *map*, with cross-references, and adds only what neither covered (e.g. request bodies that include local file contents).
+- **`reliability-scan`** (`recovery/outgoing-retry`, `reconnection`) owns retry, backoff and reconnection policy. **This scanner owns client-construction timeouts** (connect/read/idle/total on the builder, per client) — reliability's `timeouts` finding, if any, is referenced, and stream-level idle timeouts it already cited are mentioned, not re-cited. Streaming mechanics beyond what reliability described (how a stream ends, compression, framing) are `protocols`; if reliability already covered the fallback and idle timeout, keep `streaming-<class>` to what is left or fold it into `outbound-<class>`.
+- **`security-design-scan`** owns trust boundaries, auth flows, the sandbox egress proxy and what data may leave the machine as *policy*; **`functionality-scan`** (`data/*what-leaves*`, `integrations`) and **`observability-scan`** (`telemetry-pipeline`) usually already say what is sent where. `data-in-transit` takes the body contents *from those findings by reference* and adds only the transport envelope: headers and identifiers, encoding/compression, size bounds, what is received and trusted. Do not read the prompt builder to reconstruct request bodies.
 - **`security-scan`** owns TLS verification disabled, hardcoded credentials in URLs; note and cross-reference, do not audit.
 - **`performance-scan`** owns N+1 calls and connection cost.
 
@@ -26,7 +26,7 @@ Every network call is a dependency on something the program does not control. Th
 
 ## Workflow
 
-1. **Orient per the core skill.** From `tech-stack-scan` (HTTP clients, servers, protocol libraries), `functionality-scan` (integrations), `architecture-scan` (runtime communication), `reliability-scan` (retry/timeout verdicts), `security-design-scan` (trust boundaries). Decide the system kind: a client of remote APIs, a server, both (an agent runtime that calls model APIs *and* serves a protocol), or offline software with incidental network use (update checks, telemetry). A batch tool with no network use gets a short `topology/no-network` finding and stops — say so and do not pad. An empty `external-services` group in `tech-stack-scan` is itself a strong signal. If the program's *produced artifacts* depend on the network (generated HTML loading CDN scripts, reports linking out), mention it inside `no-network` with references to `functionality-scan`/`security-design-scan` — do not open further groups; that is not "incidental use". Incidental use means the *process* makes a few opt-in or side calls (update checks, telemetry, docs links opened in a browser).
+1. **Orient per the core skill.** Read six siblings: `tech-stack-scan` (`external-services`, `protocols-formats`), `functionality-scan` (`integrations`, `data`), `architecture-scan` (`communication` — the transport/listener map), `reliability-scan` (`recovery/*`), `security-design-scan` (`trust-boundaries`, `third-party-trust`), `observability-scan` (`telemetry-pipeline`). Decide the system kind: a client of remote APIs, a server, both (an agent runtime that calls model APIs *and* serves a protocol), or offline software with incidental network use (update checks, telemetry). A batch tool with no network use gets a short `topology/no-network` finding and stops — say so and do not pad. An empty `external-services` group in `tech-stack-scan` is itself a strong signal. If the program's *produced artifacts* depend on the network (generated HTML loading CDN scripts, reports linking out), mention it inside `no-network` with references to `functionality-scan`/`security-design-scan` — do not open further groups; that is not "incidental use". Incidental use means the *process* makes a few opt-in or side calls (update checks, telemetry, docs links opened in a browser).
 2. **Count with the script, then find the connectivity code.** Run
    ```bash
    python3 <this-skill-path>/scripts/count_network_sites.py <src-root> --json <scratch>/network-counts.json
@@ -39,7 +39,7 @@ Every network call is a dependency on something the program does not control. Th
 7. **Read the offline experience.** Connectivity checks, offline modes, cached responses, what fails and how it is reported when the network is absent or blocked, startup dependencies on the network (does the program start without it?).
 8. **Read data in transit.** Payload shapes per endpoint class: what identifiers, file contents, environment details, and user content are sent; sizes and bounds; compression; what is received and trusted (reference security-design for validation).
 9. **Synthesize the posture.** One `network-posture/posture` finding, `severity: info`, `confidence: likely`: the endpoint map with defaults, the strongest and weakest connection handling, the offline story, deployability behind proxies / air-gapped, and the three highest-leverage changes as `finding:` refs. Evidence cites the client factory or endpoint resolution.
-10. Write findings, validate, render; re-run the merge script if a `combined-report.json` exists. Report per the core workflow. Scanner id: `network-scan`, version `1.0`.
+10. Write findings, validate, render; re-run the merge script if a `combined-report.json` exists. Report per the core workflow. Scanner id: `network-scan`, version `1.1`.
 
 ## Group taxonomy
 
@@ -53,7 +53,7 @@ Every network call is a dependency on something the program does not control. Th
 | `data-in-transit` | What crosses the wire per endpoint class: identifiers, file contents, environment, user content; sizes; what is received and trusted (cross-referencing security and observability) |
 | `network-posture` | The synthesis (one finding, `info`, id `network-posture/posture`) |
 
-**Precedence**: a timeout value → `connection-management` (policy verdict referenced from reliability); an env var that sets a URL → `configurability`, one that toggles telemetry → observability (reference); a proxy bug → `connection-management`; a cached response used when offline → `offline-behaviour`; a payload that includes file contents → `data-in-transit` with a security-design reference; a listener → `topology`, its auth → security-design.
+**Precedence**: a client timeout → `connection-management`; retry/backoff → reliability (reference); an env var that sets a URL → `configurability`, one that toggles telemetry → observability (reference); outbound proxy resolution → `connection-management/proxy-support`, the sandbox's egress proxy → security-design (reference); a feature-flag-gated network behaviour → the group of the behaviour, with the flag in `attributes.gated_by`; a cached response used when offline → `offline-behaviour`; a payload that includes file contents → `data-in-transit` by reference to functionality/security-design; a listener → `topology`, its auth → security-design.
 
 ## Stable ids
 
@@ -61,7 +61,7 @@ Slugs are **endpoint-class, mechanism or artifact names, never consequences**. F
 
 | group | fixed slugs |
 |---|---|
-| `topology` | `endpoints` (the inventory, one finding, endpoints in `attributes`), `listeners`, `outbound-<class>` (one per endpoint class worth its own finding, e.g. `outbound-model-api`), `local-ipc`, `no-network` |
+| `topology` | `endpoints` (the inventory, one finding, endpoints in `attributes`), `listeners` (all inbound surfaces including unix sockets and stdio; `local-ipc` only when IPC is a mechanism distinct from listening), `outbound-<class>` (only for the *default-path* endpoint classes — the transport selection and defaults for that class; opt-in classes stay in `endpoints.attributes`), `no-network` |
 | `protocols` | `streaming-<class>`, `rpc-<class>`, `wire-versioning`, `payload-bounds` |
 | `connection-management` | `client-lifecycle`, `timeouts`, `reconnection`, `tls`, `proxy-support`, `dns-and-ipv6`, `identification` (user-agent, headers) |
 | `configurability` | `endpoint-config`, `hardcoded-hosts`, `self-hosting` |
@@ -69,7 +69,7 @@ Slugs are **endpoint-class, mechanism or artifact names, never consequences**. F
 | `data-in-transit` | `payloads-<class>`, `local-content-egress`, `inbound-trust` |
 | `network-posture` | `posture` |
 
-Project-specific findings get a free slug naming the endpoint or mechanism, never the consequence. The `<class>` token is the same string across groups (`outbound-model-api`, `streaming-model-api`, `payloads-model-api`) so refs line up. Several mechanisms sharing a slug are listed in `attributes`.
+Project-specific findings get a free slug naming the endpoint or mechanism, never the consequence. The `<class>` token is the same string across groups (`outbound-model-api`, `streaming-model-api`, `payloads-model-api`) so refs line up. Several mechanisms sharing a slug are listed in `attributes`. A slot whose content is one or two sentences (`dns-and-ipv6`, `payload-bounds`, `wire-versioning`, `identification`) is folded into its parent finding's `attributes` rather than written alone; `offline-mode` and `unreachable-experience` are skipped when a sibling already carries the verdict — the reference goes in the posture.
 
 ## What a good finding looks like
 
@@ -80,8 +80,8 @@ Expect 10–16 findings for a networked client/server or agent runtime; 3–6 fo
 ## Severity calibration
 
 - `high` — TLS verification disabled or downgradable on a default path (cross-reference security-scan; it is the owner, report here only if it does not); local file contents or secrets sent to an endpoint the user did not opt into; a listener open to non-local interfaces by default without auth (owner: security-design; cross-reference).
-- `medium` — no timeout on a default-path outbound call; a hardcoded host that prevents self-hosting or proxying where the product implies it; proxy env vars ignored; startup that hangs without network; reconnection without bound (reference reliability).
-- `low` — endpoints configurable only through undocumented env vars, inconsistent client construction across subsystems, missing user-agent/version identification, IPv6 or DNS quirks, offline mode that exists but is not discoverable.
+- `medium` — no connect or total timeout on a default-path *unary* call (a stream with an idle timeout counts as having one); a hardcoded host that prevents self-hosting where the product documents or advertises self-hosting/alternate providers; proxy env vars ignored; system/PAC proxy unsupported where enterprise use is a stated target; startup that hangs without network; reconnection without bound (reference reliability).
+- `low` — endpoints configurable only through undocumented env vars, inconsistent client construction across subsystems, missing user-agent/version identification, IPv6 or DNS quirks, offline mode that exists but is not discoverable, system/PAC proxy support present but flag-gated.
 - `info` — the endpoint map, protocols as used, configuration precedence, mechanisms that work.
 - Mitigations lower a finding one rung: opt-in feature, interruptible, documented.
 
@@ -93,8 +93,10 @@ Follow the core workflow: write `_sokrates/findings/ai-insights/network-scan.jso
 
 - `endpoint_classes` — list as used in the findings
 - `outbound_endpoints` — object: class → default host (or `configurable`), e.g. `{"model-api": "api.openai.com", "telemetry": "configurable, off by default"}`
-- `listeners` — list of `protocol:port` or `unix socket` entries; `[]` for none
+- `listeners` — list of entries `protocol:port`, `unix:<path>`, `stdio`; `[]` for none
 - `protocols` — list as used, e.g. `["HTTPS", "SSE", "WebSocket", "MCP over stdio"]`
-- `tls_verification` — `platform-roots`, `bundled-roots`, `configurable`, `disabled-on-<path>`, `not-applicable`
-- `proxy_support` — `env-vars`, `system`, `config`, `ignored` (connections made, proxies not honoured), `not-applicable` (no connections)
+- `tls_verification` — `platform-roots`, `platform-roots+custom-ca`, `bundled-roots`, `configurable`, `disabled-on-<path>`, `not-applicable`
+- `proxy_support` — list from `env-vars`, `system`, `pac`, `config`, `flag-gated:<name>`, `ignored` (connections made, proxies not honoured), `not-applicable` (no connections)
+- `default_timeouts` — object per default-path client: `{"model-api": {"connect": null, "total": null, "idle": "300s"}}`
+- `feature_gated` — list of network behaviours behind flags, `["respect_system_proxy", ...]`
 - `offline_mode` — `full`, `partial`, `none`, `not-applicable`

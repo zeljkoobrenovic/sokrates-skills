@@ -1,0 +1,22 @@
+skills/scanners/security-scan/SKILL.md
+  s_3fb22a5f8abdd4::t_e89afad1c5d951 35
+  s_3fb22a5f8abdd4::t_0f754a2f6f2976 61,71,84,86,88,95
+skills/illustrators/generate_summary_visuals.py
+  s_3fb22a5f8abdd4::t_0da21467ae9af0 94-95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "c6bc8f455c2ca53bb34acbee59e6edfcaea90f51",
+  "prompts": {},
+  "sessions": {
+    "s_3fb22a5f8abdd4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6675bcd7-0e88-4469-8a48-6960b480b641",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

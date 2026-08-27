@@ -1,0 +1,855 @@
+{
+  "scanner": "reliability-scan",
+  "scanner_version": "1.0",
+  "analyzed_at": "2026-08-27T14:00:00Z",
+  "target": {
+    "name": "openai / codex",
+    "src_root": "../../.."
+  },
+  "summary": "Codex is an interactive agent runtime with a deliberate, mostly well-contained theory of failure. One central `CodexErr` taxonomy (transient stream errors, hard limits, lifecycle outcomes, sandbox failures, a `Fatal` escape) travels through every `?`, and the workspace lint denies `unwrap`/`expect` outside tests, leaving 95 residual sites in 700k lines, none in `codex-core`. Failures are isolated per turn: each turn is a spawned task whose `CodexErr` becomes an `Error` event, each tool call is a spawned task whose errors are fed back to the model and whose panic ends the turn with a fatal error, each shell command runs in a killable process group with a 10 s default timeout, 2 s drain and 1 MiB output cap, and each MCP server has 30 s startup / 300 s call timeouts. Recovery is bounded: 5 stream / 4 request retries with 200 ms doubling jittered backoff, a 300 s stream idle timeout, WebSocket-to-HTTPS fallback, remote-control reconnects capped at 30 s, and a fail-closed guardian with a 3-denial circuit breaker. Persisted state is append-only JSONL transcripts with a buffered writer that reopens and retries, atomic temp-and-rename for config and plugin installs, and a WAL SQLite index that falls back to a filesystem scan. The 19 findings hold 1 medium and 3 low: a panic inside the turn task is never joined, so the client waits on a turn that will not complete; resume silently skips malformed transcript lines; the transcript is flushed but never fsynced (tail loss only); and the TUI onboarding screen still unwraps a poisonable lock. Counts: unwrap/expect/panic exclude `#[cfg(test)]` modules, `*_tests.rs`, `tests.rs` and `tests/`/`*_tests/` directories; retry and timeout stats count distinct mechanisms read, not keyword hits (the raw grep is ~425 timeout hits and 8,300 `.expect(` hits). The TypeScript and Python SDKs were skimmed, not rated: they shell out to `codex exec` and rely on its exit code. `_sokrates/config.json` has no error-handling concern; `sokrates-features-of-interest` could add one (`unwrap|expect|panic!|catch_unwind|timeout`) to make re-runs cheaper.",
+  "stats": {
+    "swallow_sites": 0,
+    "unwrap_sites": 95,
+    "panic_sites": 270,
+    "retry_sites": 5,
+    "timeout_sites": 9,
+    "error_types": 3,
+    "isolation_boundaries": [
+      "tokio task per session loop (one per thread)",
+      "tokio task per turn",
+      "tokio task per tool call",
+      "child process group per shell command",
+      "MCP server process/connection per plugin",
+      "code-mode V8 runtime with catch_unwind callbacks",
+      "app-server connection with JoinSet cleanup"
+    ],
+    "failure_sources": {
+      "network": "bounded retry with jittered backoff, idle timeout, transport fallback; turn ends with Error event",
+      "disk": "append-only JSONL with buffered retry but no fsync; atomic rename elsewhere",
+      "database": "SQLite WAL index, rebuildable, filesystem fallback on error",
+      "external_process": "process-group kill on timeout/cancel, drain timeout, output cap",
+      "plugins": "MCP startup/call timeouts; failure is one tool call",
+      "own_bugs": "unwrap lint-denied; tool-task panic ends turn; turn-task panic hangs the turn; session-loop panic surfaces as InternalAgentDied"
+    },
+    "unwrap_sites_breakdown": {
+      "unwrap": 55,
+      "expect": 40
+    },
+    "panic_sites_breakdown": {
+      "panic": 175,
+      "unreachable": 95
+    },
+    "count_rule": "non-test Rust: excludes #[cfg(test)] modules, *_tests.rs, tests.rs, tests/ and *_tests/ dirs, test-support crates and vendor",
+    "swallow_note": "762 `let _ =` sites; the ~525 that are not channel sends are dominated by `let _ = handle.await`, `writeln!`, cache writes and kill() calls - read, not counted as swallows",
+    "catch_unwind_sites": 8,
+    "lock_poison_into_inner_sites": 16,
+    "retry_mechanisms": [
+      "model stream/request retry (responses_retry.rs)",
+      "unbounded connection retry (feature-gated)",
+      "remote-control websocket reconnect",
+      "streamable-HTTP MCP initialize retry",
+      "rollout writer reopen-and-retry"
+    ],
+    "timeout_mechanisms": [
+      "exec command timeout 10s",
+      "exec io drain 2s",
+      "exec cancel grace 50ms",
+      "stream idle 300s",
+      "MCP startup 30s",
+      "MCP tool call 300s",
+      "guardian review 90s",
+      "remote-control connect 30s / pong 60s",
+      "turn graceful interruption 100ms"
+    ],
+    "findings_by_group": {
+      "error-model": 2,
+      "handling": 4,
+      "isolation": 6,
+      "recovery": 2,
+      "degradation": 1,
+      "resources": 3,
+      "reliability-posture": 1
+    }
+  },
+  "findings": [
+    {
+      "id": "reliability-scan/error-model/central-codex-err",
+      "group": "error-model",
+      "title": "One central error type (`CodexErr`) with a classified taxonomy",
+      "description": "Almost every fallible path in `codex-core` and its frontends returns `codex_protocol::error::Result<T>`, whose error is the `CodexErr` struct wrapping a `CodexErrorDetails` enum. The enum is a **classified taxonomy**, not a bag of strings: transient stream failures (`Stream`, `ConnectionFailed`, `ServerOverloaded`), hard limits (`ContextWindowExceeded`, `UsageLimitReached`, `QuotaExceeded`), lifecycle outcomes (`TurnAborted`, `Interrupted`, `InternalAgentDied`), sandbox failures (`SandboxErr` with `Denied`, `Timeout`, `Signal`) and a `Fatal(String)` escape. Every variant carries a **user-facing message** via `thiserror`, and the wrapper carries an optional `retry_delay` so a server-supplied `Retry-After` travels with the error to the retry loop. `From` conversions absorb `io::Error`, `serde_json::Error`, `JoinError` and Landlock errors, so `?` works everywhere without losing the category. A `strum` discriminant (`CodexErrKind`) gives analytics a payload-free category. Sub-crates outside core (`rmcp-client`, `core-plugins`) use `anyhow` or their own `thiserror` enums and convert at the core boundary.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/protocol/src/error.rs",
+          "start_line": 70,
+          "end_line": 70,
+          "snippet": "pub struct CodexErr {",
+          "note": "wrapper: details + retry_delay"
+        },
+        {
+          "file": "codex-rs/protocol/src/error.rs",
+          "start_line": 92,
+          "end_line": 92,
+          "snippet": "#[error(\"stream disconnected before completion: {0}\")]",
+          "note": "the variant the retry loop treats as transient"
+        },
+        {
+          "file": "codex-rs/protocol/src/error.rs",
+          "start_line": 180,
+          "end_line": 180,
+          "snippet": "TokioJoin(#[from] JoinError),",
+          "note": "task panics/cancellations convert into the same type"
+        }
+      ],
+      "tags": [
+        "rust",
+        "thiserror",
+        "error-taxonomy"
+      ],
+      "sokrates_refs": [
+        "component:protocol",
+        "component:core"
+      ]
+    },
+    {
+      "id": "reliability-scan/error-model/expect-used-denied-workspace-wide",
+      "group": "error-model",
+      "title": "Workspace lint denies `expect`/`unwrap` outside tests",
+      "description": "The Cargo workspace sets `expect_used = \"deny\"` in `[workspace.lints.clippy]` and `clippy.toml` grants `allow-unwrap-in-tests` / `allow-expect-in-tests`, so the **error model is enforced by the linter** rather than by convention. The effect is visible in the counts: after excluding `#[cfg(test)]` modules, `*_tests.rs`, `tests/` and `*_tests/` directories, the 700k-line workspace has only **55 `.unwrap()` and 40 `.expect(\"..\")` call sites**, and `codex-core` itself has none. `panic!` (175) and `unreachable!` (95) remain available and are used for invariant checks, mostly in Windows PTY/sandbox code and TUI rendering. `result_large_err` is raised to 256 bytes to keep rich error payloads. The raw grep count without the test filter is 8,300+ `.expect(` hits, which is why it must be filtered.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 506,
+          "end_line": 506,
+          "snippet": "expect_used = \"deny\""
+        },
+        {
+          "file": "codex-rs/clippy.toml",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "allow-expect-in-tests = true"
+        },
+        {
+          "file": "codex-rs/clippy.toml",
+          "start_line": 2,
+          "end_line": 2,
+          "snippet": "allow-unwrap-in-tests = true"
+        }
+      ],
+      "tags": [
+        "rust",
+        "clippy",
+        "lint"
+      ],
+      "sokrates_refs": [
+        "finding:tech-stack-scan/build-tooling/linters-formatters"
+      ]
+    },
+    {
+      "id": "reliability-scan/handling/unwrap-residue-tui-onboarding",
+      "group": "handling",
+      "title": "Residual `unwrap` on locks in the TUI onboarding screen",
+      "description": "The few `unwrap` sites that survive the lint are concentrated: **29 of the 95** non-test `unwrap`/`expect` sites are in `tui/src/onboarding/auth.rs`, where a `std::sync::RwLock` around `sign_in_state` is read and written with `.unwrap()`. A poisoned lock (a panic while holding the write guard) would turn the next key press into a second panic in the TUI. The rest are small groups in Windows ConPTY code, `fuzzy_file_search` and `file_search`. None sits on the turn loop or persistence path, so the consequence is a crash of the onboarding/login screen, not of a running session. The `unwrap`/`expect` counts in `stats` use the rule: exclude `#[cfg(test)]` modules, `*_tests.rs`, `tests.rs`, `tests/` and `*_tests/` directories.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/tui/src/onboarding/auth.rs",
+          "start_line": 206,
+          "end_line": 206,
+          "snippet": "let sign_in_state = { (*self.sign_in_state.read().unwrap()).clone() };"
+        },
+        {
+          "file": "codex-rs/tui/src/onboarding/auth.rs",
+          "start_line": 212,
+          "end_line": 212,
+          "snippet": "*self.sign_in_state.write().unwrap() = SignInState::ChatGptSuccess;"
+        }
+      ],
+      "recommendation": "Replace the `RwLock` unwraps in `onboarding/auth.rs` with the `unwrap_or_else(PoisonError::into_inner)` convention already used in `rmcp-client` and `rollout-trace`, or a `parking_lot` lock that cannot poison.",
+      "tags": [
+        "rust",
+        "unwrap",
+        "tui"
+      ],
+      "sokrates_refs": [
+        "component:tui",
+        "metric:loc"
+      ]
+    },
+    {
+      "id": "reliability-scan/handling/lock-poison-into-inner-convention",
+      "group": "handling",
+      "title": "Lock poisoning is recovered with `PoisonError::into_inner`, not propagated",
+      "description": "Where `std::sync::Mutex` guards shared state on the failure-critical paths (`rollout-trace` writer, `rmcp-client` transport routing, the rollout writer task handle) the code uses `lock().unwrap_or_else(PoisonError::into_inner)`. The convention means a **panic in one holder does not cascade**: the next holder proceeds with whatever state the lock had. The `rollout-trace` writer documents the reason (losing diagnostic events in exactly the session being debugged). The `rmcp-client/src/auth_status.rs` recorder is the one place in that crate that still uses `.expect(\"...should not be poisoned\")`, but it is test-support code. Most other shared state uses `tokio::sync::Mutex`, which cannot poison; `await_holding_lock` is denied at the workspace level, so guards are not held across awaits.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/rollout-trace/src/writer.rs",
+          "start_line": 140,
+          "end_line": 140,
+          "snippet": "self.inner.lock().unwrap_or_else(PoisonError::into_inner)"
+        },
+        {
+          "file": "codex-rs/rollout/src/recorder.rs",
+          "start_line": 158,
+          "end_line": 158,
+          "snippet": ".unwrap_or_else(std::sync::PoisonError::into_inner);"
+        },
+        {
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 504,
+          "end_line": 504,
+          "snippet": "await_holding_lock = \"deny\""
+        }
+      ],
+      "tags": [
+        "rust",
+        "mutex",
+        "poison"
+      ],
+      "sokrates_refs": [
+        "component:rollout"
+      ]
+    },
+    {
+      "id": "reliability-scan/handling/rollout-resume-skips-malformed-lines",
+      "group": "handling",
+      "title": "Resume skips unparseable rollout lines and continues with a partial transcript",
+      "description": "`RolloutRecorder::load_rollout_items` reads the JSONL transcript line by line; a line that fails `serde_json::from_str` is logged at `warn` and **skipped**, with a `parse_errors` counter returned to the caller. The user resumes with a transcript that is silently missing the affected turns - a truncated last line (the tail-loss case in the writer finding) is the common cause, and there the behaviour is desirable, but the same path hides any corruption in the middle of the file. Because the count is returned, callers can surface it; the TUI resume path does not currently show it to the user.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/rollout/src/recorder.rs",
+          "start_line": 1026,
+          "end_line": 1026,
+          "snippet": "warn!(\"failed to parse line as JSON: {line:?}, error: {e}\");"
+        },
+        {
+          "file": "codex-rs/rollout/src/recorder.rs",
+          "start_line": 1027,
+          "end_line": 1027,
+          "snippet": "parse_errors = parse_errors.saturating_add(1);"
+        },
+        {
+          "file": "codex-rs/rollout/src/recorder.rs",
+          "start_line": 1028,
+          "end_line": 1028,
+          "snippet": "continue;"
+        }
+      ],
+      "recommendation": "Surface `parse_errors > 0` to the user on resume (a one-line warning that N transcript entries were unreadable), and distinguish a truncated final line from corruption elsewhere in the file.",
+      "tags": [
+        "rust",
+        "persistence",
+        "resume"
+      ],
+      "sokrates_refs": [
+        "component:rollout",
+        "finding:reliability-scan/resources/rollout-writer-buffer-and-retry"
+      ]
+    },
+    {
+      "id": "reliability-scan/handling/exec-exit-code-tracks-errors",
+      "group": "handling",
+      "title": "Headless `codex exec` exits non-zero after any turn error",
+      "description": "The headless runner threads an `error_seen` flag through its event loop: an `Error` event, a failed server request or an unexpected stream end sets it, and after final output is printed the process ends with `std::process::exit(1)`. Startup failures (exec-policy load errors, login restrictions, an unreadable output schema) also exit 1 with a message on stderr. This is the **success-after-failure check passing**: CI and the TypeScript/Python SDKs (which shell out to `codex exec`) can rely on the exit status. The TUI equivalent is `ExitReason::Fatal`, printed with `ERROR:` and the session id for resume, followed by `exit(1)`.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/exec/src/lib.rs",
+          "start_line": 1925,
+          "end_line": 1925,
+          "snippet": "*error_seen = true;"
+        },
+        {
+          "file": "codex-rs/exec/src/lib.rs",
+          "start_line": 1133,
+          "end_line": 1133,
+          "snippet": "if error_seen {"
+        },
+        {
+          "file": "codex-rs/tui/src/main.rs",
+          "start_line": 79,
+          "end_line": 79,
+          "snippet": "std::process::exit(1);"
+        }
+      ],
+      "tags": [
+        "cli",
+        "exit-code"
+      ],
+      "sokrates_refs": [
+        "component:exec",
+        "component:tui",
+        "finding:architecture-scan/boundaries/sdk-exec-jsonl-contract"
+      ]
+    },
+    {
+      "id": "reliability-scan/isolation/turn-task-panic-never-observed",
+      "group": "isolation",
+      "title": "A panic inside a turn task is never joined; the client waits for a turn that will not complete",
+      "description": "Every turn (`RegularTask`, `CompactTask`, `ReviewTask`, user shell commands) runs in its own `tokio::spawn` inside `Session::start_task`. **Errors** are contained well: the task body calls `on_task_finished`, which maps a `CodexErr` to an `Error` event and a turn-error lifecycle, and `TurnAborted` to the abort lifecycle. **Panics** are not: the `JoinHandle` is stored as an `AbortOnDropHandle` in `RunningTask` and is only ever `abort()`ed or `detach()`ed, never awaited, and the `done.notify_waiters()` at the end of the task body is skipped when the body unwinds. The session loop keeps running (nothing else dies), but `active_turn` stays occupied and no `TurnComplete`/`Error` event is emitted, so a TUI or app-server client sees a turn that never finishes until the user submits something else (`spawn_task` first calls `abort_all_tasks(Replaced)`). `unwrap`/`expect` are lint-denied in core, so the practical triggers are `panic!`/`unreachable!`/indexing/arithmetic bugs and third-party panics. Compare the tool-call boundary, which does convert a `JoinError` into a `Fatal` error.",
+      "severity": "medium",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/tasks/mod.rs",
+          "start_line": 382,
+          "end_line": 382,
+          "snippet": "let handle = tokio::spawn("
+        },
+        {
+          "file": "codex-rs/core/src/tasks/mod.rs",
+          "start_line": 412,
+          "end_line": 412,
+          "snippet": "done_clone.notify_waiters();",
+          "note": "only reached when run() returns normally"
+        },
+        {
+          "file": "codex-rs/core/src/tasks/mod.rs",
+          "start_line": 605,
+          "end_line": 605,
+          "snippet": "task.handle.detach();",
+          "note": "the handle is detached or aborted, never awaited"
+        },
+        {
+          "file": "codex-rs/core/src/tasks/mod.rs",
+          "start_line": 913,
+          "end_line": 913,
+          "snippet": "task.handle.abort();"
+        }
+      ],
+      "recommendation": "Observe the join result: wrap the task body in `AssertUnwindSafe(..).catch_unwind()` (as the remote-control websocket task already does) or await the handle in `on_task_finished`'s caller, and on `JoinError::is_panic()` emit an `Error` event with `CodexErrorDetails::Fatal`, clear `active_turn` and notify `done`, so the client sees a failed turn instead of a hung one.",
+      "tags": [
+        "rust",
+        "tokio",
+        "panic",
+        "hang"
+      ],
+      "sokrates_refs": [
+        "component:core",
+        "finding:reliability-scan/isolation/tool-call-task-boundary",
+        "finding:observability-scan/error-reporting/panic-hooks-chained"
+      ]
+    },
+    {
+      "id": "reliability-scan/isolation/tool-call-task-boundary",
+      "group": "isolation",
+      "title": "Each tool call is a spawned task; failures become model-visible outputs, panics become a fatal turn",
+      "description": "`ToolCallRuntime::handle_tool_call_with_source` spawns one `AbortOnDropHandle` task per tool call, gated by a read/write lock that lets parallel-safe tools overlap and serialises the rest. The result is partitioned in three ways: a normal tool error becomes a `FunctionCallOutput` with `success: false` that the **model sees and can react to**; `FunctionCallError::Fatal` ends the turn with `CodexErr::Fatal`; and a `JoinError` (the task panicked or was cancelled) is converted to `Fatal(\"tool task failed to receive\")`, so a panicking tool handler ends the turn with an error rather than hanging it. Cancellation via the turn's `CancellationToken` aborts the task, or waits for runtime teardown when the tool asked for it, and reports `aborted by user` back to the model. Blast radius of one failing tool: that turn, on that thread.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/tools/parallel.rs",
+          "start_line": 84,
+          "end_line": 84,
+          "snippet": "Err(FunctionCallError::Fatal(message)) => Err(CodexErr::Fatal(message)),"
+        },
+        {
+          "file": "codex-rs/core/src/tools/parallel.rs",
+          "start_line": 85,
+          "end_line": 85,
+          "snippet": "Err(other) => Ok(Self::failure_response(error_call, other)),"
+        },
+        {
+          "file": "codex-rs/core/src/tools/parallel.rs",
+          "start_line": 227,
+          "end_line": 227,
+          "snippet": "FunctionCallError::Fatal(format!(\"tool task failed to receive: {err:?}\"))"
+        }
+      ],
+      "tags": [
+        "rust",
+        "tokio",
+        "tool-calls"
+      ],
+      "sokrates_refs": [
+        "component:core"
+      ]
+    },
+    {
+      "id": "reliability-scan/isolation/child-process-containment",
+      "group": "isolation",
+      "title": "Shell commands run in a child process group with timeout, kill escalation, drain timeout and output cap",
+      "description": "`core/src/exec.rs` bounds everything the model's shell commands can do to the agent: a per-call timeout (default `DEFAULT_EXEC_COMMAND_TIMEOUT_MS = 10_000`) after which the whole **process group** is killed and a synthetic exit status 128+64 is reported with `timed_out: true`; on user cancellation the group gets `SIGTERM`, a 50 ms grace period, then `SIGKILL`; `Ctrl-C` on the CLI kills the group too. The stdout/stderr reader tasks are awaited with a 2 s `IO_DRAIN_TIMEOUT_MS` so grandchildren that inherited the pipes cannot hang the agent, and retained output is capped at 1 MiB (`DEFAULT_OUTPUT_BYTES_CAP`) so a runaway command cannot OOM the process. Long-running `unified_exec` sessions are tracked by a manager that `terminate_all_processes` on session shutdown. Sandbox denials surface as `SandboxErr::Denied` with the captured output, distinct from timeouts and signals. What this boundary does not do: a child that ignores `SIGKILL` semantics (e.g. in uninterruptible I/O) still blocks `child.wait()`.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/exec.rs",
+          "start_line": 61,
+          "end_line": 61,
+          "snippet": "pub const DEFAULT_EXEC_COMMAND_TIMEOUT_MS: u64 = 10_000;"
+        },
+        {
+          "file": "codex-rs/core/src/exec.rs",
+          "start_line": 92,
+          "end_line": 92,
+          "snippet": "pub const IO_DRAIN_TIMEOUT_MS: u64 = 2_000; // 2 s should be plenty for local pipes"
+        },
+        {
+          "file": "codex-rs/core/src/exec.rs",
+          "start_line": 997,
+          "end_line": 997,
+          "snippet": "kill_child_process_group(&mut child)?;",
+          "note": "timeout path"
+        },
+        {
+          "file": "codex-rs/core/src/exec.rs",
+          "start_line": 69,
+          "end_line": 69,
+          "snippet": "const CANCELLATION_TERMINATION_GRACE_PERIOD: Duration = Duration::from_millis(50);"
+        }
+      ],
+      "tags": [
+        "rust",
+        "child-process",
+        "timeout"
+      ],
+      "sokrates_refs": [
+        "component:core",
+        "finding:security-design-scan/sandboxing-isolation/os-sandbox-layers"
+      ]
+    },
+    {
+      "id": "reliability-scan/isolation/mcp-server-timeouts",
+      "group": "isolation",
+      "title": "MCP servers are bounded by a 30 s startup timeout and a 300 s tool-call timeout",
+      "description": "Every MCP server (stdio child process or streamable-HTTP endpoint) is started under `DEFAULT_STARTUP_TIMEOUT` (30 s) and each `tools/call` under `DEFAULT_TOOL_TIMEOUT` (300 s), both overridable per server via `startup_timeout_sec` / `tool_timeout_sec` in `config.toml`; the startup timeout message tells the user exactly which key to raise. A server that dies or hangs therefore costs at most one tool call, which returns an error to the model, and a server that fails to start is reported and skipped rather than blocking the session. Resource and pagination listings use the same tool timeout (`DEFAULT_MCP_PAGINATION_TIMEOUT` 30 s per page). Retries on streamable-HTTP transports are limited to a classified set of initialize/HTTP-status errors and bounded by the same deadline (`sleep_with_retry_deadline`).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/codex-mcp/src/rmcp_client.rs",
+          "start_line": 92,
+          "end_line": 92,
+          "snippet": "pub(crate) const DEFAULT_STARTUP_TIMEOUT: Duration = Duration::from_secs(30);"
+        },
+        {
+          "file": "codex-rs/codex-mcp/src/rmcp_client.rs",
+          "start_line": 93,
+          "end_line": 93,
+          "snippet": "pub(crate) const DEFAULT_TOOL_TIMEOUT: Duration = Duration::from_secs(300);"
+        },
+        {
+          "file": "codex-rs/codex-mcp/src/connection_manager/startup.rs",
+          "start_line": 121,
+          "end_line": 121,
+          "snippet": ".unwrap_or(DEFAULT_STARTUP_TIMEOUT)"
+        }
+      ],
+      "tags": [
+        "mcp",
+        "timeout",
+        "plugins"
+      ],
+      "sokrates_refs": [
+        "component:codex-mcp",
+        "finding:security-design-scan/third-party-trust/mcp-annotation-trust"
+      ]
+    },
+    {
+      "id": "reliability-scan/isolation/session-loop-death-internal-agent-died",
+      "group": "isolation",
+      "title": "Death of a thread's session loop surfaces as `InternalAgentDied`, not a process crash",
+      "description": "Each thread has one long-lived `submission_loop` task. Callers reach it only through an `mpsc` channel and `oneshot` replies, and both failure modes are mapped: a closed channel becomes `CodexErr::InternalAgentDied`, a dropped reply becomes the same. The termination future (`session_loop_termination_from_handle`) does `let _ = handle.await`, so a **panic in the loop is swallowed at join time** and observed only through `InternalAgentDied` on the next call. Multi-agent code (`agent/control.rs`, `interrupt_agent.rs`) explicitly treats `InternalAgentDied` like `ThreadNotFound`, so a dead sub-agent thread does not take down its parent. In the app-server, one thread's loop dying leaves other threads and connections running; the process-level panic reaches stderr via the chained panic hook.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/session/mod.rs",
+          "start_line": 781,
+          "end_line": 781,
+          "snippet": "let session_loop_handle = tokio::spawn(async move {"
+        },
+        {
+          "file": "codex-rs/core/src/session/mod.rs",
+          "start_line": 833,
+          "end_line": 833,
+          "snippet": ".map_err(|_| CodexErr::InternalAgentDied)?;"
+        },
+        {
+          "file": "codex-rs/core/src/session/mod.rs",
+          "start_line": 964,
+          "end_line": 964,
+          "snippet": "let _ = handle.await;"
+        }
+      ],
+      "tags": [
+        "rust",
+        "tokio",
+        "isolation"
+      ],
+      "sokrates_refs": [
+        "component:core",
+        "finding:architecture-scan/communication/sq-eq-queue-pair"
+      ]
+    },
+    {
+      "id": "reliability-scan/isolation/panic-boundaries-catch-unwind",
+      "group": "isolation",
+      "title": "Explicit panic boundaries exist only at the remote-control websocket, code-mode callbacks and the TUI terminal",
+      "description": "Three places catch panics deliberately. The app-server remote-control websocket task is wrapped in `catch_unwind`, logs `panicked` with connection identifiers, then `resume_unwind`s - so the boundary is for **diagnostics**, not survival. The code-mode (V8) runtime and gRPC session callbacks use `catch_unwind` around delegate callbacks so a panicking host callback does not unwind through the FFI boundary. The TUI installs a panic hook that restores the terminal before chaining to the default hook, so a crash leaves a usable shell and a backtrace. Elsewhere Codex relies on tokio's per-task panic isolation: a panic ends the task, and whether anyone notices depends on whether the `JoinHandle` is awaited (see the turn-task and session-loop findings). No process-level supervisor or restart exists; the app-server daemon is restarted by its client, not by itself.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/app-server-transport/src/transport/remote_control/mod.rs",
+          "start_line": 1036,
+          "end_line": 1036,
+          "snippet": "match AssertUnwindSafe(websocket_task).catch_unwind().await {"
+        },
+        {
+          "file": "codex-rs/app-server-transport/src/transport/remote_control/mod.rs",
+          "start_line": 1064,
+          "end_line": 1064,
+          "snippet": "std::panic::resume_unwind(panic);"
+        },
+        {
+          "file": "codex-rs/tui/src/lib.rs",
+          "start_line": 985,
+          "end_line": 985,
+          "snippet": "let _ = tui::restore_after_exit();",
+          "note": "panic hook restores the terminal before the default hook runs"
+        },
+        {
+          "file": "codex-rs/code-mode-runtime/src/runtime/mod.rs",
+          "start_line": 129,
+          "end_line": 129,
+          "snippet": "if catch_unwind(AssertUnwindSafe(runtime)).is_err() {"
+        }
+      ],
+      "tags": [
+        "rust",
+        "panic",
+        "catch_unwind"
+      ],
+      "sokrates_refs": [
+        "component:app-server-transport",
+        "component:tui",
+        "finding:observability-scan/error-reporting/panic-hooks-chained"
+      ]
+    },
+    {
+      "id": "reliability-scan/recovery/outgoing-retry-policies",
+      "group": "recovery",
+      "title": "Model streams and remote-control sockets retry with bounded exponential backoff, jitter and transport fallback",
+      "description": "Outgoing calls have one shared backoff (`util::backoff`: 200 ms x 2^attempt, +/-10 % jitter) and per-subsystem bounds. **Model requests**: `stream_max_retries` defaults to 5 and `request_max_retries` to 4 (per provider, configurable); a server `Retry-After` overrides the computed delay; when retries are exhausted on WebSocket the client falls back to HTTPS and resets the counter; an opt-in feature (`UnboundedConnectionRetries`) retries connection failures forever at 5 s doubling to a 60 s cap, excluded for internal sessions and Bedrock. The SSE reader enforces a per-event idle timeout (`DEFAULT_STREAM_IDLE_TIMEOUT_MS` 300 s), so a stalled stream becomes a retryable `Stream` error rather than a hang. Retries re-send the same request; there is no side effect between attempts, so the retry is idempotent. **Remote control**: reconnects with the same backoff capped at 30 s and reset after the cap, 10 s ping / 60 s pong timeout, 30 s connect timeout. Compaction requests use the idle timeout times a multiplier. The user sees `Reconnecting... n/max` warnings after the first attempt.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/responses_retry.rs",
+          "start_line": 102,
+          "end_line": 102,
+          "snippet": "if retry_state.retries < max_retries {"
+        },
+        {
+          "file": "codex-rs/core/src/responses_retry.rs",
+          "start_line": 105,
+          "end_line": 105,
+          "snippet": "let delay = err.retry_delay().unwrap_or_else(|| backoff(retry_count));"
+        },
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 27,
+          "end_line": 27,
+          "snippet": "const DEFAULT_STREAM_MAX_RETRIES: u64 = 5;"
+        },
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 26,
+          "end_line": 26,
+          "snippet": "const DEFAULT_STREAM_IDLE_TIMEOUT_MS: u64 = 300_000;"
+        },
+        {
+          "file": "codex-rs/app-server-transport/src/transport/remote_control/websocket.rs",
+          "start_line": 1313,
+          "end_line": 1313,
+          "snippet": "let reconnect_delay = backoff(*reconnect_attempt).min(REMOTE_CONTROL_RECONNECT_BACKOFF_CAP);"
+        }
+      ],
+      "tags": [
+        "retry",
+        "backoff",
+        "timeout",
+        "websocket"
+      ],
+      "sokrates_refs": [
+        "component:core",
+        "component:app-server-transport",
+        "finding:tech-stack-scan/protocols-formats/sse",
+        "finding:tech-stack-scan/protocols-formats/websocket"
+      ]
+    },
+    {
+      "id": "reliability-scan/recovery/guardian-fail-closed-circuit-breaker",
+      "group": "recovery",
+      "title": "Guardian review fails closed on a 90 s timeout and trips a per-turn circuit breaker after 3 denials",
+      "description": "The optional model-based guardian that reviews risky actions is designed to **fail closed**: a timeout (`GUARDIAN_REVIEW_TIMEOUT` = 90 s), a review-session failure or malformed output all block the action, with timeouts reported separately from denials. A `GuardianRejectionCircuitBreaker` counts denials per turn and interrupts the turn after `MAX_CONSECUTIVE_GUARDIAN_DENIALS_PER_TURN` (3) consecutive or a windowed number of recent denials, so a model that keeps proposing blocked actions does not loop indefinitely. The breaker state is cleared at the start of each turn. This is the only circuit breaker in the codebase; there is none in front of the model provider or MCP servers.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/guardian/mod.rs",
+          "start_line": 11,
+          "end_line": 11,
+          "snippet": "//! 3. Fail closed on timeout, execution failure, or malformed output."
+        },
+        {
+          "file": "codex-rs/core/src/guardian/mod.rs",
+          "start_line": 53,
+          "end_line": 53,
+          "snippet": "pub(crate) const GUARDIAN_REVIEW_TIMEOUT: Duration = Duration::from_secs(90);"
+        },
+        {
+          "file": "codex-rs/core/src/guardian/mod.rs",
+          "start_line": 56,
+          "end_line": 56,
+          "snippet": "pub(crate) const MAX_CONSECUTIVE_GUARDIAN_DENIALS_PER_TURN: u32 = 3;"
+        }
+      ],
+      "tags": [
+        "circuit-breaker",
+        "fail-closed",
+        "guardian"
+      ],
+      "sokrates_refs": [
+        "component:core",
+        "finding:security-design-scan/identity-access/approval-model"
+      ]
+    },
+    {
+      "id": "reliability-scan/degradation/designed-fallbacks",
+      "group": "degradation",
+      "title": "Designed fallbacks: SQLite index to filesystem scan, WebSocket to HTTPS, compaction model downshift",
+      "description": "Three reduced modes are deliberate. **Thread listing** first asks the SQLite state DB and, if that fails or disagrees, falls back to scanning the rollout files on disk, recording a `record_fallback(\"list_threads\", \"db_error\")` metric - the JSONL files remain the source of truth and the DB is an index. **Transport**: after stream retries are exhausted on WebSockets the client switches to HTTPS for the rest of the session with a visible warning. **Compaction**: `should_retry_with_current_model` classifies which compaction errors (invalid request, context window, usage limits, overload, internal server error, retry limit) justify retrying with a different model, and the fallback is recorded for analytics. There is no offline mode - without the model provider a turn fails after the retry budget - and no alternate provider is tried automatically; provider choice is configuration.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/rollout/src/recorder.rs",
+          "start_line": 719,
+          "end_line": 719,
+          "snippet": "// If SQLite listing still fails, return the filesystem page rather than failing the list."
+        },
+        {
+          "file": "codex-rs/rollout/src/recorder.rs",
+          "start_line": 722,
+          "end_line": 722,
+          "snippet": "codex_state::record_fallback(\"list_threads\", \"db_error\", /*telemetry_override*/ None);"
+        },
+        {
+          "file": "codex-rs/core/src/responses_retry.rs",
+          "start_line": 94,
+          "end_line": 94,
+          "snippet": "message: format!(\"Falling back from WebSockets to HTTPS transport. {err:#}\"),"
+        },
+        {
+          "file": "codex-rs/core/src/compact_model_fallback.rs",
+          "start_line": 9,
+          "end_line": 9,
+          "snippet": "pub(crate) fn should_retry_with_current_model(error: &CodexErr) -> bool {"
+        }
+      ],
+      "tags": [
+        "fallback",
+        "sqlite",
+        "websocket",
+        "compaction"
+      ],
+      "sokrates_refs": [
+        "component:rollout",
+        "component:core",
+        "finding:architecture-scan/evolution/rollout-jsonl-to-sqlite-state",
+        "finding:tech-stack-scan/databases-storage/sqlite-sqlx"
+      ]
+    },
+    {
+      "id": "reliability-scan/resources/rollout-writer-buffer-and-retry",
+      "group": "resources",
+      "title": "Transcript writer buffers unwritten items and retries, but never fsyncs; a crash loses the unflushed tail",
+      "description": "The per-thread transcript (`rollout-*.jsonl`) is owned by one background writer task fed through a bounded channel. Items stay in `pending_items` until a write succeeds; on an I/O error the writer drops its file handle, logs once per distinct error, **reopens and retries once** per barrier (`persist`/`flush`/`shutdown`), and keeps the unwritten suffix for the next barrier. A terminal task failure is remembered so later API calls get the real error instead of a channel error. Every turn ends with `flush_rollout`, and a failure produces a user-visible warning (`Failed to save the conversation transcript; Codex will continue retrying`). Each line is `write_all` + `flush()` (a `tokio::fs::File` flush pushes to the OS, it is not `sync_all`), and `open_rollout_for_append` repairs a missing trailing newline on resume, so the only loss mode is the **tail since the last OS writeback** on power loss or kernel crash; a process crash loses at most what is still in `pending_items`. Files are append-only JSONL, so there is no torn-rewrite risk, and `load_rollout_items` tolerates a partial last line.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/rollout/src/recorder.rs",
+          "start_line": 1710,
+          "end_line": 1710,
+          "snippet": "warn!(\"failed to {operation} rollout writer; reopening and retrying: {first_err}\");"
+        },
+        {
+          "file": "codex-rs/rollout/src/recorder.rs",
+          "start_line": 1972,
+          "end_line": 1972,
+          "snippet": "self.file.flush().await?;",
+          "note": "flush to OS; no sync_all"
+        },
+        {
+          "file": "codex-rs/core/src/tasks/mod.rs",
+          "start_line": 396,
+          "end_line": 396,
+          "snippet": "warn!(\"failed to flush rollout before completing turn: {err}\");"
+        }
+      ],
+      "recommendation": "Acceptable for a local transcript; if durability across power loss matters, add `sync_data()` at the `Shutdown` barrier and after each user turn rather than per line.",
+      "tags": [
+        "rust",
+        "persistence",
+        "jsonl",
+        "fsync"
+      ],
+      "sokrates_refs": [
+        "component:rollout",
+        "finding:observability-scan/error-reporting/rollout-flush-errors-dropped"
+      ]
+    },
+    {
+      "id": "reliability-scan/resources/atomic-writes-and-sqlite-durability",
+      "group": "resources",
+      "title": "Config, caches and plugin installs use temp-file + rename; SQLite runs WAL with `synchronous=NORMAL`",
+      "description": "Persistent state other than the transcript is written **atomically**: `codex_utils_path::write_atomically` (NamedTempFile in the target directory + `persist`) is used for config-style files (6 call sites); plugin installs stage into a directory and `rename` it into place with a backup-and-rollback sequence in `core-plugins/src/store.rs`; the shell snapshot is written to a temp path, validated, then renamed, and removed on validation failure; the installation id is the one file written with `sync_all`. The state database (`state`) opens with `journal_mode=WAL`, `synchronous=NORMAL`, a 5 s `busy_timeout` and a pool of 5 - WAL+NORMAL is durable across process crashes and can lose the last transactions on power loss, which is acceptable because the DB is an index over the JSONL files. Connectors and plugin catalogs cache with `let _ = write_atomically(..)`, accepting a failed cache write silently.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/utils/path-utils/src/lib.rs",
+          "start_line": 130,
+          "end_line": 130,
+          "snippet": "let mut tmp = NamedTempFile::new_in(parent)?;"
+        },
+        {
+          "file": "codex-rs/utils/path-utils/src/lib.rs",
+          "start_line": 132,
+          "end_line": 132,
+          "snippet": "tmp.persist(write_path)?;"
+        },
+        {
+          "file": "codex-rs/core/src/shell_snapshot.rs",
+          "start_line": 174,
+          "end_line": 174,
+          "snippet": "if let Err(err) = fs::rename(&temp_path, &path).await {"
+        },
+        {
+          "file": "codex-rs/state/src/sqlite.rs",
+          "start_line": 282,
+          "end_line": 282,
+          "snippet": ".journal_mode(SqliteJournalMode::Wal)"
+        },
+        {
+          "file": "codex-rs/state/src/sqlite.rs",
+          "start_line": 283,
+          "end_line": 283,
+          "snippet": ".synchronous(SqliteSynchronous::Normal)"
+        }
+      ],
+      "tags": [
+        "atomic-write",
+        "sqlite",
+        "wal"
+      ],
+      "sokrates_refs": [
+        "component:utils",
+        "component:state",
+        "component:core-plugins",
+        "finding:tech-stack-scan/databases-storage/sqlite-sqlx"
+      ]
+    },
+    {
+      "id": "reliability-scan/resources/shutdown-and-cancellation-order",
+      "group": "resources",
+      "title": "Shutdown cancels the turn, reaps child processes and MCP servers in a fixed order; interruption waits 100 ms",
+      "description": "`shutdown_session_runtime` runs a fixed sequence: abort the startup prewarm, shut down the realtime conversation, `abort_all_tasks(Interrupted)`, shut down hooks, drain async hook results, `terminate_all_processes` in the unified-exec manager, shut down code-mode, then the rollout writer's `Shutdown` barrier (which keeps the writer alive if draining fails so it can be retried). Interrupting a turn cancels its `CancellationToken`, waits up to `GRACEFULL_INTERRUPTION_TIMEOUT_MS` (100 ms) for the task to acknowledge, then `abort()`s the tokio task and calls the task's `abort` hook; child processes get the TERM/50 ms/KILL sequence from the exec finding. Cancellation is propagated through child tokens from session to turn to tool call. The app-server tracks per-connection cleanup in a `JoinSet` and logs, rather than propagates, a cleanup task failure. Nothing here covers `SIGTERM`/`SIGHUP` to the process itself - only `Ctrl-C` is handled explicitly (in the exec child loop), so an external kill of the TUI relies on the OS to reap children and on the append-only transcript for state.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/session/handlers.rs",
+          "start_line": 402,
+          "end_line": 402,
+          "snippet": "sess.abort_all_tasks(TurnAbortReason::Interrupted).await;"
+        },
+        {
+          "file": "codex-rs/core/src/session/handlers.rs",
+          "start_line": 408,
+          "end_line": 408,
+          "snippet": ".terminate_all_processes()"
+        },
+        {
+          "file": "codex-rs/core/src/tasks/mod.rs",
+          "start_line": 66,
+          "end_line": 66,
+          "snippet": "const GRACEFULL_INTERRUPTION_TIMEOUT_MS: u64 = 100;"
+        },
+        {
+          "file": "codex-rs/app-server/src/connection_cleanup.rs",
+          "start_line": 47,
+          "end_line": 47,
+          "snippet": "warn!(\"connection cleanup task failed: {err}\");"
+        }
+      ],
+      "tags": [
+        "shutdown",
+        "cancellation",
+        "tokio"
+      ],
+      "sokrates_refs": [
+        "component:core",
+        "component:app-server"
+      ]
+    },
+    {
+      "id": "reliability-scan/reliability-posture/synthesis",
+      "group": "reliability-posture",
+      "title": "Reliability posture: errors are modelled and contained per turn; the remaining gaps are unobserved panics and unsynced transcript tails",
+      "description": "Codex is an interactive agent runtime whose failure theory is **per-turn containment**: one thread, one session loop, one spawned task per turn, one spawned task per tool call, one child process group per shell command, one MCP server per plugin. Per failure source: **network/model** - bounded retries (5 stream / 4 request) with jittered backoff, 300 s idle timeout, WebSocket-to-HTTPS fallback, then an `Error` event that ends the turn; blast radius is the turn. **Child processes** - 10 s default timeout, group kill, 2 s drain, 1 MiB output cap; blast radius is the tool call. **MCP servers** - 30 s startup / 300 s call timeouts; blast radius is the call. **Disk** - append-only transcript with buffered retry, atomic rename for everything else, SQLite as a rebuildable index with filesystem fallback; a crash loses at most the unflushed tail. **Own bugs** - `unwrap`/`expect` are lint-denied and tool-task panics become a fatal turn error, but a panic inside the turn task itself is never joined and leaves the client waiting, and a panic in the session loop is only visible as `InternalAgentDied` on the next call. The strongest mechanisms are the classified `CodexErr` taxonomy, the tool-call boundary, the exec process-group handling and the guardian's fail-closed circuit breaker. Highest-leverage changes: observe turn-task panics (`finding:reliability-scan/isolation/turn-task-panic-never-observed`), surface skipped transcript lines on resume (`finding:reliability-scan/handling/rollout-resume-skips-malformed-lines`), and remove the remaining lock `unwrap`s in the TUI onboarding screen (`finding:reliability-scan/handling/unwrap-residue-tui-onboarding`). Coverage: the Rust workspace was read; the TypeScript and Python SDKs were skimmed only - they wrap `codex exec` and inherit its exit-code contract.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/tasks/mod.rs",
+          "start_line": 382,
+          "end_line": 382,
+          "snippet": "let handle = tokio::spawn("
+        },
+        {
+          "file": "codex-rs/core/src/tools/parallel.rs",
+          "start_line": 146,
+          "end_line": 146,
+          "snippet": "AbortOnDropHandle::new(tokio::spawn(async move {"
+        },
+        {
+          "file": "codex-rs/core/src/exec.rs",
+          "start_line": 997,
+          "end_line": 997,
+          "snippet": "kill_child_process_group(&mut child)?;"
+        }
+      ],
+      "tags": [
+        "posture"
+      ],
+      "sokrates_refs": [
+        "finding:reliability-scan/isolation/turn-task-panic-never-observed",
+        "finding:reliability-scan/handling/rollout-resume-skips-malformed-lines",
+        "finding:reliability-scan/handling/unwrap-residue-tui-onboarding",
+        "finding:security-design-scan/security-posture/synthesis",
+        "finding:observability-scan/monitoring-posture/operator-visibility"
+      ]
+    }
+  ],
+  "summary_visual": {
+    "file": "visuals/reliability-scan.jpeg",
+    "credit": "Illustration generated by Google Gemini (gemini-3-pro-image-preview)",
+    "generated_at": "2026-08-27T14:08:54Z",
+    "prompt": "Create a single, calm, aesthetically pleasing illustration that tells the story of the analysis summary below - a reader should grasp its one or two big ideas at a glance. Text is welcome but sparse: a few short labels or key words (roughly 3 to 8, one to three words each) that anchor the story; no sentences, no numbers, no dates, no titles, no legends, no dense diagrams or flowcharts, no dashboards or screenshots. Let shapes, metaphor, composition and colour carry most of the meaning. Style: polished flat vector illustration, crisp outlines, minimal shading, generous margins so nothing touches the edges, a disciplined palette of deep blue, teal, soft green and warm orange accents on a light background. Uncluttered - a few well-chosen elements and plenty of negative space. No photorealism, no 3D render, no clip-art collage, no people's faces.\nVisual motif for this kind of analysis (reliability-scan): a structure that stays standing while one part fails: firewalls between compartments, a safety net, a spring that bends and recovers.\nSubject: the software project 'openai / codex'.\nStory to tell (pick the essence, do not transcribe it): Codex is an interactive agent runtime with a deliberate, mostly well-contained theory of failure. One central CodexErr taxonomy (transient stream errors, hard limits, lifecycle outcomes, sandbox failures, a Fatal escape) travels through every ?, and the workspace lint denies unwrap/expect outside tests, leaving 95 residual sites in 700k lines, none in codex-core. Failures are isolated per turn: each turn is a spawned task whose CodexErr becomes an Error event, each tool call is a spawned task whose errors are fed back to the model and whose panic ends the turn with a fatal error, each shell command runs in a killable process group with a 10 s default timeout, 2 s drain and 1 MiB output cap, and each MCP server has 30 s startup / 300 s call timeouts."
+  }
+}

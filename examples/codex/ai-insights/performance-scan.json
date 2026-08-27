@@ -1,0 +1,869 @@
+{
+  "scanner": "performance-scan",
+  "scanner_version": "1.0",
+  "analyzed_at": "2026-08-27T16:00:00Z",
+  "target": {
+    "name": "codex",
+    "src_root": "../../.."
+  },
+  "summary": "Codex is an **interactive agent runtime**, so its cost scales with **history items × sampling steps per turn** and **tool latency per step**, not with repository size; this is a static reading of the turn path (`codex-core` turn loop, model client, tool runtime), the rollout writer and reader, the TUI render path and MCP startup - no profiler was run. The engine does nothing super-linear on the per-turn path: the response stream is consumed event by event through a 1,600-slot channel, tool calls run as concurrent tasks behind a read/write gate, persistence is one streaming writer, shell output is capped by bytes and delta count, and history is compacted against the context window. The plausible waste is per-step repeated work: every sampling step deep-copies, normalizes and token-estimates the whole transcript and rebuilds the tool router; a non-parallel tool takes the exclusive gate and serializes the step; the filesystem fallback for listing sessions by updated_at walks and sorts all rollout files per page; hook regex matchers are compiled per event; and the TUI transcript grows without bound. Deliberate optimizations are recorded as info: websocket reuse with incremental input and startup prewarm, lazy cached MCP startup, 256-wide AGENTS.md probes, single-width markdown render caches, reverse chunked index scans and head-only listing reads. 19 findings: 0 high, 0 medium, 6 low, 13 info; 12 files read in full, grep counts exclude tests.",
+  "stats": {
+    "hot_files_read": 12,
+    "parallel_stages": 6,
+    "serial_stages": 3,
+    "regex_compile_in_loop_sites": 1,
+    "linear_lookup_in_loop_sites": 0,
+    "nested_loop_candidates": 0,
+    "whole_file_read_sites": 0,
+    "blocking_in_async_sites": 0,
+    "caches": [
+      "websocket last request/response (incremental input)",
+      "MCP servers and tool lists (LazyWhenCached)",
+      "markdown render cache (1 entry per cell)",
+      "streaming stable-prefix line count",
+      "LazyLock/OnceLock regexes"
+    ],
+    "limits": [
+      "EXEC_OUTPUT_MAX_BYTES",
+      "MAX_EXEC_OUTPUT_DELTAS_PER_CALL 10000",
+      "COMPACT_USER_MESSAGE_MAX_TOKENS 20000",
+      "RETAINED_MESSAGE_TOKEN_BUDGET 64000",
+      "MAX_MCP_NAMESPACE_DESCRIPTION_BYTES 512K",
+      "MAX_PENDING_EXECUTED_TOOL_CALLS 256",
+      "MAX_SCAN_FILES 10000",
+      "RESPONSE_STREAM_CHANNEL_CAPACITY 1600",
+      "MAX_CONCURRENT_ANCESTOR_PROBES 256",
+      "MAX_CONCURRENT_COMPRESSION_JOBS 2"
+    ],
+    "scaling_factors": {
+      "history items × sampling steps": "linear per step (deep copy + estimate)",
+      "stream events": "linear, O(1) each",
+      "tool calls per step": "parallel if declared, else serialized",
+      "rollout lines": "linear, one write each",
+      "rollout files (listing fallback, updated_at)": "N log N per page, capped 10000",
+      "MCP servers (startup)": "parallel",
+      "AGENTS.md ancestors": "parallel, 256 wide",
+      "transcript cells (TUI)": "linear per session, unbounded"
+    },
+    "bottlenecks_ranked": [
+      "finding:performance-scan/algorithms-and-data/repeated-work-prompt-build",
+      "finding:performance-scan/concurrency/serial-stages",
+      "finding:performance-scan/algorithms-and-data/repeated-work-step-context",
+      "finding:performance-scan/caching-and-reuse/recomputation-thread-listing",
+      "finding:performance-scan/limits-and-safeguards/missing-limits"
+    ]
+  },
+  "findings": [
+    {
+      "id": "performance-scan/workload-model/scaling-factors",
+      "group": "workload-model",
+      "title": "Cost scales per turn with history items, sampling steps and tool calls, not with repository size",
+      "description": "Codex is an **interactive agent runtime**: the unit of work is a turn, and a turn is a loop of sampling steps. Each step sends the whole conversation history to the model, streams the response back, dispatches the tool calls it contains and loops until the model stops calling tools. The scaling factors are therefore **history items × sampling steps per turn** (the prompt is rebuilt from the full history every step), **stream events per step** (one channel send and one JSON parse each), **tool calls per step** (one spawned task each, gated for parallelism) and **rollout lines per session** (one JSONL append per persisted item). Startup scales with the number of configured MCP servers and AGENTS.md ancestor directories; session listing scales with the number of rollout files in `CODEX_HOME/sessions`. Nothing scales with repository size except the on-demand fuzzy file search. The static reading below covers the engine turn path (`codex-core`), the model client, the rollout writer and reader, the TUI render path and the MCP startup path; no profiler was run.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/session/turn.rs",
+          "start_line": 301,
+          "end_line": 301,
+          "snippet": "loop {",
+          "note": "turn loop: one iteration per sampling step"
+        },
+        {
+          "file": "codex-rs/core/src/session/turn.rs",
+          "start_line": 2252,
+          "end_line": 2252,
+          "snippet": "let outcome: CodexResult<SamplingRequestResult> = loop {",
+          "note": "stream loop: one iteration per response event"
+        },
+        {
+          "file": "codex-rs/core/src/session/turn.rs",
+          "start_line": 2137,
+          "end_line": 2137,
+          "snippet": "while let Some(res) = in_flight.next().await {",
+          "note": "tool results drained in order before the next step"
+        }
+      ],
+      "tags": [
+        "rust",
+        "async",
+        "tokio"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "finding:functionality-scan/purpose/what-codex-is",
+        "finding:architecture-scan/communication/sq-eq-queue-pair"
+      ],
+      "attributes": {
+        "system_kind": "interactive agent runtime",
+        "per_turn": [
+          "history items",
+          "sampling steps",
+          "stream events",
+          "tool calls"
+        ],
+        "per_session": [
+          "rollout lines",
+          "transcript cells"
+        ],
+        "startup": [
+          "MCP servers",
+          "AGENTS.md ancestors"
+        ],
+        "listing": [
+          "rollout files"
+        ]
+      }
+    },
+    {
+      "id": "performance-scan/workload-model/main-loop",
+      "group": "workload-model",
+      "title": "Main loop: turn -> sampling step -> streamed response -> gated tool tasks -> drain -> next step",
+      "description": "The turn loop in `run_turn` drains pending user input, captures a fresh `StepContext` (tool router, MCP binding, environment) and rebuilds the prompt from the full history. `try_run_sampling_request` then consumes the response stream event by event; each `OutputItemDone` that is a tool call becomes a spawned task pushed into a `FuturesOrdered`, and `drain_in_flight` waits for all of them before the step ends. The loop repeats until a step produces no tool calls. Per-step work is all **O(history)** and per-event work is **O(1)** plus one channel hop, so the latency budget of a turn is dominated by network round trips and tool execution, not by engine CPU.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/session/turn.rs",
+          "start_line": 305,
+          "end_line": 305,
+          "snippet": "let pending_input = if can_drain_pending_input {",
+          "note": "top of the turn loop"
+        },
+        {
+          "file": "codex-rs/core/src/session/turn.rs",
+          "start_line": 337,
+          "end_line": 337,
+          "snippet": "sess.capture_step_context(Arc::clone(&turn_context), &cancellation_token)",
+          "note": "new StepContext every iteration"
+        },
+        {
+          "file": "codex-rs/core/src/session/turn.rs",
+          "start_line": 373,
+          "end_line": 373,
+          "snippet": ".for_prompt(&step_context.model_info.input_modalities)",
+          "note": "prompt rebuilt from full history each step"
+        }
+      ],
+      "tags": [
+        "rust",
+        "async"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "finding:reliability-scan/isolation/tool-call-task-boundary"
+      ]
+    },
+    {
+      "id": "performance-scan/workload-model/performance-currency",
+      "group": "workload-model",
+      "title": "Currency is per-turn latency (time to first token, tool dispatch wait) and a memory footprint bounded by the context window",
+      "description": "For an interactive runtime the currency is **latency**, and the code measures the part it cares about: `record_turn_ttft_metric` stamps time-to-first-token on every stream event, and tool calls carry a timing guard that separates dispatch wait from execution. The TUI renders at a fixed **120 Hz cap** (`MIN_FRAME_INTERVAL` 8.33 ms), so render cost matters only when a frame exceeds that budget. **Memory** is a secondary currency: the in-memory history is bounded by auto-compaction against the model context window, and tool output is capped, so steady-state RSS is proportional to the context window plus the TUI transcript. **Startup time** matters once per session (MCP server spawn, AGENTS.md discovery, websocket prewarm). Throughput is not a concern: one session runs one turn at a time.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/session/turn.rs",
+          "start_line": 2293,
+          "end_line": 2293,
+          "snippet": "record_turn_ttft_metric(&turn_context, &event).await;",
+          "note": "TTFT measured per stream event"
+        },
+        {
+          "file": "codex-rs/tui/src/tui/frame_rate_limiter.rs",
+          "start_line": 13,
+          "end_line": 13,
+          "snippet": "pub(super) const MIN_FRAME_INTERVAL: Duration = Duration::from_nanos(8_333_334);",
+          "note": "120 Hz frame cap"
+        },
+        {
+          "file": "codex-rs/core/src/session/context_window.rs",
+          "start_line": 27,
+          "end_line": 27,
+          "snippet": "let active_context_tokens = sess.get_total_token_usage().await;",
+          "note": "auto-compaction check bounds history"
+        }
+      ],
+      "tags": [
+        "latency",
+        "memory"
+      ],
+      "sokrates_refs": [
+        "finding:observability-scan/metrics/centralized-metric-catalog",
+        "component:TUI frontend"
+      ]
+    },
+    {
+      "id": "performance-scan/algorithms-and-data/repeated-work-prompt-build",
+      "group": "algorithms-and-data",
+      "title": "Every sampling step clones, normalizes and re-estimates the entire conversation history",
+      "description": "Each iteration of the turn loop calls `sess.clone_history()` and `for_prompt`, which does `Arc::unwrap_or_clone(self.items)` - a **deep copy of every `ResponseItem`** in the history (the `Arc` is shared with session state, so the clone is never elided) - then runs four normalization passes over the copy. Independently, `get_total_token_usage` and `estimate_token_count` iterate all items to sum byte-based token estimates, and they are called at least once per step for the auto-compaction check plus from compaction paths. Cost is **O(history items × sampling steps)** per turn, with each item carrying its full text payload (tool outputs up to the truncation policy). History is bounded by the context window (roughly hundreds of items, a few hundred KB), so this is a linear pass with a large constant rather than a super-linear path; a 20-step agentic turn copies the transcript 20 times. Static reading only; not measured.",
+      "severity": "low",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/session/turn.rs",
+          "start_line": 373,
+          "end_line": 373,
+          "snippet": ".for_prompt(&step_context.model_info.input_modalities)",
+          "note": "per step"
+        },
+        {
+          "file": "codex-rs/core/src/context_manager/history.rs",
+          "start_line": 213,
+          "end_line": 213,
+          "snippet": "Arc::unwrap_or_clone(self.items)",
+          "note": "deep copy of all items"
+        },
+        {
+          "file": "codex-rs/core/src/context_manager/history.rs",
+          "start_line": 267,
+          "end_line": 267,
+          "snippet": ".map(|envelope| estimate_item_token_count(&envelope.item))",
+          "note": "full-history estimate per call"
+        }
+      ],
+      "recommendation": "Keep a running token estimate updated in `record_items` instead of re-summing all items, and build the prompt from a borrowed or `Arc`-shared normalized snapshot that is invalidated on `history_version` change rather than deep-cloning per step.",
+      "tags": [
+        "rust",
+        "allocation"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "metric:loc"
+      ],
+      "attributes": {
+        "scaling": "history items × steps",
+        "bound": "context window via auto-compaction"
+      }
+    },
+    {
+      "id": "performance-scan/algorithms-and-data/repeated-work-step-context",
+      "group": "algorithms-and-data",
+      "title": "Tool router and MCP tool exposure are rebuilt for every sampling step, not once per turn",
+      "description": "`capture_step_context` runs inside the turn loop, and it calls `built_tools`, which assembles the tool registry, applies the MCP exposure policy over all MCP tools, resolves tool-suggest candidates and builds the model-visible specs. For a turn with N sampling steps this is N full rebuilds of a structure that changes rarely within a turn (it exists per step so mid-turn MCP refreshes and plugin selection are picked up). Cost is **O(tools × steps)**; with a few dozen tools it is small, with many MCP servers exposing hundreds of tools with schemas capped at 512 KiB per namespace it becomes real allocation churn per step. Static reading; the design trade-off (freshness per step) is deliberate.",
+      "severity": "low",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/session/turn.rs",
+          "start_line": 337,
+          "end_line": 337,
+          "snippet": "sess.capture_step_context(Arc::clone(&turn_context), &cancellation_token)",
+          "note": "inside the turn loop"
+        },
+        {
+          "file": "codex-rs/core/src/session/mod.rs",
+          "start_line": 3229,
+          "end_line": 3229,
+          "snippet": "let tool_router = turn::built_tools(",
+          "note": "full router rebuild"
+        },
+        {
+          "file": "codex-rs/core/src/tools/handlers/mcp.rs",
+          "start_line": 45,
+          "end_line": 45,
+          "snippet": "const MAX_MCP_NAMESPACE_DESCRIPTION_BYTES: usize = 512 * 1024;",
+          "note": "per-namespace spec size"
+        }
+      ],
+      "recommendation": "Cache the built `ToolRouter` keyed on the MCP binding generation and selected-plugin snapshot so consecutive steps without a refresh reuse it.",
+      "tags": [
+        "rust"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "finding:risk-synthesis-scan/hotspots/spec-plan-tool-registry"
+      ]
+    },
+    {
+      "id": "performance-scan/algorithms-and-data/regex-per-item",
+      "group": "algorithms-and-data",
+      "title": "Hook matchers compile their regex on every hook event evaluation",
+      "description": "`matches_matcher` in the hooks engine calls `regex::Regex::new(matcher)` each time a hook's matcher is tested against an input, so a regex matcher is compiled once per hook × per event (tool call, turn start, ...). The pattern is validated at config load, but the compiled form is not kept. Off the model round-trip path and with small hook counts the cost is microseconds per event; it only matters with many regex matchers and many tool calls. The other non-static `Regex::new` sites in the workspace are one-shot (config validation, seatbelt log parsing, search-term escaping) or already behind `LazyLock`/`OnceLock` (markdown link suffixes, SSE rate-limit parsing).",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/hooks/src/events/common.rs",
+          "start_line": 144,
+          "end_line": 144,
+          "snippet": "regex::Regex::new(matcher)",
+          "note": "compiled per evaluation"
+        },
+        {
+          "file": "codex-rs/hooks/src/events/common.rs",
+          "start_line": 132,
+          "end_line": 132,
+          "snippet": "regex::Regex::new(matcher).map(|_| ())",
+          "note": "validated at load, compiled form discarded"
+        },
+        {
+          "file": "codex-rs/tui/src/markdown_render.rs",
+          "start_line": 369,
+          "end_line": 369,
+          "snippet": "static COLON_LOCATION_SUFFIX_RE: LazyLock<Regex> =",
+          "note": "the static pattern used elsewhere"
+        }
+      ],
+      "recommendation": "Compile the matcher once when the hook config is loaded and store the `Regex` alongside the hook definition.",
+      "tags": [
+        "rust",
+        "regex"
+      ],
+      "sokrates_refs": [
+        "component:extensibility (MCP, plugins, skills, hooks)"
+      ],
+      "attributes": {
+        "regex_new_non_static_sites": 16,
+        "per_item_sites": 1
+      }
+    },
+    {
+      "id": "performance-scan/algorithms-and-data/data-structures",
+      "group": "algorithms-and-data",
+      "title": "Well-chosen structures on the hot path: prefix-diffed websocket requests, ordered tool futures, hashed MCP call lookup",
+      "description": "The model client keeps the last request and diffs the new input against it item by item so a reused websocket sends **only the incremental items** (`get_incremental_items`), a linear prefix compare that avoids resending the whole history; the equality check clones both items only when they differ on metadata. Tool results are collected in a `FuturesOrdered` so completion order does not reorder the transcript. MCP tool dispatch looks calls up in a `HashMap` keyed by (server, tool) - correct choice, though each lookup allocates two `String`s for the key. Thread listing sorts lightweight candidates rather than parsed items. Nothing on the per-turn path is a linear search inside a loop over the same collection.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/client.rs",
+          "start_line": 1222,
+          "end_line": 1222,
+          "snippet": "fn get_incremental_items(",
+          "note": "incremental websocket payload"
+        },
+        {
+          "file": "codex-rs/core/src/client.rs",
+          "start_line": 372,
+          "end_line": 372,
+          "snippet": "let mut previous = previous.clone();",
+          "note": "clone only on the metadata-mismatch branch"
+        },
+        {
+          "file": "codex-rs/codex-mcp/src/binding.rs",
+          "start_line": 87,
+          "end_line": 87,
+          "snippet": ".get(&(server.to_string(), tool.to_string()))",
+          "note": "hash lookup with allocated key"
+        }
+      ],
+      "tags": [
+        "rust"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "component:model backends & API clients"
+      ]
+    },
+    {
+      "id": "performance-scan/io-and-memory/input-loading",
+      "group": "io-and-memory",
+      "title": "Rollouts are read line by line; listing reads only the first 10 records per file and scans indexes from the end in 64 KiB chunks",
+      "description": "Resume (`load_rollout_items`) streams the JSONL transcript through an async line reader and parses one `serde_json::Value` per line, so memory during resume is one line plus the accumulated items rather than the whole file. Session listing calls `read_head_summary` with `HEAD_RECORD_LIMIT` 10 so each candidate file costs one small read, and the session-name index is scanned from the end with a `ReverseJsonlScanner` in 64 KiB chunks on a blocking thread. Compressed (zstd) rollouts are decoded through `spawn_blocking`. Model responses are parsed per SSE event with `serde_json::from_str`. These are the streaming choices one wants; the only whole-input read on a per-turn path is the `Value` round trip per rollout line (parse to `Value`, inspect, then deserialize), which doubles parse work on resume of long transcripts.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/rollout/src/recorder.rs",
+          "start_line": 1018,
+          "end_line": 1018,
+          "snippet": "while let Some(line) = reader.next_line().await? {",
+          "note": "line-streamed resume"
+        },
+        {
+          "file": "codex-rs/rollout/src/list.rs",
+          "start_line": 125,
+          "end_line": 125,
+          "snippet": "const HEAD_RECORD_LIMIT: usize = 10;",
+          "note": "head-only summaries for listing"
+        },
+        {
+          "file": "codex-rs/rollout/src/reverse_jsonl_scanner.rs",
+          "start_line": 8,
+          "end_line": 8,
+          "snippet": "const READ_CHUNK_SIZE: usize = 64 * 1024;",
+          "note": "reverse chunked index scan"
+        }
+      ],
+      "tags": [
+        "io",
+        "jsonl"
+      ],
+      "sokrates_refs": [
+        "component:persistence (rollout, state, thread-store)",
+        "finding:reliability-scan/handling/rollout-resume-skips-malformed-lines"
+      ]
+    },
+    {
+      "id": "performance-scan/io-and-memory/output-writing",
+      "group": "io-and-memory",
+      "title": "The rollout writer is a single background task that writes one line per item and flushes after every batch",
+      "description": "Persistence goes through an mpsc channel to one `rollout_writer` task, which appends items to `pending_items` and calls `flush_if_materialized` on every `AddItems` command. `write_pending_items_once` then serializes and writes **one line per item** through an unbuffered `tokio::fs::File` and flushes once per batch - so a step that persists k items costs k write syscalls plus one flush, and per-turn persistence is serialized behind that single task. The transcript is never fsynced (reliability-scan owns that trade-off). For interactive turns this is a handful of small writes per step; it becomes visible only when many items land at once (large tool outputs are truncated first, so line size is bounded by the truncation policy). Deliberately streaming rather than build-then-write.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/rollout/src/recorder.rs",
+          "start_line": 1829,
+          "end_line": 1829,
+          "snippet": "state.flush_if_materialized().await;",
+          "note": "flush per AddItems batch"
+        },
+        {
+          "file": "codex-rs/rollout/src/recorder.rs",
+          "start_line": 1795,
+          "end_line": 1795,
+          "snippet": "for item in &self.pending_items {",
+          "note": "one write per item"
+        },
+        {
+          "file": "codex-rs/rollout/src/recorder.rs",
+          "start_line": 1783,
+          "end_line": 1783,
+          "snippet": "writer.file.flush().await?;",
+          "note": "flush after the loop"
+        }
+      ],
+      "tags": [
+        "io",
+        "jsonl"
+      ],
+      "sokrates_refs": [
+        "component:persistence (rollout, state, thread-store)",
+        "finding:reliability-scan/resources/rollout-writer-buffer-and-retry"
+      ]
+    },
+    {
+      "id": "performance-scan/io-and-memory/in-memory-model",
+      "group": "io-and-memory",
+      "title": "Engine memory is the compaction-bounded history; TUI memory is an unbounded transcript of rendered cells",
+      "description": "The engine holds the conversation as `Arc<Vec<ResponseItemEnvelope>>` inside session state; it grows per step until `context_window_token_status` triggers auto-compaction, so peak engine memory is **proportional to the model context window** (plus the per-step deep copy described under `repeated-work-prompt-build`). The TUI keeps every history cell for the session in `transcript_cells: Vec<Arc<dyn HistoryCell>>`; markdown cells keep their raw source plus a one-entry render cache of wrapped lines for the current width, so TUI memory grows **linearly with session length** and is never trimmed - a very long session accumulates every rendered message and tool output cell. The model stream is buffered by a bounded channel of 1,600 events; the mapping task additionally keeps `items_added` (a clone of every output item) for websocket reuse and trace recording, duplicating one response's items in memory for the life of the step.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/tui/src/app.rs",
+          "start_line": 544,
+          "end_line": 544,
+          "snippet": "pub(crate) transcript_cells: Vec<Arc<dyn HistoryCell>>,",
+          "note": "grows per session, never trimmed"
+        },
+        {
+          "file": "codex-rs/tui/src/history_cell/markdown_render_cache.rs",
+          "start_line": 9,
+          "end_line": 9,
+          "snippet": "pub(super) cached: Mutex<Option<(MarkdownRenderCacheKey, Vec<HyperlinkLine>)>>,",
+          "note": "one rendered copy per cell"
+        },
+        {
+          "file": "codex-rs/core/src/client.rs",
+          "start_line": 2055,
+          "end_line": 2055,
+          "snippet": "items_added.push(item.clone());",
+          "note": "second copy of each output item"
+        }
+      ],
+      "tags": [
+        "memory"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "component:TUI frontend",
+        "metric:loc"
+      ],
+      "attributes": {
+        "engine_bound": "context window via auto-compaction",
+        "tui_bound": "none (session length)"
+      }
+    },
+    {
+      "id": "performance-scan/concurrency/parallel-stages",
+      "group": "concurrency",
+      "title": "Parallel where it pays: gated concurrent tool tasks, JoinSet MCP startup, 256-wide AGENTS.md probes, prewarmed websocket, threaded file search",
+      "description": "Tool calls run as spawned tasks admitted through a `RwLock` gate: tools that declare parallel support take the read lock and run concurrently; the response stream keeps being consumed while they run. MCP servers are started in a `JoinSet` with a `LazyWhenCached` policy that reuses cached tool lists instead of blocking startup. AGENTS.md discovery probes ancestor directories with `buffered(256)`. Session startup schedules a prewarm that preconnects the websocket and warms auth so the first turn skips connection setup. The fuzzy file search runs a walker thread feeding a `nucleo` matcher on 2 threads. Rollout compression runs at most 2 blocking jobs. These are the deliberate optimizations a re-run should diff against.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/tools/parallel.rs",
+          "start_line": 154,
+          "end_line": 154,
+          "snippet": "Either::Left(lock.read().await)",
+          "note": "parallel tools share the read lock"
+        },
+        {
+          "file": "codex-rs/codex-mcp/src/connection_manager.rs",
+          "start_line": 240,
+          "end_line": 240,
+          "snippet": "let mut join_set = JoinSet::new();",
+          "note": "MCP servers started concurrently"
+        },
+        {
+          "file": "codex-rs/core/src/agents_md.rs",
+          "start_line": 269,
+          "end_line": 269,
+          "snippet": ".buffered(MAX_CONCURRENT_ANCESTOR_PROBES);",
+          "note": "256-wide ancestor probes"
+        }
+      ],
+      "tags": [
+        "tokio",
+        "parallelism"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "component:extensibility (MCP, plugins, skills, hooks)",
+        "finding:reliability-scan/isolation/mcp-server-timeouts"
+      ],
+      "attributes": {
+        "stages": [
+          "tool calls (gated)",
+          "MCP startup (JoinSet, lazy when cached)",
+          "AGENTS.md probes (256)",
+          "websocket prewarm",
+          "file search (nucleo, 2 threads)",
+          "rollout compression (2 jobs)"
+        ]
+      }
+    },
+    {
+      "id": "performance-scan/concurrency/serial-stages",
+      "group": "concurrency",
+      "title": "Serial by design: non-parallel tools take a write lock that drains all other tools, and each step waits for every tool before sampling again",
+      "description": "Any tool that does not declare parallel support acquires the **write side** of the parallel-execution `RwLock`, which waits for all in-flight parallel tools to finish and blocks new ones until it completes - one slow shell command serializes the step. After the stream ends, `drain_in_flight` awaits every tool result in order before the next sampling request is sent, so the step latency is the **max of tool latencies plus the model round trip**, never overlapped with the next request (the Responses API requires the outputs first, so this is inherent). Persistence is a single writer task. The scaling factor is tool calls per step × tool latency; for shell-heavy turns the write-locked shell tool is the bottleneck, which is a correctness choice (sandbox and cwd state) rather than an oversight.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/tools/parallel.rs",
+          "start_line": 153,
+          "end_line": 153,
+          "snippet": "let _guard = if supports_parallel {",
+          "note": "admission gate"
+        },
+        {
+          "file": "codex-rs/core/src/tools/parallel.rs",
+          "start_line": 156,
+          "end_line": 156,
+          "snippet": "Either::Right(lock.write().await)",
+          "note": "exclusive for non-parallel tools"
+        },
+        {
+          "file": "codex-rs/core/src/session/turn.rs",
+          "start_line": 2137,
+          "end_line": 2137,
+          "snippet": "while let Some(res) = in_flight.next().await {",
+          "note": "all tools drained before the next step"
+        }
+      ],
+      "recommendation": "Mark read-only tools (file read, grep-like, list) as parallel-capable where they are not already, so a shell command does not exclude them; the drain-before-next-step is protocol-bound and should stay.",
+      "tags": [
+        "tokio",
+        "locks"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "finding:reliability-scan/isolation/tool-call-task-boundary"
+      ]
+    },
+    {
+      "id": "performance-scan/concurrency/blocking-in-async",
+      "group": "concurrency",
+      "title": "Blocking work is moved off the runtime with spawn_blocking; the remaining std locks on the hot path are short and uncontended",
+      "description": "Filesystem-heavy work is consistently wrapped: zstd materialization and decoding of rollouts, the reverse session-index scans, plugin store install/uninstall and Windows sandbox setup all use `tokio::task::spawn_blocking`. No `block_on` or `block_in_place` exists in `codex-core`, the rollout crate or the TUI event loop. `std::sync::Mutex` is used for tiny flags in the websocket session (`connection_reused`) and the TUI render cache; the session state itself is a `tokio::sync::Mutex` taken briefly for history clones and token estimates. Grep counted 72 `spawn_blocking`/`block_on` sites workspace-wide outside tests, none of which is a blocking call inside an async hot path.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/rollout/src/compression.rs",
+          "start_line": 67,
+          "end_line": 67,
+          "snippet": "tokio::task::spawn_blocking(move || materialize_rollout_for_append_blocking(path.as_path()))",
+          "note": "rollout materialization off-runtime"
+        },
+        {
+          "file": "codex-rs/rollout/src/session_index.rs",
+          "start_line": 117,
+          "end_line": 117,
+          "snippet": "let entry = tokio::task::spawn_blocking(move || scan_index_from_end_by_id(&path, &id))",
+          "note": "index scan off-runtime"
+        },
+        {
+          "file": "codex-rs/core/src/client.rs",
+          "start_line": 303,
+          "end_line": 303,
+          "snippet": "connection_reused: StdMutex<bool>,",
+          "note": "short std lock on the client"
+        }
+      ],
+      "tags": [
+        "tokio",
+        "blocking"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "component:persistence (rollout, state, thread-store)",
+        "finding:reliability-scan/handling/lock-poison-into-inner-convention"
+      ],
+      "attributes": {
+        "blocking_sites_grepped": 72,
+        "blocking_in_async_hot_path": 0
+      }
+    },
+    {
+      "id": "performance-scan/concurrency/hot-locks",
+      "group": "concurrency",
+      "title": "Session state is one tokio Mutex taken on every step for history clone, token estimate and compaction checks",
+      "description": "`Session.state` guards the history, token info and turn bookkeeping. Per step it is locked for `clone_history` (deep copy under the lock), for `get_total_token_usage` (full-item iteration under the lock) and again by event handlers that record items. Because one session runs one turn at a time, contention is between the turn task and app-server request handlers reading state, not between turns; the cost is the critical-section length, which is proportional to history size. Not a serialization point today; flagged so the deep copy under the lock is not forgotten when multi-agent sub-sessions share a process.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/session/mod.rs",
+          "start_line": 3725,
+          "end_line": 3725,
+          "snippet": "pub(crate) async fn clone_history(&self) -> ContextManager {",
+          "note": "deep copy under the lock"
+        },
+        {
+          "file": "codex-rs/core/src/session/mod.rs",
+          "start_line": 1253,
+          "end_line": 1253,
+          "snippet": "pub(crate) async fn get_total_token_usage(&self) -> i64 {",
+          "note": "full iteration under the lock"
+        }
+      ],
+      "tags": [
+        "tokio",
+        "locks"
+      ],
+      "sokrates_refs": [
+        "component:core engine"
+      ]
+    },
+    {
+      "id": "performance-scan/caching-and-reuse/caches",
+      "group": "caching-and-reuse",
+      "title": "Caches that exist: reused websocket with incremental input, lazy MCP tool lists, one-width markdown render cache, streaming prefix cache, static regexes",
+      "description": "The model client caches the last request and its response items so a reused websocket sends only new items. The MCP connection manager reuses previously started servers and cached tool lists under `LazyWhenCached`. The TUI caches each finalized markdown cell's rendered lines for the current width, theme and palette (single entry, replaced on change) and the streaming controller caches the rendered line count of the stable prefix so table detection does not re-render the prefix per delta. Regexes on render and SSE paths are `LazyLock`/`OnceLock`. The one intentional non-cache: `finalize_remaining` re-renders the whole message from raw source once at the end of each stream so the transcript is canonical. Missing caches are the prompt snapshot and tool router described under `algorithms-and-data`.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/client.rs",
+          "start_line": 1303,
+          "end_line": 1303,
+          "snippet": "pub async fn preconnect_websocket(",
+          "note": "connection reuse and prewarm"
+        },
+        {
+          "file": "codex-rs/codex-mcp/src/connection_manager.rs",
+          "start_line": 243,
+          "end_line": 243,
+          "snippet": "startup_policy == McpStartupPolicy::LazyWhenCached && previous.is_some();",
+          "note": "cached MCP tool lists"
+        },
+        {
+          "file": "codex-rs/tui/src/history_cell/markdown_render_cache.rs",
+          "start_line": 42,
+          "end_line": 42,
+          "snippet": "return lines.clone();",
+          "note": "render cache hit (still clones the lines)"
+        }
+      ],
+      "tags": [
+        "cache"
+      ],
+      "sokrates_refs": [
+        "component:model backends & API clients",
+        "component:TUI frontend",
+        "component:extensibility (MCP, plugins, skills, hooks)"
+      ],
+      "attributes": {
+        "caches": [
+          "websocket last request/response (incremental input)",
+          "MCP servers and tool lists (LazyWhenCached)",
+          "markdown render cache (1 entry per cell)",
+          "streaming stable-prefix line count",
+          "LazyLock/OnceLock regexes"
+        ]
+      }
+    },
+    {
+      "id": "performance-scan/caching-and-reuse/recomputation-thread-listing",
+      "group": "caching-and-reuse",
+      "title": "Listing sessions by updated_at re-walks and re-sorts the whole rollout tree on every page",
+      "description": "When the SQLite state DB is unavailable and the filesystem fallback is used with `ThreadSortKey::UpdatedAt`, `traverse_directories_for_paths_updated` collects **every rollout file** under `sessions/` (one `metadata` call each), sorts all candidates, then skips to the cursor - so page k costs a full walk and O(N log N) sort again, capped at `MAX_SCAN_FILES` 10,000. The created_at sort avoids this because directory names encode the date and the walk breaks once the page fills. The primary path (state DB) has covering indexes on `(archived, cwd, updated_at_ms DESC, id DESC)`, so this only bites users without the index. Per-page cost is bounded by the 10k cap; with thousands of sessions the resume picker's fallback path is the slowest I/O in the TUI.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/rollout/src/list.rs",
+          "start_line": 566,
+          "end_line": 566,
+          "snippet": "let mut candidates = collect_files_by_updated_at(&root, &mut scanned_files).await?;",
+          "note": "full walk per page"
+        },
+        {
+          "file": "codex-rs/rollout/src/list.rs",
+          "start_line": 567,
+          "end_line": 567,
+          "snippet": "candidates.sort_by_key(|candidate| {",
+          "note": "full sort per page"
+        },
+        {
+          "file": "codex-rs/state/migrations/0027_threads_cwd_sort_indexes.sql",
+          "start_line": 2,
+          "end_line": 2,
+          "snippet": "CREATE INDEX idx_threads_archived_cwd_updated_at_ms ON threads(archived, cwd, updated_at_ms DESC, id DESC);",
+          "note": "the indexed primary path"
+        }
+      ],
+      "recommendation": "Cache the sorted candidate list for the duration of a listing session (cursor carries a generation) or rely on the state DB and drop updated_at sorting from the filesystem fallback.",
+      "tags": [
+        "io",
+        "sqlite"
+      ],
+      "sokrates_refs": [
+        "component:persistence (rollout, state, thread-store)",
+        "finding:reliability-scan/degradation/designed-fallbacks",
+        "finding:risk-synthesis-scan/hotspots/resume-picker"
+      ]
+    },
+    {
+      "id": "performance-scan/limits-and-safeguards/caps-and-skips",
+      "group": "limits-and-safeguards",
+      "title": "Cost caps are pervasive: output bytes and delta counts per exec, token budgets for compaction, MCP spec bytes, listing scan cap, bounded channels",
+      "description": "Shell output is retained up to `DEFAULT_OUTPUT_BYTES_CAP` with `append_capped`, read in 8 KiB chunks, and live deltas are capped at 10,000 per call while the reader keeps draining to EOF to avoid back-pressure on the child. Compaction has explicit token budgets (20k for the compacted user message, 64k retained budget in remote v2). MCP namespaces are capped at 512 KiB of description, executed tool-call args at 8 KiB with 256 pending. Session listing stops at 10,000 files; the response stream channel holds 1,600 events; realtime context has per-section token budgets. These caps mean no single tool call, model response or session directory can dominate memory. There is no sampling and no skip-if-over-N switch because there is no batch stage to skip.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/exec.rs",
+          "start_line": 79,
+          "end_line": 79,
+          "snippet": "const EXEC_OUTPUT_MAX_BYTES: usize = DEFAULT_OUTPUT_BYTES_CAP;",
+          "note": "output cap"
+        },
+        {
+          "file": "codex-rs/core/src/exec.rs",
+          "start_line": 83,
+          "end_line": 83,
+          "snippet": "pub(crate) const MAX_EXEC_OUTPUT_DELTAS_PER_CALL: usize = 10_000;",
+          "note": "delta cap"
+        },
+        {
+          "file": "codex-rs/core/src/compact_remote_v2.rs",
+          "start_line": 65,
+          "end_line": 65,
+          "snippet": "pub(crate) const RETAINED_MESSAGE_TOKEN_BUDGET: usize = 64_000;",
+          "note": "compaction budget"
+        }
+      ],
+      "tags": [
+        "limits"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "finding:reliability-scan/isolation/child-process-containment"
+      ],
+      "attributes": {
+        "limits": [
+          "EXEC_OUTPUT_MAX_BYTES",
+          "MAX_EXEC_OUTPUT_DELTAS_PER_CALL 10000",
+          "COMPACT_USER_MESSAGE_MAX_TOKENS 20000",
+          "RETAINED_MESSAGE_TOKEN_BUDGET 64000",
+          "MAX_MCP_NAMESPACE_DESCRIPTION_BYTES 512K",
+          "MAX_PENDING_EXECUTED_TOOL_CALLS 256",
+          "MAX_SCAN_FILES 10000",
+          "RESPONSE_STREAM_CHANNEL_CAPACITY 1600",
+          "MAX_CONCURRENT_ANCESTOR_PROBES 256",
+          "MAX_CONCURRENT_COMPRESSION_JOBS 2"
+        ],
+        "const_max_limit_cap_sites_non_test": 256
+      }
+    },
+    {
+      "id": "performance-scan/limits-and-safeguards/missing-limits",
+      "group": "limits-and-safeguards",
+      "title": "No bound on the TUI transcript or on total in-flight tool tasks per step",
+      "description": "Two growth paths have no cap: the TUI `transcript_cells` vector (every cell of the session, with its rendered lines) and the number of tool tasks spawned per step (one per tool call in the response; the model decides how many). The engine-side history is bounded by compaction and each tool's output is bounded, so both are linear in session length and in model behaviour respectively, not in input size. The exec delta cap and the pending executed-tool-calls cap show the pattern the codebase uses elsewhere; a transcript cap (or off-screen cell eviction) is the one missing sibling.",
+      "severity": "low",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/tui/src/app.rs",
+          "start_line": 544,
+          "end_line": 544,
+          "snippet": "pub(crate) transcript_cells: Vec<Arc<dyn HistoryCell>>,",
+          "note": "unbounded"
+        },
+        {
+          "file": "codex-rs/core/src/tools/executed_tool_calls.rs",
+          "start_line": 18,
+          "end_line": 18,
+          "snippet": "const MAX_PENDING_EXECUTED_TOOL_CALLS: usize = 256;",
+          "note": "the sibling cap that exists"
+        }
+      ],
+      "recommendation": "Evict or collapse cells beyond a configurable transcript length in very long sessions; keep the raw source so scroll-back can re-render on demand.",
+      "tags": [
+        "limits",
+        "memory"
+      ],
+      "sokrates_refs": [
+        "component:TUI frontend"
+      ]
+    },
+    {
+      "id": "performance-scan/performance-posture/posture",
+      "group": "performance-posture",
+      "title": "Posture: a latency-bound runtime whose engine work is linear in history per step; the plausible bottlenecks are per-step transcript copies, serialized non-parallel tools and the filesystem listing fallback",
+      "description": "Codex's cost rides on **history items × sampling steps** and **tool latency per step**, and its engine does nothing super-linear on that path: the stream is consumed event by event, tool calls run as concurrent tasks, persistence is a single streaming writer, outputs are capped and history is compacted. Ranked likely bottlenecks, static reading only: (1) `algorithms-and-data/repeated-work-prompt-build` - the full transcript is deep-copied, normalized and token-estimated every step; (2) `concurrency/serial-stages` - a non-parallel tool takes the exclusive gate and every step waits for all tools before the next request; (3) `algorithms-and-data/repeated-work-step-context` - the tool router and MCP exposure are rebuilt per step; (4) `caching-and-reuse/recomputation-thread-listing` - the updated_at filesystem fallback walks and sorts all sessions per page; (5) `limits-and-safeguards/missing-limits` - the TUI transcript grows without bound. What grows without bound: TUI transcript cells (session length). Where parallelism would pay: marking read-only tools parallel-capable. Highest-leverage changes: a version-keyed prompt snapshot and running token estimate, parallel-capable read-only tools, and a cached tool router per MCP generation. Nothing found justifies `medium` or above; the runtime's dominant latency is the model round trip, which the code cannot shorten.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/session/turn.rs",
+          "start_line": 301,
+          "end_line": 301,
+          "snippet": "loop {",
+          "note": "the turn loop"
+        },
+        {
+          "file": "codex-rs/core/src/session/turn.rs",
+          "start_line": 373,
+          "end_line": 373,
+          "snippet": ".for_prompt(&step_context.model_info.input_modalities)",
+          "note": "per-step transcript copy"
+        },
+        {
+          "file": "codex-rs/core/src/tools/parallel.rs",
+          "start_line": 156,
+          "end_line": 156,
+          "snippet": "Either::Right(lock.write().await)",
+          "note": "exclusive tool gate"
+        }
+      ],
+      "tags": [
+        "posture"
+      ],
+      "sokrates_refs": [
+        "finding:performance-scan/algorithms-and-data/repeated-work-prompt-build",
+        "finding:performance-scan/concurrency/serial-stages",
+        "finding:performance-scan/algorithms-and-data/repeated-work-step-context",
+        "finding:performance-scan/caching-and-reuse/recomputation-thread-listing",
+        "finding:performance-scan/limits-and-safeguards/missing-limits",
+        "finding:observability-scan/monitoring-posture/default-install-blind-spots"
+      ]
+    }
+  ],
+  "summary_visual": {
+    "file": "visuals/performance-scan.jpeg",
+    "credit": "Illustration generated by Google Gemini (gemini-3-pro-image-preview)",
+    "generated_at": "2026-08-27T14:08:24Z",
+    "prompt": "Create a single, calm, aesthetically pleasing illustration that tells the story of the analysis summary below - a reader should grasp its one or two big ideas at a glance. Text is welcome but sparse: a few short labels or key words (roughly 3 to 8, one to three words each) that anchor the story; no sentences, no numbers, no dates, no titles, no legends, no dense diagrams or flowcharts, no dashboards or screenshots. Let shapes, metaphor, composition and colour carry most of the meaning. Style: polished flat vector illustration, crisp outlines, minimal shading, generous margins so nothing touches the edges, a disciplined palette of deep blue, teal, soft green and warm orange accents on a light background. Uncluttered - a few well-chosen elements and plenty of negative space. No photorealism, no 3D render, no clip-art collage, no people's faces.\nVisual motif for this kind of analysis (performance-scan): flow through a system with one narrow bottleneck glowing, wide parallel channels elsewhere, a gauge or stopwatch.\nSubject: the software project 'codex'.\nStory to tell (pick the essence, do not transcribe it): Codex is an interactive agent runtime, so its cost scales with history items × sampling steps per turn and tool latency per step, not with repository size; this is a static reading of the turn path (codex-core turn loop, model client, tool runtime), the rollout writer and reader, the TUI render path and MCP startup - no profiler was run. The engine does nothing super-linear on the per-turn path: the response stream is consumed event by event through a 1,600-slot channel, tool calls run as concurrent tasks behind a read/write gate, persistence is one streaming writer, shell output is capped by bytes and delta count, and history is compacted against the context window."
+  }
+}

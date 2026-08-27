@@ -21,7 +21,7 @@ skills/
 | `sokrates-scan-core` | the shared contract: findings format, evidence rules, validator, explorer renderer, merge/diff tools |
 | `full-scan` | orchestrator — runs all scanners in dependency order and merges the results |
 | `functionality-scan` | what the software does: purpose, features, entry points, workflows, data, integrations, hidden functionality and doc-vs-code gaps |
-| `domain-map-scan` | the domain language: glossary, bounded contexts, capabilities, language drift |
+| `domain-language-scan` | the domain language: glossary, bounded contexts, concepts per capability, language drift |
 | `architecture-scan` | the implemented architecture: style, components, boundaries, violations, communication, migrations |
 | `tech-stack-scan` | languages, frameworks, libraries, build tooling, CI/CD, infrastructure, external services |
 | `cicd-scan` | the CI/CD process as a narrative: triggers, build, tests, gates, release, deployment, hygiene |

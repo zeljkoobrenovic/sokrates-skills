@@ -16,7 +16,7 @@ Scanners consume earlier scanners' findings (each re-verifies evidence itself, b
 | 1 | `tech-stack-scan`, `risk-synthesis-scan` | Sokrates data only |
 | 2 | `functionality-scan`, `cicd-scan`, `observability-scan` | tech-stack (the stack skeleton, telemetry SDKs, product surfaces) |
 | 3 | `security-design-scan`, `architecture-scan` | waves 1–2 (sensitive areas, artifact flow, egress, coupling) |
-| 4 | `security-scan`, `domain-map-scan` | wave 3 (design verdicts not to re-litigate; component map and migrations; the feature inventory as the capability list) |
+| 4 | `security-scan`, `domain-language-scan` | wave 3 (design verdicts not to re-litigate; component map and migrations; the feature inventory as the capability list) |
 | 5 | `evolution-scan` | waves 1–4 (component names, hotspots and knowledge risk, migrations in progress to date the story against) |
 
 Scanners within a wave are independent — run them in parallel (as subagents) when the harness allows; run waves sequentially. If a needed predecessor is missing or fails, its consumers still run (the skills degrade gracefully) — note the gap in the final report.

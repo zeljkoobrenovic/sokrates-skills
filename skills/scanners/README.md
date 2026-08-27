@@ -26,7 +26,7 @@ All scanners share one contract, defined in **`sokrates-scan-core`**:
 | `security-design-scan` | ✅ | The security architecture as implemented: trust boundaries, sandboxing/isolation, identity and access design, secrets handling, third-party/runtime trust, posture synthesis and gaps |
 | `architecture-scan` | ✅ | The implemented architecture: style, component responsibilities, load-bearing boundaries and contracts, dependency-direction violations, runtime communication, migrations in progress |
 | `security-scan` | ✅ | Code-level security audit: secrets in the tree, injection-prone construction, crypto fitness, unsafe-code hygiene, input handling — with an explicit clean-coverage statement (design-level review is `security-design-scan`) |
-| `domain-map-scan` | ✅ | The domain language: code-anchored concept glossary, bounded contexts and canonical definitions, capability-to-component mapping, language drift (synonyms, homonyms, renames mid-flight) |
+| `domain-language-scan` | ✅ | The domain language: code-anchored concept glossary, bounded contexts and canonical definitions, concepts per capability family, language drift (synonyms, homonyms, renames mid-flight) |
 | `evolution-scan` | ✅ | The codebase's history as a story: eras of development, growth and where the code came from, how the center of activity shifted between areas, contributor arrivals and departures, module births/rewrites/deaths, and the velocity and work-mix trajectory |
 
 ## Usage

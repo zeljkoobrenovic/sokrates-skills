@@ -17,14 +17,14 @@
       }
     },
     {
-      "id": "domain-map-scan",
-      "name": "Domain Map",
+      "id": "domain-language-scan",
+      "name": "Domain Language",
       "emoji": "🗺️",
-      "description": "Maps the domain language of the codebase: the core concepts with code-anchored definitions, which components own which vocabulary, how product capabilities map onto code, and where naming drifts (synonyms, homonyms, renames in flight).",
+      "description": "Writes down the domain language of the codebase: the core concepts with code-anchored definitions, which components own which vocabulary, which concepts each capability family rides on, and where naming drifts (synonyms, homonyms, renames in flight).",
       "groups": {
         "glossary": "The core concepts of the system — one entry per major concept with its definition anchored in code, its identity and lifecycle, and the component that owns it.",
         "bounded-contexts": "The context map: which components own which vocabulary, where a concept is shared or translated across components, and which definition is canonical.",
-        "capabilities": "Product capabilities mapped to the concepts and components that implement them — the \"to change X, look here\" table.",
+        "capabilities": "Capability families mapped to the concepts they ride on and where those concepts are defined — the \"to change X, these are the nouns you touch\" table.",
         "language-drift": "Places where the ubiquitous language has drifted: synonyms for one concept, one name for several concepts, misleading names, undefined jargon, renames only half done."
       }
     },

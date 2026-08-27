@@ -11,7 +11,7 @@ Ask three people what a system does and you get the README's aspiration, the las
 
 ## Scope boundaries with sibling scanners
 
-- `domain-map-scan` names the *concepts* (the nouns) and maps capability families onto components; this scanner describes the *behaviour* (the verbs) — what a user can do, through which surface, with what outcome. In `full-scan` this scanner runs first, so the domain map reuses the feature inventory as its capability list; do not re-derive the glossary here.
+- `domain-language-scan` names the *concepts* (the nouns) and maps capability families onto components; this scanner describes the *behaviour* (the verbs) — what a user can do, through which surface, with what outcome. In `full-scan` this scanner runs first, so the domain map reuses the feature inventory as its capability list; do not re-derive the glossary here.
 - `architecture-scan` explains how the parts are structured. Split on a shared surface such as an RPC protocol: this scanner owns *which methods exist and what they do*; the architecture scan owns how the protocol is versioned, layered and transported. Name the component a feature lives in (`sokrates_refs`), but leave component responsibilities and boundaries to the architecture scan.
 - `tech-stack-scan` inventories technologies; an integration is a *feature* here only when it does something for the user (sync to a calendar, deploy to a cloud), not merely when a library is linked.
 - `security-design-scan` and `observability-scan` own security and telemetry behaviour. Mention them inside a feature only where they are user-facing (an approval prompt, an opt-out flag) — citing the approval enum to make a feature description honest is fine; describing the policy model is not.

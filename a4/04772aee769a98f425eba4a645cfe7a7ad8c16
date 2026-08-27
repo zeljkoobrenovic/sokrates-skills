@@ -1,0 +1,54 @@
+skills/scanners/storage-scan/SKILL.md
+  s_3fb22a5f8abdd4::t_089f5535794bbb 22,30
+skills/illustrators/generate_summary_visuals.py
+  s_3fb22a5f8abdd4::t_dcc821e5c2b4ae 84
+README.md
+  s_3fb22a5f8abdd4::t_089f5535794bbb 26,35
+  s_3fb22a5f8abdd4::t_dcc821e5c2b4ae 29
+skills/scanners/network-scan/SKILL.md
+  s_3fb22a5f8abdd4::t_089f5535794bbb 21,29,56,82
+  s_3fb22a5f8abdd4::t_5f7aa6f7b916d8 35,40
+skills/scanners/testing-scan/SKILL.md
+  s_3fb22a5f8abdd4::t_89a5a9590b86b4 1-96
+skills/scanners/cicd-scan/SKILL.md
+  s_3fb22a5f8abdd4::t_dcc821e5c2b4ae 26
+skills/scanners/full-scan/SKILL.md
+  s_3fb22a5f8abdd4::t_dcc821e5c2b4ae 17-18
+  s_3fb22a5f8abdd4::t_089f5535794bbb 3,19,21
+skills/scanners/security-scan/SKILL.md
+  s_3fb22a5f8abdd4::t_57aaf488bd031d 3,6,8,10,12,14,16,18-29,33-42,48-51,54-55,57,59-76,78-82,84-89,93,95
+skills/scanners/architecture-scan/SKILL.md
+  s_3fb22a5f8abdd4::t_089f5535794bbb 16,26-28,40,48,55,61-62,72
+skills/scanners/testing-scan/scripts/count_test_sites.py
+  s_3fb22a5f8abdd4::t_1bc452048fa903 1-176,179-276
+  s_3fb22a5f8abdd4::t_dcc821e5c2b4ae 177-178
+skills/scanners/functionality-scan/SKILL.md
+  s_3fb22a5f8abdd4::t_089f5535794bbb 17
+skills/scanners/reliability-scan/SKILL.md
+  s_3fb22a5f8abdd4::t_089f5535794bbb 20
+skills/scanners/sokrates-scan-core/templates/scanners.json
+  s_3fb22a5f8abdd4::t_089f5535794bbb 35,42-43,182,184,186-189,192-193
+  s_3fb22a5f8abdd4::t_dcc821e5c2b4ae 93-105
+  s_3fb22a5f8abdd4::t_2911a128a40034 92
+skills/scanners/README.md
+  s_3fb22a5f8abdd4::t_dcc821e5c2b4ae 25
+  s_3fb22a5f8abdd4::t_089f5535794bbb 31-32
+examples/codex/ai-insights/index.html
+  s_3fb22a5f8abdd4::t_41860e7b98dd1d 10-13,372-373,375,377
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "a404772aee769a98f425eba4a645cfe7a7ad8c16",
+  "prompts": {},
+  "sessions": {
+    "s_3fb22a5f8abdd4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6675bcd7-0e88-4469-8a48-6960b480b641",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

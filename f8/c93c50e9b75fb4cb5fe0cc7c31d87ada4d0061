@@ -1,0 +1,21 @@
+skills/scanners/network-scan/scripts/count_network_sites.py
+  s_3fb22a5f8abdd4::t_7d8b87818eb638 26,32-33,39-40,44,116-117,121-125,147
+skills/scanners/network-scan/SKILL.md
+  s_3fb22a5f8abdd4::t_7d8b87818eb638 29,72,92,98-99
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "f8c93c50e9b75fb4cb5fe0cc7c31d87ada4d0061",
+  "prompts": {},
+  "sessions": {
+    "s_3fb22a5f8abdd4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6675bcd7-0e88-4469-8a48-6960b480b641",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

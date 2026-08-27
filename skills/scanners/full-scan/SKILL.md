@@ -1,6 +1,6 @@
 ---
 name: full-scan
-description: Orchestrates the complete Sokrates AI scanner suite over one codebase - runs all fourteen scanners in dependency order (later scanners build on earlier findings), validates each, merges everything into the combined report, and on re-runs diffs against the previous results. Use when the user asks for a full scan, a complete analysis, "run all scanners", a whole-codebase audit combining tech stack + functionality + risks + CI/CD + observability + reliability + performance + storage + network + security + architecture + domain, or a re-scan to see what changed. Requires a _sokrates analysis in the target project.
+description: Orchestrates the complete Sokrates AI scanner suite over one codebase - runs all fourteen scanners in dependency order (later scanners build on earlier findings), validates each, merges everything into the combined report, and on re-runs diffs against the previous results. Use when the user asks for a full scan, a complete analysis, "run all scanners", a whole-codebase audit combining tech stack + functionality + risks + CI/CD + testing + observability + reliability + performance + storage + network + security + architecture + domain, or a re-scan to see what changed. Requires a _sokrates analysis in the target project.
 ---
 
 # Full scan (orchestrator)
@@ -14,10 +14,11 @@ Scanners consume earlier scanners' findings (each re-verifies evidence itself, b
 | wave | scanners | consume |
 |---|---|---|
 | 1 | `tech-stack-scan`, `risk-synthesis-scan` | Sokrates data only |
-| 2 | `functionality-scan`, `cicd-scan`, `observability-scan`, `reliability-scan` | tech-stack (the stack skeleton, telemetry SDKs, resilience libraries, product surfaces) and risk-synthesis (hotspots as the load-bearing paths) |
-| 3 | `security-design-scan`, `architecture-scan` | waves 1–2 (sensitive areas, artifact flow, egress, coupling) |
+| 2 | `functionality-scan`, `cicd-scan`, `observability-scan`, `reliability-scan` |
+| 2b | `testing-scan` | tech-stack (frameworks), cicd (gating), functionality (feature list), risk-synthesis (hotspots) — run after `cicd-scan` and `functionality-scan` | tech-stack (the stack skeleton, telemetry SDKs, resilience libraries, product surfaces) and risk-synthesis (hotspots as the load-bearing paths) |
+| 3 | `architecture-scan` | waves 1–2 (stack skeleton, coupling, isolation boundaries from reliability) — its `security-boundaries` group feeds wave 4 |
 | 3b | `performance-scan`, `storage-scan`, `network-scan` | waves 1–3 (functionality for workload/data/integrations, architecture for the main loop and communication, reliability for the write-safety and retry verdicts they reference) — run after `architecture-scan` and `reliability-scan`; independent of each other |
-| 4 | `security-scan`, `domain-language-scan` | wave 3 (design verdicts not to re-litigate; component map and migrations; the feature inventory as the capability list) |
+| 4 | `security-scan`, `domain-language-scan` | wave 3 (architecture's security boundaries and component map; network/storage for TLS, endpoints and secret files; the feature inventory as the capability list) |
 | 5 | `evolution-scan` | waves 1–4 (component names, hotspots and knowledge risk, migrations in progress to date the story against) |
 
 Scanners within a wave are independent — run them in parallel (as subagents) when the harness allows; run waves sequentially. If a needed predecessor is missing or fails, its consumers still run (the skills degrade gracefully) — note the gap in the final report.

@@ -23,7 +23,7 @@ Config files say what steps exist; they don't say what the *process* is. This sc
 |---|---|
 | `triggers` | The pipeline entry-point map: what runs on PR, push, tag, schedule, manual dispatch; path filters and concurrency rules. Usually one overview finding plus one per unusual trigger worth explaining |
 | `build` | How source becomes artifacts, per ecosystem: build commands, cross-compilation/target matrix, caching strategy, reproducibility measures (lockfile enforcement, pinned toolchains, hermetic builds) |
-| `testing` | What is tested, when, and on what matrix: unit/integration/e2e split, OS/version matrix, snapshot tests, what a PR must pass vs. what runs post-merge or nightly — and what visibly is *not* tested |
+| `testing` | Test *execution* in the pipeline: which suites run when (PR vs post-merge vs nightly), on what OS/version matrix, with what caching and sharding, and what a green PR proves. The tests themselves — layers, coverage, quality, flakiness — are `testing-scan`'s; reference its findings rather than describing suites |
 | `quality-gates` | Non-test merge gates: lint/format/typecheck jobs, security and license scanning, codegen-freshness checks, required reviews, merge queues |
 | `release` | How a release is cut: version bumping, changelog, tagging convention, artifact publishing (registries, package managers), signing/notarization/provenance |
 | `deployment` | Where artifacts go and how users get them: deploy targets, environments and promotion, install channels (curl-script, package manager, auto-update), rollback story |

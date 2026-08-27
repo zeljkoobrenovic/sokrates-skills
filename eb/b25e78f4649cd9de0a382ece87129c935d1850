@@ -1,0 +1,22 @@
+skills/scanners/maintainability-scan/SKILL.md
+  s_3fb22a5f8abdd4::t_8c849090afb8af 18,22-40,56,61,84,99
+skills/scanners/maintainability-scan/scripts/compute_maintainability.py
+  s_3fb22a5f8abdd4::t_8c849090afb8af 248,251,277-278,361,365-366,368,387-388,415
+  s_3fb22a5f8abdd4::t_0ab151bcb90cc8 186,196-201,208-222
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "ebb25e78f4649cd9de0a382ece87129c935d1850",
+  "prompts": {},
+  "sessions": {
+    "s_3fb22a5f8abdd4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6675bcd7-0e88-4469-8a48-6960b480b641",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

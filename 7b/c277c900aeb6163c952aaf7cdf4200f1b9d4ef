@@ -1,0 +1,25 @@
+examples/codex/ai-insights/reliability-scan.json
+  s_3fb22a5f8abdd4::t_3d5f3e21ff2ad3 1-855
+examples/codex/ai-insights/performance-scan.json
+  s_3fb22a5f8abdd4::t_3d5f3e21ff2ad3 1-869
+examples/codex/ai-insights/index.html
+  s_3fb22a5f8abdd4::t_3d5f3e21ff2ad3 10-13,372-373,375,377
+README.md
+  s_3fb22a5f8abdd4::t_671c85bd4dcf6e 58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "7bc277c900aeb6163c952aaf7cdf4200f1b9d4ef",
+  "prompts": {},
+  "sessions": {
+    "s_3fb22a5f8abdd4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6675bcd7-0e88-4469-8a48-6960b480b641",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

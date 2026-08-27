@@ -82,6 +82,7 @@ MOTIFS = {
     "storage-scan": "shelves, vaults and drawers holding different kinds of records, one sealed and labelled with a version, one spilling out",
     "network-scan": "a small machine connected by cables and beams to distant towers, one link dotted and broken, a proxy gate in between",
     "testing-scan": "a pyramid of safety nets under a structure, some nets tight, one with a hole, a checkmark and a question mark",
+    "maintainability-scan": "a building being renovated: some wings easy to open and rewire, one wing tangled in cables and scaffolding, five gauges on the wall",
     "observability-scan": "instruments, gauges and signal lines revealing what a system is doing inside",
     "security-scan": "a magnifying glass over code lines, spotting a few flagged fragments in an otherwise clean field",
     "domain-language-scan": "a map of distinct territories for the core concepts, a few borders blurred or overlapping, no place names",

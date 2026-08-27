@@ -17,7 +17,7 @@ All scanners share one contract, defined in **`sokrates-scan-core`**:
 | skill | status | what it finds |
 |---|---|---|
 | `sokrates-scan-core` | ✅ | (shared foundation, not a scanner) |
-| `full-scan` | ✅ | Orchestrator: runs all fourteen scanners in dependency order (waves), merges into the combined report, diffs against previous results on re-runs |
+| `full-scan` | ✅ | Orchestrator: runs all fifteen scanners in dependency order (waves), merges into the combined report, diffs against previous results on re-runs |
 | `functionality-scan` | ✅ | What the software does, from the code: purpose and audience, feature inventory with entry points and behaviour, surfaces (CLI/API/UI/config/hooks), end-to-end workflows, data managed, integrations, hidden/dormant functionality and doc-vs-code gaps |
 | `tech-stack-scan` | ✅ | Languages, frameworks, libraries, build tooling, CI/CD, infrastructure, databases, external services, protocols |
 | `risk-synthesis-scan` | ✅ | Narrative explanation of Sokrates hotspots: what each risky file does and why it's risky, knowledge risk (bus factor, single-owner areas), change coupling explained |
@@ -31,6 +31,7 @@ All scanners share one contract, defined in **`sokrates-scan-core`**:
 | `architecture-scan` | ✅ | The implemented architecture: style, component responsibilities, load-bearing boundaries and contracts, dependency-direction violations, runtime communication, migrations in progress, security boundaries as structure (trust map, sandboxing, network confinement, escape hatches) |
 | `security-scan` | ✅ | Security review, design first and code second: identity and permission design, secrets by design and in the tree, boundary validation and injection-prone construction, crypto fitness, unsafe/native/dynamic code, third-party and model-output trust — with a posture stating what was swept clean and what was not covered (trust boundaries and sandboxing as structure live in `architecture-scan`) |
 | `domain-language-scan` | ✅ | The domain language: code-anchored concept glossary, bounded contexts and canonical definitions, concepts per capability family, language drift (synonyms, homonyms, renames mid-flight) |
+| `maintainability-scan` | ✅ | ISO/IEC 25010 maintainability grades — modularity, reusability, analysability, modifiability, testability — per sub-characteristic and per component, rolled up from Sokrates numbers and the other scanners' findings (runs last) |
 | `evolution-scan` | ✅ | The codebase's history as a story: eras of development, growth and where the code came from, how the center of activity shifted between areas, contributor arrivals and departures, module births/rewrites/deaths, and the velocity and work-mix trajectory |
 
 ## Usage

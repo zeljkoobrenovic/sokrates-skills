@@ -203,6 +203,20 @@
         "knowledge-risk": "Bus-factor concentration: how much of the codebase depends on one or two contributors, and the single-owner areas that matter — where losing a person means losing knowledge.",
         "change-coupling": "Files that repeatedly change together and the semantic reason why: shared protocol, duplicated logic, a leaky boundary, or legitimately cohesive code."
       }
+    },
+    {
+      "id": "maintainability-scan",
+      "name": "Maintainability",
+      "emoji": "🧰",
+      "description": "Grades maintainability along the five ISO/IEC 25010 sub-characteristics — modularity, reusability, analysability, modifiability, testability — as evidenced grades per sub-characteristic and per component, rolled up from Sokrates' size, complexity, duplication, coupling, churn and ownership numbers and the other scanners' findings, plus targeted reading of what nobody else covers.",
+      "groups": {
+        "modularity": "Change impact radius: component coupling (fan-in/out, cycles), cross-component temporal coupling, boundary leaks — what a change in one component does to others.",
+        "reusability": "Which assets are reusable in fact (libraries with no product coupling, shared utilities with one owner) and which are trapped or copy-pasted (cross-component duplication, utilities depending on the product).",
+        "analysability": "Can the part to change be found and its consequences seen: naming and module size, documentation footprint and freshness, dead and dormant code, visibility of coupling.",
+        "modifiability": "Where changes are expensive: complexity, size and duplication concentration, hotspot clusters, single ownership, hardcoded vs. configured behaviour, fix-heavy churn.",
+        "testability": "The design's testability: seams and injectable collaborators, global state, construction of dependencies — with the testing scanner's coverage verdict rolled up by reference.",
+        "maintainability-posture": "The synthesis: the five grades, the component that costs the most maintenance effort, the trajectory, the highest-leverage changes."
+      }
     }
   ]
 }

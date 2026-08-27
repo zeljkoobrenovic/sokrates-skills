@@ -1,6 +1,6 @@
 ---
 name: full-scan
-description: Orchestrates the complete Sokrates AI scanner suite over one codebase - runs all fourteen scanners in dependency order (later scanners build on earlier findings), validates each, merges everything into the combined report, and on re-runs diffs against the previous results. Use when the user asks for a full scan, a complete analysis, "run all scanners", a whole-codebase audit combining tech stack + functionality + risks + CI/CD + testing + observability + reliability + performance + storage + network + security + architecture + domain, or a re-scan to see what changed. Requires a _sokrates analysis in the target project.
+description: Orchestrates the complete Sokrates AI scanner suite over one codebase - runs all fifteen scanners in dependency order (later scanners build on earlier findings), validates each, merges everything into the combined report, and on re-runs diffs against the previous results. Use when the user asks for a full scan, a complete analysis, "run all scanners", a whole-codebase audit combining tech stack + functionality + risks + CI/CD + testing + observability + reliability + performance + storage + network + security + architecture + domain + maintainability, or a re-scan to see what changed. Requires a _sokrates analysis in the target project.
 ---
 
 # Full scan (orchestrator)
@@ -20,12 +20,13 @@ Scanners consume earlier scanners' findings (each re-verifies evidence itself, b
 | 3b | `performance-scan`, `storage-scan`, `network-scan` | waves 1–3 (functionality for workload/data/integrations, architecture for the main loop and communication, reliability for the write-safety and retry verdicts they reference) — run after `architecture-scan` and `reliability-scan`; independent of each other |
 | 4 | `security-scan`, `domain-language-scan` | wave 3 (architecture's security boundaries and component map; network/storage for TLS, endpoints and secret files; the feature inventory as the capability list) |
 | 5 | `evolution-scan` | waves 1–4 (component names, hotspots and knowledge risk, migrations in progress to date the story against) |
+| 6 | `maintainability-scan` | everything — the ISO 25010 roll-up grades from Sokrates numbers and the other scanners' findings; run last |
 
 Scanners within a wave are independent — run them in parallel (as subagents) when the harness allows; run waves sequentially. If a needed predecessor is missing or fails, its consumers still run (the skills degrade gracefully) — note the gap in the final report.
 
 ## Procedure
 
-1. **Shared setup, once.** Read `_sokrates/config.json`; unzip `reports/data/data.zip` to the scratch directory once and pass that path to every scanner run. Fix the shared parameters up front so all fourteen findings files agree: `target.name`, `target.src_root`, `analyzed_at` (one value for the whole suite), `target.commit` if a git checkout.
+1. **Shared setup, once.** Read `_sokrates/config.json`; unzip `reports/data/data.zip` to the scratch directory once and pass that path to every scanner run. Fix the shared parameters up front so all fifteen findings files agree: `target.name`, `target.src_root`, `analyzed_at` (one value for the whole suite), `target.commit` if a git checkout.
 2. **Re-scan detection.** If `_sokrates/findings/ai-insights/<scanner>.json` files already exist with an older `analyzed_at`, copy them to the scratch directory *before* overwriting — they are the diff baseline.
 3. **Run the waves.** For each scanner: execute its SKILL.md, validate until OK, render the explorer. A scanner that cannot pass validation ships with its unverifiable findings dropped or downgraded per the core rules — never ship a failing file.
 4. **Merge:**
@@ -43,4 +44,4 @@ Scanners within a wave are independent — run them in parallel (as subagents) w
 
 ## Budget guidance
 
-A full first scan of a large codebase is roughly 14 scanner-runs of reading work — parallelize within waves, and prefer trimming per-scanner scope (each skill's own scoping advice) over skipping scanners: the combined report's value is completeness of *coverage*, with each scanner free to keep its finding count modest. When the user asks for a subset ("everything except security"), run the requested scanners in the same wave order and note in the merged summary which scanners are absent.
+A full first scan of a large codebase is roughly 15 scanner-runs of reading work — parallelize within waves, and prefer trimming per-scanner scope (each skill's own scoping advice) over skipping scanners: the combined report's value is completeness of *coverage*, with each scanner free to keep its finding count modest. When the user asks for a subset ("everything except security"), run the requested scanners in the same wave order and note in the merged summary which scanners are absent.

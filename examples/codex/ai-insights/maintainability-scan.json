@@ -1,0 +1,1682 @@
+{
+  "scanner": "maintainability-scan",
+  "scanner_version": "1.0",
+  "analyzed_at": "2026-08-28T14:00:00Z",
+  "target": {
+    "name": "openai / codex",
+    "src_root": "../../.."
+  },
+  "summary": "Codex grades **modularity weak, reusability adequate, analysability weak, modifiability adequate, testability adequate** under ISO/IEC 25010. The workspace is an acyclic 133-crate DAG with a TUI that cannot bypass the API, yet change impact is wide: `codex-core` depends on 61 crates, and the `codex-protocol` vocabulary crate - 68 dependents, trapped by its own dependency on the network proxy and policy engine - is one side of the four strongest cross-component co-change pairs (metric:temporal_coupling). Analysability suffers from size rather than logic: 38 percent of main LOC sits in files over 1000 lines, the engine's config, session and event-translation files are each 3-4k lines, module docs are rare outside the TUI, user docs are off-site redirects, and v1/v2 generations compile side by side. Modifiability is helped by low unit complexity (2 percent of unit LOC in high-McCabe units) and a 117-flag, nine-layer configuration surface, and hurt by three engine merge magnets (`config/mod.rs`: 515 commits, 81 contributors) and 33 percent single-owner files. Testability rests on seams at the right boundaries and an integration suite that runs the engine for real; the sandbox and the vocabulary crate are the thin spots, and testing-scan's skip-macro and retry caveats apply. The **core engine costs the most** maintenance effort; the trajectory is improving slowly through a visible extraction programme. Sokrates supplied no component dependencies for Rust and caps its unit, duplicate and co-change exports at 10000, so those drivers carry lowered confidence. 14 findings: five verdicts and a posture (info), one medium trapped-crate and one medium hotspot-cluster finding, four low.",
+  "stats": {
+    "system": {
+      "main_loc": 712527,
+      "components": 17,
+      "very_high_risk_file_loc_share": 0.38,
+      "high_risk_file_loc_share": 0.61,
+      "high_complexity_unit_loc_share": 0.02,
+      "duplicate_blocks": 10000,
+      "cross_component_duplicate_blocks": 302,
+      "cross_component_cochange_pairs": 4389,
+      "component_dependency_edges": null,
+      "component_cycles": null,
+      "doc_files": 626,
+      "doc_loc": 32420,
+      "doc_loc_per_kloc": 45.5,
+      "single_owner_file_share": 0.33,
+      "stale_file_share": 0.0,
+      "debt_concerns": {
+        "domain__codex_Multiple_Classifications": 103,
+        "domain__codex____feature_gated_code__19___AND_os__windows__37__": 12,
+        "domain__codex____feature_gated_code__22___AND_platform_specific_code__13__": 15,
+        "domain__codex____feature_gated_code__27___AND_model_providers_and_wire_API__44__": 9,
+        "domain__codex____feature_gated_code__5___AND_os__linux__35__": 1,
+        "domain__codex____feature_gated_code__8___AND_os__macos__22__": 2,
+        "domain__codex____model_providers_and_wire_API__13___AND_os__macos__22__": 2,
+        "domain__codex____model_providers_and_wire_API__16___AND_os__windows__20__": 4,
+        "domain__codex____model_providers_and_wire_API__25___AND_platform_specific_code__10__": 7,
+        "domain__codex____model_providers_and_wire_API__8___AND_os__linux__35__": 1,
+        "domain__codex____os__linux__11___AND_os__android__100__": 2,
+        "domain__codex____os__macos__21___AND_os__linux__55__": 10,
+        "domain__codex____os__macos__3___AND_os__android__65__": 1,
+        "domain__codex____os__windows__14___AND_os__linux__49__": 7,
+        "domain__codex____os__windows__42___AND_os__macos__55__": 20,
+        "domain__codex____platform_specific_code__23___AND_os__macos__100__": 48,
+        "domain__codex____platform_specific_code__30___AND_os__windows__97__": 52,
+        "domain__codex____platform_specific_code__9___AND_os__linux__100__": 22,
+        "domain__codex____platform_specific_code___1___AND_os__android__100__": 2,
+        "domain__codex_feature_gated_code": 92,
+        "domain__codex_model_providers_and_wire_API": 85,
+        "domain__codex_os__android": 2,
+        "domain__codex_os__linux": 22,
+        "domain__codex_os__macos": 48,
+        "domain__codex_os__windows": 53,
+        "domain__codex_platform_specific_code": 218,
+        "observability_telemetry_emission": 170,
+        "robustness_panics_and_unwraps": 292,
+        "security__trust_boundaries_Multiple_Classifications": 169,
+        "security__trust_boundaries_SAFETY_comments": 21,
+        "security__trust_boundaries____approval_and_exec_policy__67___AND_sandbox_confinement__74__": 113,
+        "security__trust_boundaries____approval_and_exec_policy__6___AND_unsafe_code__26__": 4,
+        "security__trust_boundaries____approval_and_exec_policy___1___AND_SAFETY_comments__19__": 1,
+        "security__trust_boundaries____sandbox_confinement__12___AND_unsafe_code__44__": 24,
+        "security__trust_boundaries____sandbox_confinement__2___AND_SAFETY_comments__35__": 7,
+        "security__trust_boundaries____sandbox_escape_hatches__20___AND_unsafe_code__30__": 5,
+        "security__trust_boundaries____sandbox_escape_hatches__85___AND_approval_and_exec_policy__31__": 28,
+        "security__trust_boundaries____sandbox_escape_hatches__87___AND_sandbox_confinement__35__": 33,
+        "security__trust_boundaries____unsafe_code__17___AND_SAFETY_comments__100__": 21,
+        "security__trust_boundaries_approval_and_exec_policy": 236,
+        "security__trust_boundaries_sandbox_confinement": 222,
+        "security__trust_boundaries_sandbox_escape_hatches": 46,
+        "security__trust_boundaries_unsafe_code": 95,
+        "technical_debt_Multiple_Classifications": 37,
+        "technical_debt_TODOs": 109,
+        "technical_debt____TODOs__52___AND_suppressed_lints__33__": 33,
+        "technical_debt____TODOs__6___AND_deprecated_APIs__36__": 4,
+        "technical_debt____deprecated_APIs__47___AND_suppressed_lints__4__": 4,
+        "technical_debt_deprecated_APIs": 13,
+        "technical_debt_suppressed_lints": 178
+      },
+      "commit_mix": {
+        "commits": 9546,
+        "fix_share": 0.18,
+        "feature_share": 0.25,
+        "refactor_share": 0.05,
+        "unclassified_share": 0.53
+      },
+      "sokrates_test_vs_main_lines_of_code_percentage": "70.09",
+      "sokrates_number_of_units": "15362",
+      "sokrates_number_of_contributors": "581",
+      "sokrates_duplication_percentage": "12.942322736423579"
+    },
+    "components": {
+      "repo tooling & CI": {
+        "files": 68,
+        "loc": 14939,
+        "loc_share": 0.021,
+        "high_risk_file_loc_share": 0.54,
+        "very_high_risk_file_loc_share": 0.33,
+        "units_exported": 223,
+        "high_complexity_unit_loc_share": 0.13,
+        "long_unit_loc_share": 0.21,
+        "dup_blocks": 27,
+        "cross_component_dup_blocks": 0,
+        "dup_partners": [],
+        "fan_in": null,
+        "fan_out": null,
+        "cross_component_cochange_pairs": 0,
+        "cochange_partners": [],
+        "commits": 216,
+        "line_churn": 20749,
+        "single_owner_file_share": 0.49,
+        "stale_file_share": 0.0,
+        "contributors_seen": 25,
+        "looks_like_shared_utility": false
+      },
+      "persistence (rollout, state, thread-store)": {
+        "files": 186,
+        "loc": 48888,
+        "loc_share": 0.069,
+        "high_risk_file_loc_share": 0.61,
+        "very_high_risk_file_loc_share": 0.39,
+        "units_exported": 336,
+        "high_complexity_unit_loc_share": 0.0,
+        "long_unit_loc_share": 0.06,
+        "dup_blocks": 1832,
+        "cross_component_dup_blocks": 5,
+        "dup_partners": [
+          "core engine",
+          "extensions (ext/*)"
+        ],
+        "fan_in": null,
+        "fan_out": null,
+        "cross_component_cochange_pairs": 759,
+        "cochange_partners": [
+          "CLI & headless frontends",
+          "TUI frontend",
+          "app-server API",
+          "configuration",
+          "core engine",
+          "extensibility (MCP, plugins, skills, hooks)",
+          "extensions (ext/*)",
+          "model backends & API clients",
+          "protocol (shared vocabulary)",
+          "shared infrastructure (utils & leaf crates)"
+        ],
+        "commits": 1641,
+        "line_churn": 94593,
+        "single_owner_file_share": 0.58,
+        "stale_file_share": 0.0,
+        "contributors_seen": 36,
+        "looks_like_shared_utility": false
+      },
+      "model backends & API clients": {
+        "files": 128,
+        "loc": 23610,
+        "loc_share": 0.033,
+        "high_risk_file_loc_share": 0.43,
+        "very_high_risk_file_loc_share": 0.23,
+        "units_exported": 357,
+        "high_complexity_unit_loc_share": 0.0,
+        "long_unit_loc_share": 0.02,
+        "dup_blocks": 297,
+        "cross_component_dup_blocks": 34,
+        "dup_partners": [
+          "TUI frontend",
+          "app-server API",
+          "auth & identity",
+          "configuration",
+          "core engine",
+          "extensibility (MCP, plugins, skills, hooks)",
+          "protocol (shared vocabulary)",
+          "sandboxing & policy"
+        ],
+        "fan_in": null,
+        "fan_out": null,
+        "cross_component_cochange_pairs": 247,
+        "cochange_partners": [
+          "CLI & headless frontends",
+          "TUI frontend",
+          "app-server API",
+          "auth & identity",
+          "core engine",
+          "extensibility (MCP, plugins, skills, hooks)",
+          "persistence (rollout, state, thread-store)",
+          "protocol (shared vocabulary)",
+          "shared infrastructure (utils & leaf crates)"
+        ],
+        "commits": 1109,
+        "line_churn": 45385,
+        "single_owner_file_share": 0.34,
+        "stale_file_share": 0.0,
+        "contributors_seen": 44,
+        "looks_like_shared_utility": false
+      },
+      "extensibility (MCP, plugins, skills, hooks)": {
+        "files": 174,
+        "loc": 54966,
+        "loc_share": 0.077,
+        "high_risk_file_loc_share": 0.55,
+        "very_high_risk_file_loc_share": 0.28,
+        "units_exported": 865,
+        "high_complexity_unit_loc_share": 0.02,
+        "long_unit_loc_share": 0.09,
+        "dup_blocks": 351,
+        "cross_component_dup_blocks": 47,
+        "dup_partners": [
+          "CLI & headless frontends",
+          "TUI frontend",
+          "app-server API",
+          "core engine",
+          "model backends & API clients",
+          "protocol (shared vocabulary)",
+          "shared infrastructure (utils & leaf crates)"
+        ],
+        "fan_in": null,
+        "fan_out": null,
+        "cross_component_cochange_pairs": 545,
+        "cochange_partners": [
+          "CLI & headless frontends",
+          "TUI frontend",
+          "app-server API",
+          "auth & identity",
+          "configuration",
+          "core engine",
+          "exec-server (sandboxed executor)",
+          "extensions (ext/*)",
+          "model backends & API clients",
+          "persistence (rollout, state, thread-store)",
+          "protocol (shared vocabulary)",
+          "shared infrastructure (utils & leaf crates)"
+        ],
+        "commits": 2130,
+        "line_churn": 100453,
+        "single_owner_file_share": 0.26,
+        "stale_file_share": 0.0,
+        "contributors_seen": 45,
+        "looks_like_shared_utility": false
+      },
+      "core engine": {
+        "files": 370,
+        "loc": 97089,
+        "loc_share": 0.136,
+        "high_risk_file_loc_share": 0.61,
+        "very_high_risk_file_loc_share": 0.34,
+        "units_exported": 997,
+        "high_complexity_unit_loc_share": 0.02,
+        "long_unit_loc_share": 0.08,
+        "dup_blocks": 505,
+        "cross_component_dup_blocks": 61,
+        "dup_partners": [
+          "CLI & headless frontends",
+          "TUI frontend",
+          "app-server API",
+          "code-mode (V8 runtime)",
+          "configuration",
+          "exec-server (sandboxed executor)",
+          "extensibility (MCP, plugins, skills, hooks)",
+          "extensions (ext/*)",
+          "model backends & API clients",
+          "persistence (rollout, state, thread-store)",
+          "protocol (shared vocabulary)",
+          "sandboxing & policy",
+          "shared infrastructure (utils & leaf crates)"
+        ],
+        "fan_in": null,
+        "fan_out": null,
+        "cross_component_cochange_pairs": 2389,
+        "cochange_partners": [
+          "CLI & headless frontends",
+          "TUI frontend",
+          "app-server API",
+          "auth & identity",
+          "code-mode (V8 runtime)",
+          "configuration",
+          "exec-server (sandboxed executor)",
+          "extensibility (MCP, plugins, skills, hooks)",
+          "extensions (ext/*)",
+          "model backends & API clients",
+          "persistence (rollout, state, thread-store)",
+          "protocol (shared vocabulary)",
+          "sandboxing & policy",
+          "shared infrastructure (utils & leaf crates)"
+        ],
+        "commits": 10544,
+        "line_churn": 341393,
+        "single_owner_file_share": 0.17,
+        "stale_file_share": 0.0,
+        "contributors_seen": 82,
+        "looks_like_shared_utility": false
+      },
+      "app-server API": {
+        "files": 168,
+        "loc": 82075,
+        "loc_share": 0.115,
+        "high_risk_file_loc_share": 0.77,
+        "very_high_risk_file_loc_share": 0.56,
+        "units_exported": 881,
+        "high_complexity_unit_loc_share": 0.01,
+        "long_unit_loc_share": 0.13,
+        "dup_blocks": 1556,
+        "cross_component_dup_blocks": 56,
+        "dup_partners": [
+          "CLI & headless frontends",
+          "TUI frontend",
+          "code-mode (V8 runtime)",
+          "configuration",
+          "core engine",
+          "exec-server (sandboxed executor)",
+          "extensibility (MCP, plugins, skills, hooks)",
+          "model backends & API clients",
+          "protocol (shared vocabulary)",
+          "sandboxing & policy",
+          "shared infrastructure (utils & leaf crates)"
+        ],
+        "fan_in": null,
+        "fan_out": null,
+        "cross_component_cochange_pairs": 1487,
+        "cochange_partners": [
+          "CLI & headless frontends",
+          "TUI frontend",
+          "auth & identity",
+          "configuration",
+          "core engine",
+          "exec-server (sandboxed executor)",
+          "extensibility (MCP, plugins, skills, hooks)",
+          "extensions (ext/*)",
+          "model backends & API clients",
+          "persistence (rollout, state, thread-store)",
+          "protocol (shared vocabulary)",
+          "sandboxing & policy",
+          "shared infrastructure (utils & leaf crates)"
+        ],
+        "commits": 3548,
+        "line_churn": 147507,
+        "single_owner_file_share": 0.2,
+        "stale_file_share": 0.0,
+        "contributors_seen": 59,
+        "looks_like_shared_utility": false
+      },
+      "shared infrastructure (utils & leaf crates)": {
+        "files": 92,
+        "loc": 19938,
+        "loc_share": 0.028,
+        "high_risk_file_loc_share": 0.54,
+        "very_high_risk_file_loc_share": 0.29,
+        "units_exported": 343,
+        "high_complexity_unit_loc_share": 0.0,
+        "long_unit_loc_share": 0.1,
+        "dup_blocks": 77,
+        "cross_component_dup_blocks": 13,
+        "dup_partners": [
+          "TUI frontend",
+          "app-server API",
+          "configuration",
+          "core engine",
+          "extensibility (MCP, plugins, skills, hooks)",
+          "protocol (shared vocabulary)"
+        ],
+        "fan_in": null,
+        "fan_out": null,
+        "cross_component_cochange_pairs": 127,
+        "cochange_partners": [
+          "CLI & headless frontends",
+          "TUI frontend",
+          "app-server API",
+          "auth & identity",
+          "configuration",
+          "core engine",
+          "exec-server (sandboxed executor)",
+          "extensibility (MCP, plugins, skills, hooks)",
+          "extensions (ext/*)",
+          "model backends & API clients",
+          "persistence (rollout, state, thread-store)",
+          "protocol (shared vocabulary)"
+        ],
+        "commits": 714,
+        "line_churn": 31468,
+        "single_owner_file_share": 0.36,
+        "stale_file_share": 0.0,
+        "contributors_seen": 43,
+        "looks_like_shared_utility": true
+      },
+      "sandboxing & policy": {
+        "files": 149,
+        "loc": 47258,
+        "loc_share": 0.066,
+        "high_risk_file_loc_share": 0.51,
+        "very_high_risk_file_loc_share": 0.37,
+        "units_exported": 864,
+        "high_complexity_unit_loc_share": 0.06,
+        "long_unit_loc_share": 0.08,
+        "dup_blocks": 442,
+        "cross_component_dup_blocks": 105,
+        "dup_partners": [
+          "TUI frontend",
+          "app-server API",
+          "configuration",
+          "core engine",
+          "exec-server (sandboxed executor)",
+          "model backends & API clients",
+          "protocol (shared vocabulary)"
+        ],
+        "fan_in": null,
+        "fan_out": null,
+        "cross_component_cochange_pairs": 173,
+        "cochange_partners": [
+          "CLI & headless frontends",
+          "TUI frontend",
+          "app-server API",
+          "configuration",
+          "core engine",
+          "exec-server (sandboxed executor)",
+          "protocol (shared vocabulary)"
+        ],
+        "commits": 1301,
+        "line_churn": 83992,
+        "single_owner_file_share": 0.28,
+        "stale_file_share": 0.0,
+        "contributors_seen": 25,
+        "looks_like_shared_utility": false
+      },
+      "auth & identity": {
+        "files": 33,
+        "loc": 8338,
+        "loc_share": 0.012,
+        "high_risk_file_loc_share": 0.59,
+        "very_high_risk_file_loc_share": 0.46,
+        "units_exported": 108,
+        "high_complexity_unit_loc_share": 0.0,
+        "long_unit_loc_share": 0.0,
+        "dup_blocks": 15,
+        "cross_component_dup_blocks": 4,
+        "dup_partners": [
+          "configuration",
+          "model backends & API clients"
+        ],
+        "fan_in": null,
+        "fan_out": null,
+        "cross_component_cochange_pairs": 107,
+        "cochange_partners": [
+          "CLI & headless frontends",
+          "TUI frontend",
+          "app-server API",
+          "configuration",
+          "core engine",
+          "extensibility (MCP, plugins, skills, hooks)",
+          "model backends & API clients",
+          "protocol (shared vocabulary)",
+          "shared infrastructure (utils & leaf crates)"
+        ],
+        "commits": 362,
+        "line_churn": 19519,
+        "single_owner_file_share": 0.33,
+        "stale_file_share": 0.0,
+        "contributors_seen": 25,
+        "looks_like_shared_utility": false
+      },
+      "configuration": {
+        "files": 66,
+        "loc": 18577,
+        "loc_share": 0.026,
+        "high_risk_file_loc_share": 0.55,
+        "very_high_risk_file_loc_share": 0.3,
+        "units_exported": 293,
+        "high_complexity_unit_loc_share": 0.0,
+        "long_unit_loc_share": 0.11,
+        "dup_blocks": 131,
+        "cross_component_dup_blocks": 16,
+        "dup_partners": [
+          "TUI frontend",
+          "app-server API",
+          "auth & identity",
+          "core engine",
+          "model backends & API clients",
+          "sandboxing & policy",
+          "shared infrastructure (utils & leaf crates)"
+        ],
+        "fan_in": null,
+        "fan_out": null,
+        "cross_component_cochange_pairs": 275,
+        "cochange_partners": [
+          "CLI & headless frontends",
+          "TUI frontend",
+          "app-server API",
+          "auth & identity",
+          "core engine",
+          "exec-server (sandboxed executor)",
+          "extensibility (MCP, plugins, skills, hooks)",
+          "persistence (rollout, state, thread-store)",
+          "protocol (shared vocabulary)",
+          "sandboxing & policy",
+          "shared infrastructure (utils & leaf crates)"
+        ],
+        "commits": 877,
+        "line_churn": 38460,
+        "single_owner_file_share": 0.23,
+        "stale_file_share": 0.0,
+        "contributors_seen": 29,
+        "looks_like_shared_utility": false
+      },
+      "TUI frontend": {
+        "files": 371,
+        "loc": 166940,
+        "loc_share": 0.234,
+        "high_risk_file_loc_share": 0.69,
+        "very_high_risk_file_loc_share": 0.46,
+        "units_exported": 2967,
+        "high_complexity_unit_loc_share": 0.03,
+        "long_unit_loc_share": 0.09,
+        "dup_blocks": 4078,
+        "cross_component_dup_blocks": 107,
+        "dup_partners": [
+          "CLI & headless frontends",
+          "app-server API",
+          "configuration",
+          "core engine",
+          "extensibility (MCP, plugins, skills, hooks)",
+          "model backends & API clients",
+          "protocol (shared vocabulary)",
+          "sandboxing & policy",
+          "shared infrastructure (utils & leaf crates)"
+        ],
+        "fan_in": null,
+        "fan_out": null,
+        "cross_component_cochange_pairs": 1244,
+        "cochange_partners": [
+          "CLI & headless frontends",
+          "app-server API",
+          "auth & identity",
+          "configuration",
+          "core engine",
+          "exec-server (sandboxed executor)",
+          "extensibility (MCP, plugins, skills, hooks)",
+          "extensions (ext/*)",
+          "model backends & API clients",
+          "persistence (rollout, state, thread-store)",
+          "protocol (shared vocabulary)",
+          "sandboxing & policy",
+          "shared infrastructure (utils & leaf crates)"
+        ],
+        "commits": 7265,
+        "line_churn": 602959,
+        "single_owner_file_share": 0.26,
+        "stale_file_share": 0.0,
+        "contributors_seen": 64,
+        "looks_like_shared_utility": false
+      },
+      "code-mode (V8 runtime)": {
+        "files": 71,
+        "loc": 14667,
+        "loc_share": 0.021,
+        "high_risk_file_loc_share": 0.22,
+        "very_high_risk_file_loc_share": 0.0,
+        "units_exported": 170,
+        "high_complexity_unit_loc_share": 0.02,
+        "long_unit_loc_share": 0.08,
+        "dup_blocks": 48,
+        "cross_component_dup_blocks": 4,
+        "dup_partners": [
+          "app-server API",
+          "core engine",
+          "exec-server (sandboxed executor)"
+        ],
+        "fan_in": null,
+        "fan_out": null,
+        "cross_component_cochange_pairs": 1,
+        "cochange_partners": [
+          "core engine"
+        ],
+        "commits": 196,
+        "line_churn": 19842,
+        "single_owner_file_share": 0.66,
+        "stale_file_share": 0.0,
+        "contributors_seen": 7,
+        "looks_like_shared_utility": false
+      },
+      "exec-server (sandboxed executor)": {
+        "files": 77,
+        "loc": 24413,
+        "loc_share": 0.034,
+        "high_risk_file_loc_share": 0.6,
+        "very_high_risk_file_loc_share": 0.38,
+        "units_exported": 226,
+        "high_complexity_unit_loc_share": 0.03,
+        "long_unit_loc_share": 0.09,
+        "dup_blocks": 146,
+        "cross_component_dup_blocks": 7,
+        "dup_partners": [
+          "app-server API",
+          "code-mode (V8 runtime)",
+          "core engine",
+          "sandboxing & policy"
+        ],
+        "fan_in": null,
+        "fan_out": null,
+        "cross_component_cochange_pairs": 102,
+        "cochange_partners": [
+          "CLI & headless frontends",
+          "TUI frontend",
+          "app-server API",
+          "configuration",
+          "core engine",
+          "extensibility (MCP, plugins, skills, hooks)",
+          "protocol (shared vocabulary)",
+          "sandboxing & policy",
+          "shared infrastructure (utils & leaf crates)"
+        ],
+        "commits": 784,
+        "line_churn": 45513,
+        "single_owner_file_share": 0.29,
+        "stale_file_share": 0.0,
+        "contributors_seen": 18,
+        "looks_like_shared_utility": false
+      },
+      "CLI & headless frontends": {
+        "files": 125,
+        "loc": 43493,
+        "loc_share": 0.061,
+        "high_risk_file_loc_share": 0.61,
+        "very_high_risk_file_loc_share": 0.38,
+        "units_exported": 692,
+        "high_complexity_unit_loc_share": 0.01,
+        "long_unit_loc_share": 0.08,
+        "dup_blocks": 370,
+        "cross_component_dup_blocks": 24,
+        "dup_partners": [
+          "TUI frontend",
+          "app-server API",
+          "core engine",
+          "extensibility (MCP, plugins, skills, hooks)"
+        ],
+        "fan_in": null,
+        "fan_out": null,
+        "cross_component_cochange_pairs": 580,
+        "cochange_partners": [
+          "TUI frontend",
+          "app-server API",
+          "auth & identity",
+          "configuration",
+          "core engine",
+          "exec-server (sandboxed executor)",
+          "extensibility (MCP, plugins, skills, hooks)",
+          "extensions (ext/*)",
+          "model backends & API clients",
+          "persistence (rollout, state, thread-store)",
+          "protocol (shared vocabulary)",
+          "sandboxing & policy",
+          "sdk (TypeScript & Python)",
+          "shared infrastructure (utils & leaf crates)"
+        ],
+        "commits": 1584,
+        "line_churn": 82193,
+        "single_owner_file_share": 0.46,
+        "stale_file_share": 0.0,
+        "contributors_seen": 30,
+        "looks_like_shared_utility": false
+      },
+      "extensions (ext/*)": {
+        "files": 153,
+        "loc": 22961,
+        "loc_share": 0.032,
+        "high_risk_file_loc_share": 0.29,
+        "very_high_risk_file_loc_share": 0.05,
+        "units_exported": 271,
+        "high_complexity_unit_loc_share": 0.0,
+        "long_unit_loc_share": 0.07,
+        "dup_blocks": 98,
+        "cross_component_dup_blocks": 5,
+        "dup_partners": [
+          "core engine",
+          "persistence (rollout, state, thread-store)"
+        ],
+        "fan_in": null,
+        "fan_out": null,
+        "cross_component_cochange_pairs": 231,
+        "cochange_partners": [
+          "CLI & headless frontends",
+          "TUI frontend",
+          "app-server API",
+          "core engine",
+          "extensibility (MCP, plugins, skills, hooks)",
+          "persistence (rollout, state, thread-store)",
+          "protocol (shared vocabulary)",
+          "shared infrastructure (utils & leaf crates)"
+        ],
+        "commits": 1023,
+        "line_churn": 39435,
+        "single_owner_file_share": 0.45,
+        "stale_file_share": 0.0,
+        "contributors_seen": 21,
+        "looks_like_shared_utility": false
+      },
+      "protocol (shared vocabulary)": {
+        "files": 41,
+        "loc": 18377,
+        "loc_share": 0.026,
+        "high_risk_file_loc_share": 0.79,
+        "very_high_risk_file_loc_share": 0.63,
+        "units_exported": 287,
+        "high_complexity_unit_loc_share": 0.0,
+        "long_unit_loc_share": 0.04,
+        "dup_blocks": 284,
+        "cross_component_dup_blocks": 116,
+        "dup_partners": [
+          "TUI frontend",
+          "app-server API",
+          "core engine",
+          "extensibility (MCP, plugins, skills, hooks)",
+          "model backends & API clients",
+          "sandboxing & policy",
+          "shared infrastructure (utils & leaf crates)"
+        ],
+        "fan_in": null,
+        "fan_out": null,
+        "cross_component_cochange_pairs": 510,
+        "cochange_partners": [
+          "CLI & headless frontends",
+          "TUI frontend",
+          "app-server API",
+          "auth & identity",
+          "configuration",
+          "core engine",
+          "exec-server (sandboxed executor)",
+          "extensibility (MCP, plugins, skills, hooks)",
+          "extensions (ext/*)",
+          "model backends & API clients",
+          "persistence (rollout, state, thread-store)",
+          "sandboxing & policy",
+          "shared infrastructure (utils & leaf crates)"
+        ],
+        "commits": 1130,
+        "line_churn": 40863,
+        "single_owner_file_share": 0.39,
+        "stale_file_share": 0.0,
+        "contributors_seen": 24,
+        "looks_like_shared_utility": true
+      },
+      "sdk (TypeScript & Python)": {
+        "files": 35,
+        "loc": 5998,
+        "loc_share": 0.008,
+        "high_risk_file_loc_share": 0.52,
+        "very_high_risk_file_loc_share": 0.19,
+        "units_exported": 120,
+        "high_complexity_unit_loc_share": 0.0,
+        "long_unit_loc_share": 0.0,
+        "dup_blocks": 45,
+        "cross_component_dup_blocks": 0,
+        "dup_partners": [],
+        "fan_in": null,
+        "fan_out": null,
+        "cross_component_cochange_pairs": 1,
+        "cochange_partners": [
+          "CLI & headless frontends"
+        ],
+        "commits": 217,
+        "line_churn": 9854,
+        "single_owner_file_share": 0.51,
+        "stale_file_share": 0.0,
+        "contributors_seen": 12,
+        "looks_like_shared_utility": false
+      }
+    },
+    "provenance": {
+      "files": "files.json (main scope, component from the primary decomposition)",
+      "units": "units.json (Sokrates caps this export at the top 10,000 units on large codebases — a floor, not a total)",
+      "duplication": "duplicates.json (blocks with components; cross-component = block spans >1 component)",
+      "history": "text/mainFilesWithHistory.txt (commits, line churn, contributors, days since last update per file)",
+      "temporal_coupling": "text/temporal_dependencies.txt (file pairs changed in the same commits)",
+      "documentation": "files with .md/.rst/.adoc/.txt or doc-like paths across main/other/build scopes",
+      "concerns": "text/aspect_concern_*.txt (files matching each configured concern)",
+      "commit_mix": "/Users/zeljkoobrenovic/PycharmProjects/sokrates-skills/_input/codex/git-commits.txt first lines, keyword classification (fix|bug|regression… / feat|add|implement… / refactor|rename|cleanup…)",
+      "metrics": "text/metrics.txt (Sokrates system totals)"
+    },
+    "data_gaps": [
+      "component dependencies (text/dependencies_primary.txt empty or absent — Sokrates extracts none for this language; use architecture-scan's manifest graph)",
+      "fix-vs-feature share per component (git-commits.txt has no paths; script reports system-wide only)",
+      "units.json, duplicates.json and temporal_dependencies.txt are capped at 10000 entries by Sokrates (15362 units exist)",
+      "Sokrates main scope includes inline #[cfg(test)] modules and *tests.rs files, inflating the very-high-risk file share"
+    ],
+    "grades": {
+      "modularity": "weak",
+      "reusability": "adequate",
+      "analysability": "weak",
+      "modifiability": "adequate",
+      "testability": "adequate"
+    },
+    "component_grades": {
+      "TUI frontend": {
+        "modularity": "weak",
+        "reusability": "adequate",
+        "analysability": "adequate",
+        "modifiability": "adequate",
+        "testability": "adequate"
+      },
+      "core engine": {
+        "modularity": "weak",
+        "reusability": "weak",
+        "analysability": "poor",
+        "modifiability": "weak",
+        "testability": "strong"
+      },
+      "app-server API": {
+        "modularity": "weak",
+        "reusability": "adequate",
+        "analysability": "weak",
+        "modifiability": "weak",
+        "testability": "strong"
+      },
+      "extensibility (MCP, plugins, skills, hooks)": {
+        "modularity": "weak",
+        "reusability": "adequate",
+        "analysability": "weak",
+        "modifiability": "adequate",
+        "testability": "strong"
+      },
+      "persistence (rollout, state, thread-store)": {
+        "modularity": "adequate",
+        "reusability": "strong",
+        "analysability": "adequate",
+        "modifiability": "adequate",
+        "testability": "adequate"
+      },
+      "sandboxing & policy": {
+        "modularity": "adequate",
+        "reusability": "adequate",
+        "analysability": "weak",
+        "modifiability": "adequate",
+        "testability": "weak"
+      },
+      "CLI & headless frontends": {
+        "modularity": "adequate",
+        "reusability": "adequate",
+        "analysability": "weak",
+        "modifiability": "adequate",
+        "testability": "adequate"
+      },
+      "exec-server (sandboxed executor)": {
+        "modularity": "adequate",
+        "reusability": "strong",
+        "analysability": "adequate",
+        "modifiability": "adequate",
+        "testability": "strong"
+      },
+      "model backends & API clients": {
+        "modularity": "adequate",
+        "reusability": "strong",
+        "analysability": "adequate",
+        "modifiability": "adequate",
+        "testability": "adequate"
+      },
+      "extensions (ext/*)": {
+        "modularity": "adequate",
+        "reusability": "adequate",
+        "analysability": "weak",
+        "modifiability": "adequate",
+        "testability": "adequate"
+      },
+      "shared infrastructure (utils & leaf crates)": {
+        "modularity": "adequate",
+        "reusability": "adequate",
+        "analysability": "adequate",
+        "modifiability": "adequate",
+        "testability": "adequate"
+      },
+      "configuration": {
+        "modularity": "adequate",
+        "reusability": "strong",
+        "analysability": "adequate",
+        "modifiability": "adequate",
+        "testability": "adequate"
+      },
+      "protocol (shared vocabulary)": {
+        "modularity": "poor",
+        "reusability": "weak",
+        "analysability": "weak",
+        "modifiability": "weak",
+        "testability": "weak"
+      },
+      "repo tooling & CI": {
+        "modularity": "strong",
+        "reusability": "adequate",
+        "analysability": "weak",
+        "modifiability": "adequate",
+        "testability": "weak"
+      },
+      "code-mode (V8 runtime)": {
+        "modularity": "strong",
+        "reusability": "strong",
+        "analysability": "adequate",
+        "modifiability": "adequate",
+        "testability": "strong"
+      },
+      "auth & identity": {
+        "modularity": "strong",
+        "reusability": "strong",
+        "analysability": "adequate",
+        "modifiability": "adequate",
+        "testability": "strong"
+      },
+      "sdk (TypeScript & Python)": {
+        "modularity": "strong",
+        "reusability": "strong",
+        "analysability": "strong",
+        "modifiability": "strong",
+        "testability": "strong"
+      }
+    },
+    "costliest_component": {
+      "name": "core engine",
+      "reason": "weak/poor on four of five sub-characteristics, highest commit count of any component (10544 file-commits) and 46% of recent commits per evolution-scan"
+    },
+    "scenarios_traced": [
+      {
+        "change": "add a variant to EventMsg and show it in the TUI",
+        "files": 5,
+        "components": 4,
+        "tests": "app-server v2 e2e suite and TUI insta snapshots catch the missing projection; protocol crate's own tests do not",
+        "files_list": [
+          "codex-rs/protocol/src/protocol.rs",
+          "codex-rs/app-server/src/bespoke_event_handling.rs",
+          "codex-rs/app-server-protocol/src/protocol/common.rs",
+          "codex-rs/tui/src/app/app_server_events.rs",
+          "codex-rs/mcp-server/src/codex_tool_runner.rs"
+        ],
+        "config_alternative": "none - new event shapes need code"
+      },
+      {
+        "change": "add a frontend flag that maps to a config override",
+        "files": 5,
+        "components": 3,
+        "tests": "core config_tests.rs (314 tests) and exec/tui CLI tests; no test asserts every frontend exposes the same override",
+        "files_list": [
+          "codex-rs/core/src/config/mod.rs",
+          "codex-rs/exec/src/cli.rs",
+          "codex-rs/exec/src/lib.rs",
+          "codex-rs/tui/src/cli.rs",
+          "codex-rs/tui/src/lib.rs"
+        ],
+        "config_alternative": "generic -c key=value override already exposes any config key without a flag"
+      }
+    ]
+  },
+  "findings": [
+    {
+      "id": "maintainability-scan/modularity/verdict",
+      "group": "modularity",
+      "title": "Modularity: weak - a DAG with a god crate on top and a vocabulary crate that ripples into every layer",
+      "description": "System grade **weak**. Sokrates extracted no component dependencies for this Rust workspace, so fan-in/fan-out and cycles come from architecture-scan's manifest graph rather than from `metric:` data; confidence is lowered accordingly. Driver 1: the manifest graph is acyclic in production builds, but `codex-core` depends on 61 of 133 crates and is depended on by 23, so the compile-time seam around the engine constrains almost nothing and most changes rebuild the whole engine. Driver 2: change impact travels through the protocol crate rather than through imports - 4389 of the 10000 co-change pairs Sokrates kept cross component boundaries (metric:temporal_coupling), and the four strongest cross-component pairs all have `codex-rs/protocol/src/protocol.rs` on one side (141 shared commits with the TUI, 110 with app-server, 100 with the MCP server, 90 with core). Driver 3: the ext/* extension seam holds in one direction only - the traits are clean but ten of twelve extensions still link `core`. What keeps this off `poor`: the TUI genuinely does not link `core`, and no production cycle exists. Component grades sit in `attributes.components`: the protocol crate is `poor` because every field added there reaches 68 dependents at once; `auth`, `code-mode`, `sdk` and `repo tooling` are `strong` leaves with one or zero co-change partners.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/protocol/src/protocol.rs",
+          "start_line": 1288,
+          "end_line": 1288,
+          "snippet": "pub enum EventMsg {",
+          "note": "the enum every layer matches on; adding a variant is the typical cross-component change"
+        },
+        {
+          "file": "codex-rs/app-server/src/bespoke_event_handling.rs",
+          "start_line": 158,
+          "end_line": 158,
+          "snippet": "    match msg {",
+          "note": "first of four EventMsg matches in the app-server translation layer (82 EventMsg arms in this file)"
+        }
+      ],
+      "tags": [
+        "iso-25010",
+        "modularity"
+      ],
+      "sokrates_refs": [
+        "metric:temporal_coupling",
+        "finding:architecture-scan/violations/core-god-crate",
+        "finding:architecture-scan/violations/dependency-cycles",
+        "finding:architecture-scan/boundaries/extension-api-contributors",
+        "finding:architecture-scan/boundaries/tui-through-app-server-client",
+        "finding:architecture-scan/boundaries/protocol-crate-contract",
+        "component:core engine",
+        "component:protocol (shared vocabulary)"
+      ],
+      "attributes": {
+        "grade": "weak",
+        "components": {
+          "protocol (shared vocabulary)": "poor",
+          "core engine": "weak",
+          "app-server API": "weak",
+          "TUI frontend": "weak",
+          "extensibility (MCP, plugins, skills, hooks)": "weak",
+          "CLI & headless frontends": "adequate",
+          "sandboxing & policy": "adequate",
+          "persistence (rollout, state, thread-store)": "adequate",
+          "exec-server (sandboxed executor)": "adequate",
+          "model backends & API clients": "adequate",
+          "configuration": "adequate",
+          "extensions (ext/*)": "adequate",
+          "shared infrastructure (utils & leaf crates)": "adequate",
+          "auth & identity": "strong",
+          "code-mode (V8 runtime)": "strong",
+          "sdk (TypeScript & Python)": "strong",
+          "repo tooling & CI": "strong"
+        },
+        "drivers": [
+          "core fan-out 61 / fan-in 23 (architecture-scan manifest graph)",
+          "4389 cross-component co-change pairs in the capped 10000 (script)",
+          "protocol.rs is one side of the top four cross-component pairs"
+        ],
+        "data_gap": "component dependencies not extracted by Sokrates for Rust"
+      }
+    },
+    {
+      "id": "maintainability-scan/modularity/cross-component-cochange",
+      "group": "modularity",
+      "title": "Cross-component co-change runs through protocol.rs - and the top pair is partly history, not the current shape",
+      "description": "Sokrates' temporal coupling shows the protocol crate as the hub of shotgun surgery: `protocol.rs` co-changed 141 times with `tui/src/chatwidget.rs`, 110 with `app-server/src/bespoke_event_handling.rs`, 100 with `mcp-server/src/codex_tool_runner.rs` and 90 with `core/src/session/mod.rs` (metric:temporal_coupling). The script's scenario ranking is built on these raw counts, which are un-normalised and span the whole 491-day history. Reading tempers the top pair: since the March 2026 rewrite the TUI consumes `app-server-protocol` notifications and `chatwidget.rs` contains a single `EventMsg` reference, so the 141 shared commits mostly predate the current architecture; the live ripple for an `EventMsg` change today is `protocol.rs` -> `bespoke_event_handling.rs` -> the v2 `ServerNotification` enum -> the TUI's `app_server_events.rs`, plus `codex_tool_runner.rs` in the deprecated MCP server. That is still four components for one enum variant. The pattern risk-synthesis explains for `EnvironmentConfig` (protocol data, core semantics, 100 percent co-change) is the same mechanism one level down.",
+      "severity": "low",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/app-server-protocol/src/protocol/common.rs",
+          "start_line": 1577,
+          "end_line": 1577,
+          "snippet": "        pub enum ServerNotification {",
+          "note": "the second enum an event change must be mirrored into before a client sees it"
+        },
+        {
+          "file": "codex-rs/tui/src/chatwidget.rs",
+          "start_line": 3,
+          "end_line": 3,
+          "snippet": "//! `ChatWidget` consumes protocol events, builds and updates history cells, and drives rendering",
+          "note": "the module doc still describes the pre-rewrite role"
+        }
+      ],
+      "recommendation": "Treat `EventMsg` additions as a two-enum change by construction: generate the v2 `ServerNotification` projection from `EventMsg` (or share the payload types) so the app-server translation stops being hand-maintained in `bespoke_event_handling.rs`. Re-run temporal coupling on a 180-day window before using these counts to plan refactoring.",
+      "tags": [
+        "iso-25010",
+        "modularity",
+        "temporal-coupling"
+      ],
+      "sokrates_refs": [
+        "metric:temporal_coupling",
+        "finding:risk-synthesis-scan/change-coupling/environment-config",
+        "finding:evolution-scan/lifecycle/tui-on-app-server-rewrite",
+        "finding:architecture-scan/boundaries/app-server-protocol",
+        "file:codex-rs/protocol/src/protocol.rs"
+      ],
+      "attributes": {
+        "top_pairs_shared_commits": {
+          "tui/chatwidget.rs <-> protocol.rs": 141,
+          "app-server/bespoke_event_handling.rs <-> protocol.rs": 110,
+          "mcp-server/codex_tool_runner.rs <-> protocol.rs": 100,
+          "core/session/mod.rs <-> protocol.rs": 90
+        }
+      }
+    },
+    {
+      "id": "maintainability-scan/reusability/verdict",
+      "group": "reusability",
+      "title": "Reusability: adequate - 24 real leaf utility crates, but the vocabulary crate everyone reuses drags the proxy and policy engine with it",
+      "description": "System grade **adequate**. Driver 1 (positive): the workspace is deliberately split into small crates, and most of them are libraries in fact - 17 of the 24 `codex-rs/utils/*` crates depend on no other workspace crate or only on sibling utils, and `codex-protocol`, `app-server-protocol`, `apply-patch`, `execpolicy` and the SDKs each have more than one consumer. Driver 2 (negative): the most reused asset is trapped - `codex-protocol` (68 dependents) depends on `codex-network-proxy`, `codex-execpolicy` and `codex-http-client`, so nobody can reuse the vocabulary without compiling a TLS proxy; details in `reusability/trapped-protocol`. Driver 3: reuse by copy is small in volume - 302 of the 10000 duplicate blocks Sokrates kept span components, 12.9 percent duplication overall (metric:duplication) - but the pairs that exist are the hand-written parsers and fixtures a shared crate should own (`reusability/copy-instead-of-reuse`). Two further utilities point back at the product: `utils/oss` links `codex-core` and `utils/plugins` links `codex-exec-server`, which makes them engine adapters wearing a utils path. Component grades: `protocol` and `core` are `weak` (trapped or unreusable by design), `persistence`, `exec-server`, `model backends`, `configuration`, `auth`, `code-mode` and `sdk` are `strong` as crates with a manifest, a narrow API and external consumers.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/utils/oss/Cargo.toml",
+          "start_line": 11,
+          "end_line": 11,
+          "snippet": "codex-core = { workspace = true }",
+          "note": "a utils crate that depends on the engine"
+        },
+        {
+          "file": "codex-rs/utils/plugins/Cargo.toml",
+          "start_line": 17,
+          "end_line": 17,
+          "snippet": "codex-exec-server = { workspace = true }",
+          "note": "a second utils crate that depends on a service crate"
+        }
+      ],
+      "tags": [
+        "iso-25010",
+        "reusability"
+      ],
+      "sokrates_refs": [
+        "metric:duplication",
+        "finding:architecture-scan/violations/protocol-depends-on-service-crates",
+        "finding:architecture-scan/components/sokrates-decomposition-verdict",
+        "finding:tech-stack-scan/build-tooling/cargo-workspace",
+        "component:shared infrastructure (utils & leaf crates)"
+      ],
+      "attributes": {
+        "grade": "adequate",
+        "components": {
+          "protocol (shared vocabulary)": "weak",
+          "shared infrastructure (utils & leaf crates)": "adequate",
+          "sandboxing & policy": "adequate",
+          "extensibility (MCP, plugins, skills, hooks)": "adequate",
+          "TUI frontend": "adequate",
+          "core engine": "weak",
+          "app-server API": "adequate",
+          "CLI & headless frontends": "adequate",
+          "persistence (rollout, state, thread-store)": "strong",
+          "exec-server (sandboxed executor)": "strong",
+          "model backends & API clients": "strong",
+          "configuration": "strong",
+          "extensions (ext/*)": "adequate",
+          "auth & identity": "strong",
+          "code-mode (V8 runtime)": "strong",
+          "sdk (TypeScript & Python)": "strong",
+          "repo tooling & CI": "adequate"
+        },
+        "drivers": [
+          "17/24 utils crates are leaf libraries (manifest read)",
+          "protocol trapped by network-proxy/execpolicy/http-client",
+          "302 cross-component duplicate blocks, 12.9% duplication (Sokrates)"
+        ]
+      }
+    },
+    {
+      "id": "maintainability-scan/reusability/trapped-protocol",
+      "group": "reusability",
+      "title": "codex-protocol is the workspace's most reused asset and it cannot be reused without the proxy and the policy engine",
+      "description": "`codex-protocol` is the serde vocabulary 68 of 133 crates depend on and the one crate an external integrator would want on its own. Its manifest makes that impossible: it pulls `codex-network-proxy` (an HTTP and SOCKS5 proxy with a TLS stack), `codex-execpolicy` (the Starlark rule engine) and `codex-http-client`. architecture-scan documents the inversion; the maintainability cost is that the vocabulary crate has the **poorest modularity grade** in the workspace (every field added reaches every layer, and its four strongest co-change partners sit in four different components) while being the thinnest-tested one (testing-scan: ratio 0.08 path-based). The fix is mechanical and bounded - move `RequirementsExecPolicy`, `EnvironmentNetworkPolicy` and the `HttpError` wrapper behind a small trait or into a `protocol-policy` crate - which is why this earns `medium` rather than `low`.",
+      "severity": "medium",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/protocol/Cargo.toml",
+          "start_line": 22,
+          "end_line": 22,
+          "snippet": "codex-network-proxy = { workspace = true }",
+          "note": "the vocabulary crate links the proxy implementation"
+        }
+      ],
+      "recommendation": "Cut the three service-crate edges out of `codex-protocol`: keep the policy and network vocabulary as plain data types here and move the evaluation logic and the `HttpError` conversion into the crates that own them. Add a CI check that `codex-protocol` depends only on `utils/*` and serde-level crates.",
+      "tags": [
+        "iso-25010",
+        "reusability",
+        "trapped-crate"
+      ],
+      "sokrates_refs": [
+        "finding:architecture-scan/violations/protocol-depends-on-service-crates",
+        "finding:architecture-scan/boundaries/protocol-crate-contract",
+        "finding:testing-scan/coverage-map/thin-protocol",
+        "component:protocol (shared vocabulary)"
+      ],
+      "attributes": {
+        "component": "protocol (shared vocabulary)",
+        "dependents": 68,
+        "offending_edges": [
+          "codex-network-proxy",
+          "codex-execpolicy",
+          "codex-http-client"
+        ]
+      }
+    },
+    {
+      "id": "maintainability-scan/reusability/copy-instead-of-reuse",
+      "group": "reusability",
+      "title": "Copy instead of reuse: the mention parser lives three times and the Windows sandbox re-declares protocol permission fixtures",
+      "description": "The largest cross-component duplicate pairs Sokrates found (metric:duplication) are not test scaffolding; they are hand-written logic copied across a crate boundary. `parse_linked_tool_mention` in `codex-rs/skills/src/mentions.rs` appears verbatim in `tui/src/chatwidget/skills.rs` (53 duplicated lines) and again in `tui/src/mention_codec.rs` (36 lines) - three copies of the same byte-offset parser, two of them in the frontend that should consume the skills crate. Between `protocol/src/permissions.rs` and `windows-sandbox-rs/src/resolved_permissions.rs` the script counts 586 duplicated lines in 29-line blocks of `FileSystemSandboxEntry` construction, the reuse-by-copy signal between the vocabulary and the sandbox backend. Volume is low for the workspace (302 cross-component blocks), so this is a `low` finding with two concrete targets rather than a systemic one.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/skills/src/mentions.rs",
+          "start_line": 148,
+          "end_line": 148,
+          "snippet": "fn parse_linked_tool_mention<'a>(",
+          "note": "the original parser in the skills crate"
+        },
+        {
+          "file": "codex-rs/tui/src/chatwidget/skills.rs",
+          "start_line": 362,
+          "end_line": 362,
+          "snippet": "fn parse_linked_tool_mention<'a>(",
+          "note": "verbatim copy in the TUI"
+        },
+        {
+          "file": "codex-rs/windows-sandbox-rs/src/resolved_permissions.rs",
+          "start_line": 362,
+          "end_line": 362,
+          "snippet": "                FileSystemSandboxEntry {",
+          "note": "one of the duplicated permission-entry blocks mirrored from protocol/src/permissions.rs"
+        }
+      ],
+      "recommendation": "Export `parse_linked_tool_mention` from `codex-skills` (or a `utils/mentions` crate) and delete the two TUI copies; give `protocol::permissions` a builder or test-fixture helper the Windows sandbox crate can call instead of restating the entries.",
+      "tags": [
+        "iso-25010",
+        "reusability",
+        "duplication"
+      ],
+      "sokrates_refs": [
+        "metric:duplication",
+        "component:TUI frontend",
+        "component:extensibility (MCP, plugins, skills, hooks)",
+        "component:sandboxing & policy",
+        "component:protocol (shared vocabulary)"
+      ],
+      "attributes": {
+        "pairs": [
+          {
+            "components": [
+              "TUI frontend",
+              "extensibility (MCP, plugins, skills, hooks)"
+            ],
+            "lines": 197
+          },
+          {
+            "components": [
+              "protocol (shared vocabulary)",
+              "sandboxing & policy"
+            ],
+            "lines": 586
+          }
+        ]
+      }
+    },
+    {
+      "id": "maintainability-scan/analysability/verdict",
+      "group": "analysability",
+      "title": "Analysability: weak - the code is well named and the contributor guide is real, but the files a newcomer needs are huge, module docs are rare in the engine, and user docs live off-site",
+      "description": "System grade **weak**. Driver 1: size - 38 percent of main LOC sits in files over 1000 lines and 61 percent in files over 500 (metric:unit_size, script from files.json); the three files a typical change needs, `core/src/config/mod.rs` (3837 LOC), `protocol/src/protocol.rs` (3057) and `app-server/src/bespoke_event_handling.rs` (3937), are each a day's reading. Sokrates inflates this somewhat because it counts inline `#[cfg(test)]` modules (140k LOC per testing-scan) as main code, but the three files above are production code. Driver 2: documentation - the top-level `docs/` pages are three-line redirects by policy, the one substantive protocol document describes the v1 model that domain-language-scan shows is a generation behind, and the doc footprint of 32k lines (45 doc lines per kLOC, script) is mostly `README.md` per crate plus the 322-line `AGENTS.md`, which is the genuinely useful map. A grep of `//!` crate and module docs across the 2130 main Rust files (a reading count, not a Sokrates metric) finds them in 63 percent of TUI files but 9 percent of core and 7 percent of app-server files. Driver 3: naming and generations - `session` carries three meanings, `Conversation*` aliases survive as `#[deprecated]` re-exports in `core/src/lib.rs`, and v1 and v2 API modules, `compact_remote` and `compact_remote_v2`, `guardian` and `guardian-v2` all compile side by side, so a reader cannot tell the live path from the legacy one without git. What keeps this off `poor`: names inside the code are precise, hotspot units read as rule-per-branch logic (risk-synthesis), and `AGENTS.md` states the layering rules in plain words. Component grades: `core` is `poor` (largest files, fewest module docs, most legacy aliases), `sdk` is `strong`.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/lib.rs",
+          "start_line": 126,
+          "end_line": 126,
+          "snippet": "#[deprecated(note = \"use ThreadManager\")]",
+          "note": "the first of four Conversation-era aliases kept alive in the engine's public API"
+        },
+        {
+          "file": "docs/sandbox.md",
+          "start_line": 3,
+          "end_line": 3,
+          "snippet": "For information about Codex sandboxing and approvals, see [this documentation](https://developers.openai.com/codex/security).",
+          "note": "the in-repo documentation for the security boundary"
+        },
+        {
+          "file": "AGENTS.md",
+          "start_line": 32,
+          "end_line": 32,
+          "snippet": "- Do not add general product or user-facing documentation to the `docs/` folder. The official Codex documentation lives elsewhere. The exception is app-server API documentation, which is covered by the app-server guidance below.",
+          "note": "the policy that keeps user docs off-site"
+        }
+      ],
+      "tags": [
+        "iso-25010",
+        "analysability"
+      ],
+      "sokrates_refs": [
+        "metric:unit_size",
+        "metric:loc",
+        "finding:domain-language-scan/language-drift/session-thread-conversation",
+        "finding:domain-language-scan/language-drift/docs-external-stubs",
+        "finding:architecture-scan/evolution/api-v1-to-v2-and-legacy-paths",
+        "finding:functionality-scan/hidden-and-gaps/docs-moved-offsite",
+        "finding:testing-scan/test-model/inline-tests",
+        "finding:risk-synthesis-scan/hotspots/core-config-mod"
+      ],
+      "attributes": {
+        "grade": "weak",
+        "components": {
+          "core engine": "poor",
+          "app-server API": "weak",
+          "protocol (shared vocabulary)": "weak",
+          "TUI frontend": "adequate",
+          "extensibility (MCP, plugins, skills, hooks)": "weak",
+          "persistence (rollout, state, thread-store)": "adequate",
+          "sandboxing & policy": "weak",
+          "CLI & headless frontends": "weak",
+          "exec-server (sandboxed executor)": "adequate",
+          "model backends & API clients": "adequate",
+          "configuration": "adequate",
+          "extensions (ext/*)": "weak",
+          "shared infrastructure (utils & leaf crates)": "adequate",
+          "auth & identity": "adequate",
+          "code-mode (V8 runtime)": "adequate",
+          "sdk (TypeScript & Python)": "strong",
+          "repo tooling & CI": "weak"
+        },
+        "drivers": [
+          "38% of main LOC in >1000-line files (script)",
+          "docs/ redirect stubs, protocol doc is v1-era",
+          "module docs: 9% of core files, 7% of app-server files (grep, not Sokrates)"
+        ]
+      }
+    },
+    {
+      "id": "maintainability-scan/analysability/module-size",
+      "group": "analysability",
+      "title": "Module size: the engine's config, session and event files are 3-6k lines each and grow with every feature",
+      "description": "The files a newcomer must open for the two traced scenarios are the largest production files in the tree: `core/src/config/mod.rs` (3837 LOC, 515 commits, 81 contributors, metric:commits, metric:contributors), `app-server/src/bespoke_event_handling.rs` (3937 LOC, 228 commits), `protocol/src/protocol.rs` (3057 LOC, 494 commits, 6029 physical lines) and `core/src/session/mod.rs` (2715 LOC, 384 commits). The largest single unit Sokrates kept is `validate_conflicts` in `tui/src/keymap.rs` at 571 lines (metric:unit_size) - a linear list of conflict checks - and the most complex is `summarize_main_tokens` in `shell-command/src/parse_command.rs` (McCabe 69, metric:mccabe), which is the command classifier the sandbox policy depends on. Only 2 percent of unit LOC is in high-complexity units (script, on the 10000-unit export), so the analysability cost is navigational rather than logical: the reader finds the right file quickly and then reads for an hour to find the right place in it.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/tui/src/keymap.rs",
+          "start_line": 1460,
+          "end_line": 1460,
+          "snippet": "    fn validate_conflicts(&self) -> Result<(), String> {",
+          "note": "largest unit Sokrates kept: 571 lines"
+        },
+        {
+          "file": "codex-rs/shell-command/src/parse_command.rs",
+          "start_line": 2225,
+          "end_line": 2225,
+          "snippet": "fn summarize_main_tokens(main_cmd: &[String]) -> ParsedCommand {",
+          "note": "most complex unit: McCabe 69, feeds sandbox policy"
+        },
+        {
+          "file": "codex-rs/core/src/config/mod.rs",
+          "start_line": 2509,
+          "end_line": 2509,
+          "snippet": "pub struct ConfigOverrides {",
+          "note": "the override struct every CLI flag must be threaded through, 2500 lines into the file"
+        }
+      ],
+      "recommendation": "Split `core/src/config/mod.rs` by config family (the resolver-per-feature functions risk-synthesis lists are natural seams) and `bespoke_event_handling.rs` by event family; convert `validate_conflicts` into a table of conflict rules. Measure with Sokrates' file-size distribution on the next run.",
+      "tags": [
+        "iso-25010",
+        "analysability",
+        "module-size"
+      ],
+      "sokrates_refs": [
+        "metric:unit_size",
+        "metric:mccabe",
+        "metric:commits",
+        "metric:contributors",
+        "finding:risk-synthesis-scan/hotspots/core-config-mod",
+        "finding:risk-synthesis-scan/hotspots/thread-processor",
+        "component:core engine",
+        "component:app-server API"
+      ],
+      "attributes": {
+        "largest_files_loc": {
+          "codex-rs/app-server/src/bespoke_event_handling.rs": 3937,
+          "codex-rs/core/src/config/mod.rs": 3837,
+          "codex-rs/protocol/src/protocol.rs": 3057,
+          "codex-rs/core/src/session/mod.rs": 2715
+        },
+        "largest_unit": {
+          "file": "codex-rs/tui/src/keymap.rs",
+          "unit": "validate_conflicts",
+          "loc": 571
+        },
+        "most_complex_unit": {
+          "file": "codex-rs/shell-command/src/parse_command.rs",
+          "unit": "summarize_main_tokens",
+          "mccabe": 69
+        }
+      }
+    },
+    {
+      "id": "maintainability-scan/modifiability/verdict",
+      "group": "modifiability",
+      "title": "Modifiability: adequate - low logical complexity and a strong configuration surface, offset by three merge-magnet files and 33 percent single-owner files",
+      "description": "System grade **adequate**. Driver 1 (positive): logical complexity is low - only 2 percent of unit LOC sits in high or very-high McCabe units (script, on Sokrates' capped 10000-unit export), and risk-synthesis found the flagged units to be rule-per-branch validators rather than tangled logic. Driver 2 (positive): behaviour is configured, not hardcoded - a 117-entry feature-flag registry, a nine-layer config stack and generic `-c key=value` overrides mean many product changes are a flag flip (`modifiability/configurability`). Driver 3 (negative): change concentrates in a few central files that everyone edits - `core/src/config/mod.rs` with 81 contributors and 515 commits, `core/src/tools/spec_plan.rs`, `app-server/src/request_processors/thread_processor.rs` with 43 contributors (metric:commits, metric:contributors); `modifiability/hotspot-cluster-core-engine` covers the cluster. Driver 4: ownership - 33 percent of main files have a single contributor (metric:contributor_share, script), rising to 57 percent in persistence and 66 percent in code-mode, though project-level bus factor is healthy and the named single-owner areas are peripheral. Driver 5: duplication at 12.9 percent (metric:duplication) is mostly within components (302 of 10000 blocks cross them). Fix-vs-feature share is 18 percent fix, 25 percent feature, 5 percent refactor over all 9546 first lines (script keyword classification, 53 percent unclassified because 2026 titles use bare imperatives) - the script cannot split this per component, so the fix-heavy-areas driver is a data gap; evolution-scan reads the same messages as fixes falling from 23 to 12 percent. Component grades: `core`, `app-server` and `protocol` are `weak` (the merge magnets and the ripple source), the rest `adequate`, `sdk` `strong`.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/features/src/lib.rs",
+          "start_line": 824,
+          "end_line": 824,
+          "snippet": "pub const FEATURES: &[FeatureSpec] = &[",
+          "note": "the registry that makes most behaviour flippable without a code change"
+        },
+        {
+          "file": "codex-rs/core/src/thread_manager.rs",
+          "start_line": 109,
+          "end_line": 109,
+          "snippet": "static FORCE_TEST_THREAD_MANAGER_BEHAVIOR: AtomicBool = AtomicBool::new(false);",
+          "note": "one of the engine's 31 static or once-initialised globals"
+        }
+      ],
+      "tags": [
+        "iso-25010",
+        "modifiability"
+      ],
+      "sokrates_refs": [
+        "metric:mccabe",
+        "metric:commits",
+        "metric:contributors",
+        "metric:contributor_share",
+        "metric:duplication",
+        "finding:risk-synthesis-scan/hotspots/core-config-mod",
+        "finding:risk-synthesis-scan/hotspots/thread-processor",
+        "finding:risk-synthesis-scan/knowledge-risk/bus-factor-overview",
+        "finding:risk-synthesis-scan/knowledge-risk/external-agent-migration",
+        "finding:evolution-scan/trajectory/work-mix-restructuring-and-hardening",
+        "finding:functionality-scan/hidden-and-gaps/feature-flag-switchboard"
+      ],
+      "attributes": {
+        "grade": "adequate",
+        "components": {
+          "core engine": "weak",
+          "app-server API": "weak",
+          "protocol (shared vocabulary)": "weak",
+          "TUI frontend": "adequate",
+          "extensibility (MCP, plugins, skills, hooks)": "adequate",
+          "persistence (rollout, state, thread-store)": "adequate",
+          "sandboxing & policy": "adequate",
+          "CLI & headless frontends": "adequate",
+          "exec-server (sandboxed executor)": "adequate",
+          "model backends & API clients": "adequate",
+          "configuration": "adequate",
+          "extensions (ext/*)": "adequate",
+          "shared infrastructure (utils & leaf crates)": "adequate",
+          "auth & identity": "adequate",
+          "code-mode (V8 runtime)": "adequate",
+          "sdk (TypeScript & Python)": "strong",
+          "repo tooling & CI": "adequate"
+        },
+        "drivers": [
+          "2% of unit LOC in high-complexity units (script)",
+          "117 feature flags + 9-layer config (functionality-scan)",
+          "config/mod.rs 515 commits / 81 contributors; thread_processor.rs 43 contributors (Sokrates)",
+          "33% single-owner main files (script)"
+        ],
+        "commit_mix": {
+          "commits": 9546,
+          "fix_share": 0.18,
+          "feature_share": 0.25,
+          "refactor_share": 0.05,
+          "unclassified_share": 0.53
+        },
+        "data_gap": "fix-vs-feature share is system-wide only"
+      }
+    },
+    {
+      "id": "maintainability-scan/modifiability/hotspot-cluster-core-engine",
+      "group": "modifiability",
+      "title": "The core engine's config, tool-registry and session files are where every feature lands - and where 46 percent of recent commits go",
+      "description": "Three files in `codex-rs/core` form one cluster that every feature touches: `config/mod.rs` (3837 LOC, 515 commits, 57 in 90 days, 81 contributors), `tools/spec_plan.rs` (1289 LOC, 121 commits, 42 in 90 days) and `session/mod.rs` (2715 LOC, 384 commits) (metric:commits, metric:commits_90d, metric:contributors). risk-synthesis explains each file; the maintainability point is the shape: a new feature adds a resolver to config, a gated `registry.add` to spec_plan, and a branch in the session loop, so three of the four largest engine files change together for unrelated reasons, and 81 people merging into one file is a standing conflict cost. The core component also carries the highest commit count of any component (10544 file-commits, script) and, per evolution-scan, 46 percent of recent commits despite the extraction programme; the repo's own `AGENTS.md` says to resist adding code here. `core` is graded `weak` on modularity, analysability and modifiability and is the most-changed area, but `strong` on testability (ratio 2.16, the wiremock integration suite), which is why this is `medium` rather than `high`: changes here are expensive and collide, but they are caught.",
+      "severity": "medium",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/config/mod.rs",
+          "start_line": 1338,
+          "end_line": 1338,
+          "snippet": "    pub fn harness_overrides(mut self, harness_overrides: ConfigOverrides) -> Self {",
+          "note": "the builder entry every frontend flag passes through"
+        },
+        {
+          "file": "codex-rs/tui/src/lib.rs",
+          "start_line": 2156,
+          "end_line": 2156,
+          "snippet": "                .harness_overrides(ConfigOverrides {",
+          "note": "TUI side of the override plumbing (co-changes 73-77 times with core config and exec)"
+        }
+      ],
+      "recommendation": "Finish the extraction the history shows in progress: move per-feature config resolvers next to their features (the `ext/*` contributor traits already give them a home), turn `spec_plan.rs`'s conditional registry into data the extensions register, and put a CODEOWNERS split on `config/mod.rs` so 81-contributor merges stop landing in one file.",
+      "tags": [
+        "iso-25010",
+        "modifiability",
+        "hotspot-cluster"
+      ],
+      "sokrates_refs": [
+        "metric:commits",
+        "metric:commits_90d",
+        "metric:contributors",
+        "metric:churn",
+        "finding:risk-synthesis-scan/hotspots/core-config-mod",
+        "finding:risk-synthesis-scan/hotspots/spec-plan-tool-registry",
+        "finding:architecture-scan/violations/core-god-crate",
+        "finding:evolution-scan/lifecycle/core-decomposition-in-progress",
+        "finding:evolution-scan/focus-shift/core-app-server-over-tui",
+        "finding:testing-scan/coverage-map/well-tested",
+        "component:core engine"
+      ],
+      "attributes": {
+        "component": "core engine",
+        "grades": {
+          "modularity": "weak",
+          "reusability": "weak",
+          "analysability": "poor",
+          "modifiability": "weak",
+          "testability": "strong"
+        },
+        "files": [
+          "codex-rs/core/src/config/mod.rs",
+          "codex-rs/core/src/tools/spec_plan.rs",
+          "codex-rs/core/src/session/mod.rs"
+        ]
+      }
+    },
+    {
+      "id": "maintainability-scan/modifiability/configurability",
+      "group": "modifiability",
+      "title": "Configurability: most behaviour is a flag, a config layer or a `-c` override away - the strongest modifiability asset",
+      "description": "Codex avoids a large class of code changes by configuration. The `FEATURES` registry in `codex-features` holds 117 entries with a stage each, any of which a user flips with `--enable`, `codex features enable` or `features.<key>` in config; `config.toml` is resolved through nine precedence layers plus `requirements.toml` for managed pins; and every frontend accepts generic `-c key=value` overrides through `codex-utils-cli`, so a new setting does not need a new flag. The cost side is real but belongs to analysability: with 41 flags under development and both v1 and v2 paths compiled, the set of behaviours a build can exhibit is far larger than the set it ships, and `spec_plan.rs` gates tools on three different vocabularies (risk-synthesis). Neutral fact; no action.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/utils/cli/src/config_override.rs",
+          "start_line": 30,
+          "end_line": 30,
+          "snippet": "        short = 'c',",
+          "note": "the generic override flag shared by every frontend"
+        },
+        {
+          "file": "codex-rs/features/src/lib.rs",
+          "start_line": 900,
+          "end_line": 900,
+          "snippet": "        key: \"code_mode\",",
+          "note": "an under-development flag flippable from the CLI"
+        }
+      ],
+      "tags": [
+        "iso-25010",
+        "modifiability",
+        "configuration"
+      ],
+      "sokrates_refs": [
+        "finding:functionality-scan/hidden-and-gaps/feature-flag-switchboard",
+        "finding:functionality-scan/entry-points/configuration-and-instruction-files",
+        "finding:risk-synthesis-scan/hotspots/spec-plan-tool-registry",
+        "component:configuration"
+      ],
+      "attributes": {
+        "feature_flags": 117,
+        "config_layers": 9
+      }
+    },
+    {
+      "id": "maintainability-scan/testability/verdict",
+      "group": "testability",
+      "title": "Testability: adequate - the design's seams sit at process and provider boundaries, and the parts behind them are tested for real; the sandbox and the vocabulary are the exceptions",
+      "description": "System grade **adequate**. Driver 1 (positive): the design's seams are where the architecture puts its boundaries - `ExecBackend` in exec-server, `TimeProvider` and `AttestationProvider` in core, `AuthProvider` in codex-api, the JSON-RPC process boundaries - and testing-scan shows the engine is exercised through them with only the model faked (`wiremock` at `/v1/responses`), giving core a 2.16 test ratio and app-server 1.23. Driver 2 (negative): the same boundaries that make the engine testable make its lower layers hard to test in isolation: the sandboxing and policy component sits at 0.26 and its OS-level tests are platform-gated and self-skipping, and the protocol crate at 0.08 path-based is guarded only by serde round-trips, so a renamed variant is caught downstream by snapshots (both `weak`). Driver 3: global state is modest for 97k LOC of engine - 31 `static`/`OnceLock`/`LazyLock` sites in core, mostly caches and templates - but one is a test-mode global (`testability/global-state`), and 54 env mutations in tests need `serial_test`. Driver 4, rolled up by reference: 1320 `skip_if_*` macro sites report pass when they skip and nextest retries every test once, so a green run proves less than it appears to (testing-scan). Component grades follow testing-scan's ratios where the design does not contradict them: `core`, `app-server`, `extensibility`, `exec-server`, `auth`, `code-mode`, `sdk` are `strong`; `protocol`, `sandboxing`, `repo tooling` are `weak`.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/exec-server/src/process.rs",
+          "start_line": 222,
+          "end_line": 222,
+          "snippet": "pub trait ExecBackend: Send + Sync {",
+          "note": "the injectable seam between the engine and process spawning"
+        },
+        {
+          "file": "codex-rs/core/src/current_time.rs",
+          "start_line": 19,
+          "end_line": 19,
+          "snippet": "pub trait TimeProvider: Send + Sync {",
+          "note": "clock injection in the engine"
+        }
+      ],
+      "tags": [
+        "iso-25010",
+        "testability"
+      ],
+      "sokrates_refs": [
+        "metric:loc",
+        "finding:testing-scan/testing-posture/posture",
+        "finding:testing-scan/coverage-map/well-tested",
+        "finding:testing-scan/coverage-map/thin-protocol",
+        "finding:testing-scan/coverage-map/thin-sandboxing-policy",
+        "finding:testing-scan/test-quality/mocking",
+        "finding:testing-scan/test-quality/skipped-tests",
+        "finding:testing-scan/test-quality/flakiness",
+        "finding:testing-scan/test-quality/determinism",
+        "finding:architecture-scan/communication/process-rpc-seams"
+      ],
+      "attributes": {
+        "grade": "adequate",
+        "components": {
+          "core engine": "strong",
+          "app-server API": "strong",
+          "protocol (shared vocabulary)": "weak",
+          "TUI frontend": "adequate",
+          "extensibility (MCP, plugins, skills, hooks)": "strong",
+          "persistence (rollout, state, thread-store)": "adequate",
+          "sandboxing & policy": "weak",
+          "CLI & headless frontends": "adequate",
+          "exec-server (sandboxed executor)": "strong",
+          "model backends & API clients": "adequate",
+          "configuration": "adequate",
+          "extensions (ext/*)": "adequate",
+          "shared infrastructure (utils & leaf crates)": "adequate",
+          "auth & identity": "strong",
+          "code-mode (V8 runtime)": "strong",
+          "sdk (TypeScript & Python)": "strong",
+          "repo tooling & CI": "weak"
+        },
+        "drivers": [
+          "seams: ExecBackend, TimeProvider, AuthProvider, JSON-RPC boundaries (read)",
+          "core 2.16 / app-server 1.23 / sandboxing 0.26 / protocol 0.08 (testing-scan)",
+          "1320 skip macros report pass, nextest retries=1 (testing-scan)"
+        ]
+      }
+    },
+    {
+      "id": "maintainability-scan/testability/global-state",
+      "group": "testability",
+      "title": "Global state in the engine: a test-mode switch baked into ThreadManager and process-wide caches",
+      "description": "Global mutable state is limited but two shapes work against isolation. `thread_manager.rs` carries `FORCE_TEST_THREAD_MANAGER_BEHAVIOR`, a process-wide `AtomicBool` that changes production code paths when tests set it - a test hook inside the object under test rather than an injected collaborator, and one that leaks between tests in the same binary. `connectors.rs` keeps `ACCESSIBLE_CONNECTORS_CACHE` as a `LazyLock<Mutex<Option<..>>>`, so connector availability is memoised per process and tests that need a different answer must reset or serialise. These are the patterns behind the 54 environment mutations and 25 `serial_test` files testing-scan counts; the engine's other statics are message templates and model presets. `low`: contained, named, and the integration harness already works around them.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/thread_manager.rs",
+          "start_line": 109,
+          "end_line": 109,
+          "snippet": "static FORCE_TEST_THREAD_MANAGER_BEHAVIOR: AtomicBool = AtomicBool::new(false);",
+          "note": "test behaviour switched by a process-wide global"
+        },
+        {
+          "file": "codex-rs/core/src/connectors.rs",
+          "start_line": 63,
+          "end_line": 63,
+          "snippet": "static ACCESSIBLE_CONNECTORS_CACHE: LazyLock<StdMutex<Option<CachedAccessibleConnectors>>> =",
+          "note": "process-wide cache with no injection point"
+        }
+      ],
+      "recommendation": "Replace the `FORCE_TEST_*` global with a constructor parameter or a `ThreadManager` builder option, and give the connectors cache an owner (the session or thread manager) so tests get a fresh one per instance.",
+      "tags": [
+        "iso-25010",
+        "testability",
+        "global-state"
+      ],
+      "sokrates_refs": [
+        "finding:testing-scan/test-quality/determinism",
+        "finding:testing-scan/test-infrastructure/harness",
+        "component:core engine"
+      ],
+      "attributes": {
+        "core_static_sites": 31
+      }
+    },
+    {
+      "id": "maintainability-scan/maintainability-posture/posture",
+      "group": "maintainability-posture",
+      "title": "Maintainability posture: modularity weak, reusability adequate, analysability weak, modifiability adequate, testability adequate; the core engine costs the most; trajectory improving slowly",
+      "description": "**Modularity weak**: no production cycles and a TUI that cannot bypass the API, but a 61-crate-fan-out engine and a vocabulary crate whose changes ripple into four components. **Reusability adequate**: dozens of real leaf crates, one trapped crate (`protocol`) and a handful of copied parsers. **Analysability weak**: precise names and a good `AGENTS.md`, but 38 percent of main LOC in files over 1000 lines, few module docs in the engine, off-site user docs and two generations of API compiled side by side. **Modifiability adequate**: complexity is low and behaviour is configurable, but three engine files are merge magnets with 40-80 contributors each and a third of files have one owner. **Testability adequate**: seams at the right boundaries and an integration suite that runs the engine for real, with the sandbox and the vocabulary thin and a green run that can hide skips. The **costliest component is the core engine**: weak or poor on four of five sub-characteristics, 46 percent of recent commits, and the place the repo's own guidance says not to grow. **Trajectory: improving slowly** - evolution-scan shows a deliberate extraction programme (config, models, http-client, ext/* crates), a flat high-velocity plateau with a broadening team, and fix-share falling; the counter-signal is that core's share of activity has not dropped. Highest-leverage changes: cut the service-crate edges out of `codex-protocol` (`reusability/trapped-protocol`), break up the core config and tool-registry cluster along the extension seam (`modifiability/hotspot-cluster-core-engine`), and generate the v2 notification projection instead of hand-mirroring `EventMsg` (`modularity/cross-component-cochange`). Data gaps: Sokrates extracted no component dependencies for this Rust workspace, its unit, duplicate and co-change exports are capped at 10000 entries, and the commit-mix could not be split per component.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "AGENTS.md",
+          "start_line": 74,
+          "end_line": 74,
+          "snippet": "Over time, the `codex-core` crate (defined in `codex-rs/core/`) has become bloated because it is the largest crate, so it is often easier to add something new to `codex-core` rather than refactor out the library code you need so your new code neither takes a dependency on, nor contributes to the size of, `codex-core`.",
+          "note": "the repo's own statement of where maintenance effort concentrates"
+        }
+      ],
+      "tags": [
+        "iso-25010",
+        "maintainability",
+        "posture"
+      ],
+      "sokrates_refs": [
+        "finding:maintainability-scan/reusability/trapped-protocol",
+        "finding:maintainability-scan/modifiability/hotspot-cluster-core-engine",
+        "finding:maintainability-scan/modularity/cross-component-cochange",
+        "finding:evolution-scan/trajectory/velocity-plateau",
+        "finding:evolution-scan/lifecycle/core-decomposition-in-progress",
+        "finding:evolution-scan/trajectory/work-mix-restructuring-and-hardening",
+        "component:core engine"
+      ],
+      "attributes": {
+        "grades": {
+          "modularity": "weak",
+          "reusability": "adequate",
+          "analysability": "weak",
+          "modifiability": "adequate",
+          "testability": "adequate"
+        },
+        "costliest_component": "core engine",
+        "trajectory": "improving slowly"
+      }
+    }
+  ],
+  "summary_visual": {
+    "file": "visuals/maintainability-scan.jpeg",
+    "credit": "Illustration generated by Google Gemini (gemini-3-pro-image-preview)",
+    "generated_at": "2026-08-27T17:16:27Z",
+    "prompt": "Create a single, calm, aesthetically pleasing illustration that tells the story of the analysis summary below - a reader should grasp its one or two big ideas at a glance. Text is welcome but sparse: several short labels or key words that anchor the story. Let shapes, metaphor, composition and colour carry most of the meaning. Style: polished flat vector illustration, crisp outlines, minimal shading, generous margins so nothing touches the edges, a disciplined palette of deep blue, teal, soft green and warm orange accents on a light background. Uncluttered - a few well-chosen elements and plenty of negative space. No photorealism, no 3D render, no clip-art collage, no people's faces.\nVisual motif for this kind of analysis (maintainability-scan): a building being renovated: some wings easy to open and rewire, one wing tangled in cables and scaffolding, five gauges on the wall.\nSubject: the software project 'openai / codex'.\nStory to tell (pick the essence, do not transcribe it): Codex grades modularity weak, reusability adequate, analysability weak, modifiability adequate, testability adequate under ISO/IEC 25010. The workspace is an acyclic 133-crate DAG with a TUI that cannot bypass the API, yet change impact is wide: codex-core depends on 61 crates, and the codex-protocol vocabulary crate - 68 dependents, trapped by its own dependency on the network proxy and policy engine - is one side of the four strongest cross-component co-change pairs (metric:temporal_coupling). Analysability suffers from size rather than logic: 38 percent of main LOC sits in files over 1000 lines, the engine's config, session and event-translation files are each 3-4k lines, module docs are rare outside the TUI, user docs are off-site redirects, and v1/v2 generations compile side by side."
+  }
+}

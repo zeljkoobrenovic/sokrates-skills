@@ -1,0 +1,26 @@
+README.md
+  s_9c82e2ca8d5dc4::t_64827fe32ac72d 51
+examples/codex/ai-insights/functionality-scan.json
+  s_9c82e2ca8d5dc4::t_64827fe32ac72d 1-1947
+examples/codex/ai-insights/index.html
+  s_9c82e2ca8d5dc4::t_64827fe32ac72d 10,13,369-370
+skills/scanners/functionality-scan/SKILL.md
+  s_9c82e2ca8d5dc4::t_ad54fcec3a07fc 61,80
+  s_9c82e2ca8d5dc4::t_679649bfc64d54 19,27,87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "8a611889b40d9d3c0b6b9c28acc1051a2db55bf1",
+  "prompts": {},
+  "sessions": {
+    "s_9c82e2ca8d5dc4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1d22c1c5-43b5-4af3-9f0a-9d2f31702890",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

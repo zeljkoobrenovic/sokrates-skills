@@ -51,7 +51,7 @@ and then regenerate the shared **`index.html`** in the same folder — the AI In
    python3 <core-skill-path>/scripts/render_findings.py _sokrates/findings/ai-insights/
    ```
    The page is static and embeds the data, so it must be re-rendered after every change to any findings file.
-6. **Report to the user**: lead with the summary and attention items (severity above info), mention the validation result ("N/N findings verified"), the findings file path, and the explorer path (`_sokrates/findings/ai-insights/index.html`, open in a browser). If the project's Sokrates report does not yet embed the explorer, mention the one-time command that adds it as a tab of the main report: `java -jar sokrates.jar addCustomTab -label "AI Insights*" -iframeLink "../../findings/ai-insights/index.html"` (run in the project folder; the tab then follows every re-render).
+6. **Report to the user**: lead with the summary and attention items (severity above info), mention the validation result ("N/N findings verified"), the findings file path, and the explorer path (`_sokrates/findings/ai-insights/index.html`, open in a browser). If the project's Sokrates report does not yet embed the explorer, mention the one-time command that adds it as a tab of the main report: `java -jar sokrates.jar addCustomTab -label "AI Insights*" -iframeLink "../../findings/ai-insights/index.html"` (run in the project folder; the tab then follows every re-render). Older Sokrates builds lack `addCustomTab` — if you have verified the installed CLI does not offer it, skip the suggestion rather than recommend a command you know is missing.
 
 ### Composing and comparing runs
 

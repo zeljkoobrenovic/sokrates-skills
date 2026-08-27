@@ -17,7 +17,8 @@ All scanners share one contract, defined in **`sokrates-scan-core`**:
 | skill | status | what it finds |
 |---|---|---|
 | `sokrates-scan-core` | ✅ | (shared foundation, not a scanner) |
-| `full-scan` | ✅ | Orchestrator: runs all nine scanners in dependency order (waves), merges into the combined report, diffs against previous results on re-runs |
+| `full-scan` | ✅ | Orchestrator: runs all ten scanners in dependency order (waves), merges into the combined report, diffs against previous results on re-runs |
+| `functionality-scan` | ✅ | What the software does, from the code: purpose and audience, feature inventory with entry points and behaviour, surfaces (CLI/API/UI/config/hooks), end-to-end workflows, data managed, integrations, hidden/dormant functionality and doc-vs-code gaps |
 | `tech-stack-scan` | ✅ | Languages, frameworks, libraries, build tooling, CI/CD, infrastructure, databases, external services, protocols |
 | `risk-synthesis-scan` | ✅ | Narrative explanation of Sokrates hotspots: what each risky file does and why it's risky, knowledge risk (bus factor, single-owner areas), change coupling explained |
 | `cicd-scan` | ✅ | The CI/CD process as a narrative: triggers, build, test gates, quality gates, release and publishing, deployment/install channels, pipeline hygiene risks |

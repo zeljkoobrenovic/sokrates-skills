@@ -20,6 +20,7 @@ skills/
 |---|---|
 | `sokrates-scan-core` | the shared contract: findings format, evidence rules, validator, explorer renderer, merge/diff tools |
 | `full-scan` | orchestrator — runs all scanners in dependency order and merges the results |
+| `functionality-scan` | what the software does: purpose, features, entry points, workflows, data, integrations, hidden functionality and doc-vs-code gaps |
 | `domain-map-scan` | the domain language: glossary, bounded contexts, capabilities, language drift |
 | `architecture-scan` | the implemented architecture: style, components, boundaries, violations, communication, migrations |
 | `tech-stack-scan` | languages, frameworks, libraries, build tooling, CI/CD, infrastructure, external services |
@@ -47,7 +48,7 @@ The field references under `skills/config/*/references/` were read from the Sokr
 
 ## Example
 
-**[Live: AI Insights Explorer for openai/codex](https://zeljkoobrenovic.github.io/sokrates-skills/examples/codex/ai-insights/)** — all nine scanners, 191 verified findings (source in `examples/codex/ai-insights/`).
+**[Live: AI Insights Explorer for openai/codex](https://zeljkoobrenovic.github.io/sokrates-skills/examples/codex/ai-insights/)** — nine of the ten scanners, 191 verified findings (source in `examples/codex/ai-insights/`).
 
 ## Install
 

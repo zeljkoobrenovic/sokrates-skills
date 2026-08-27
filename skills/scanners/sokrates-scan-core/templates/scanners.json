@@ -2,6 +2,21 @@
   "_comment": "Scanner display metadata embedded into the AI Insights Explorer by render_findings.py. Order of entries = display order (generic first, then more specialised). A scanner missing here still renders, with a title-cased id and no descriptions.",
   "scanners": [
     {
+      "id": "functionality-scan",
+      "name": "Functionality",
+      "emoji": "🧭",
+      "description": "Describes what the software actually does, reverse-engineered from the code: its purpose and audience, the feature inventory, the entry points through which functionality is reached, the end-to-end workflows, the data it manages, its integrations, and the behaviour that is hidden, dormant or promised by the docs but not implemented.",
+      "groups": {
+        "purpose": "The one-page answer: what the software is, for whom, what problem it solves, what it deliberately is not, and how its product surfaces relate.",
+        "features": "The feature inventory — one entry per feature with its entry point, inputs, behaviour, outputs, failure modes, and the component that implements it.",
+        "entry-points": "The surfaces through which functionality is reached: command sets, APIs, UI navigation, hooks and plugins, configuration — what each exposes and which entries are undocumented.",
+        "workflows": "End-to-end user journeys as ordered steps tied to features, with prerequisites, the state each step leaves behind, and the exceptional paths.",
+        "data": "What the system manages: stores and their shape, location, lifecycle and owning features, and what data leaves the system.",
+        "integrations": "External systems as functionality: what each enables, how it is configured, and how the software behaves when it is unavailable.",
+        "hidden-and-gaps": "Flags and experiments, undocumented or dormant functionality, stubs on user-visible paths, and places where documentation and code disagree."
+      }
+    },
+    {
       "id": "domain-map-scan",
       "name": "Domain Map",
       "emoji": "🗺️",
@@ -25,6 +40,20 @@
         "violations": "Deviations from the evident intent: dependency cycles, skip-layer imports, grab-bag modules, duplicated concepts across a boundary, unjustified hubs.",
         "communication": "How parts talk at runtime: channels, events, actors, IPC/RPC between processes, sync vs. async seams, ordering and backpressure assumptions.",
         "evolution": "Architecture in motion: migrations in progress, deprecated-but-still-wired paths, parallel old/new structures, extension points and plugin surfaces."
+      }
+    },
+    {
+      "id": "evolution-scan",
+      "name": "Evolution",
+      "emoji": "🕰️",
+      "description": "Tells the codebase's history as a story from its git log: the eras of development and what each was about, how the code grew and where it came from, how the center of activity shifted between areas, who arrived and who left, which modules were born, rewritten or abandoned, and where velocity and work mix are heading.",
+      "groups": {
+        "eras": "The timeline as chapters: each era's date range, what the project was then, what the big commits built, and what closed the era.",
+        "growth": "How the codebase got its size: commits, files and lines per period, where the bulk came from (feature work, imports, generated or vendored code), and how much of what was ever written survives.",
+        "focus-shift": "Where the center of activity moved: which areas dominated each period and dominate now, what is emerging or accelerating, and what is cooling or dormant — finished or neglected.",
+        "people": "The team over time: size and concentration per period, arrivals and what they brought, departures and what they left behind, and whether ownership of the core has moved.",
+        "lifecycle": "Births, rewrites and deaths of modules: what replaced what and when, migrations completed or stalled with both halves alive, directories deleted wholesale, and the oldest surviving code.",
+        "trajectory": "The synthesis: velocity trend over the last quarters, the current mix of features vs. fixes vs. refactoring compared to a year ago, the direction the last period implies, and the risks that follow."
       }
     },
     {
@@ -112,20 +141,6 @@
         "hotspots": "One finding per risky file: what it does, why it keeps changing, whether its complexity is essential or accidental, and what a targeted improvement would be.",
         "knowledge-risk": "Bus-factor concentration: how much of the codebase depends on one or two contributors, and the single-owner areas that matter — where losing a person means losing knowledge.",
         "change-coupling": "Files that repeatedly change together and the semantic reason why: shared protocol, duplicated logic, a leaky boundary, or legitimately cohesive code."
-      }
-    },
-    {
-      "id": "evolution-scan",
-      "name": "Evolution",
-      "emoji": "🕰️",
-      "description": "Tells the codebase's history as a story from its git log: the eras of development and what each was about, how the code grew and where it came from, how the center of activity shifted between areas, who arrived and who left, which modules were born, rewritten or abandoned, and where velocity and work mix are heading.",
-      "groups": {
-        "eras": "The timeline as chapters: each era's date range, what the project was then, what the big commits built, and what closed the era.",
-        "growth": "How the codebase got its size: commits, files and lines per period, where the bulk came from (feature work, imports, generated or vendored code), and how much of what was ever written survives.",
-        "focus-shift": "Where the center of activity moved: which areas dominated each period and dominate now, what is emerging or accelerating, and what is cooling or dormant — finished or neglected.",
-        "people": "The team over time: size and concentration per period, arrivals and what they brought, departures and what they left behind, and whether ownership of the core has moved.",
-        "lifecycle": "Births, rewrites and deaths of modules: what replaced what and when, migrations completed or stalled with both halves alive, directories deleted wholesale, and the oldest surviving code.",
-        "trajectory": "The synthesis: velocity trend over the last quarters, the current mix of features vs. fixes vs. refactoring compared to a year ago, the direction the last period implies, and the risks that follow."
       }
     }
   ]

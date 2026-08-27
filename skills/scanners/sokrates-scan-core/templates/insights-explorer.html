@@ -141,6 +141,9 @@
         .summary-head .hint { text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--faint); margin-left: 6px; }
         .summary-head:hover { color: var(--text); }
         .summary-body { margin-top: 8px; }
+        .summary-visual { margin: 14px 0 4px 0; }
+        .summary-visual img { display: block; max-width: 100%; width: 100%; height: auto; border-radius: 8px; border: 1px solid #d4d4d4; background: white; }
+        .summary-visual .credit { font-size: 11px; color: var(--faint); margin-top: 4px; text-align: right; }
         ul.bullets { margin: 0; padding-left: 20px; }
         ul.bullets b, .f-rec b, .summary b, .f-desc b {
             font-weight: 700; color: #14203a;
@@ -704,7 +707,7 @@
             html += '<div class="card" onclick="go(\'' + esc(d.scanner) + '\')">' +
                 '<div class="card-head">' + scannerIcon(d.scanner, 'card') + '<div>' +
                 '<h3>' + esc(scannerName(d.scanner)) + '</h3>' +
-                '<div class="meta"><code>' + esc(d.scanner) + '</code> v' + esc(d.scanner_version || '?') + ' · ' + esc((d.analyzed_at || '').slice(0, 10)) +
+                '<div class="meta">' + esc((d.analyzed_at || '').slice(0, 10)) +
                 (d._file ? ' · <a class="json-link" href="' + esc(d._file) + '" target="_blank" onclick="event.stopPropagation()" title="open the raw findings JSON">json</a>' : '') + '</div>' +
                 '</div></div>' +
                 (scannerDescription(d.scanner) ? '<div class="scanner-desc" title="' + esc(scannerDescription(d.scanner)) + '">' + esc(scannerDescription(d.scanner)) + '</div>' : '') +
@@ -765,7 +768,7 @@
                 '<div class="summary-head" onclick="toggleSummary(\'' + esc(d.scanner) + '\')">' +
                 '<span class="caret">' + (open ? '▾' : '▸') + '</span> Summary' +
                 (open ? '' : '<span class="hint">' + sentences(d.summary).length + ' points — click to expand</span>') + '</div>' +
-                (open ? '<div class="summary-body">' + bullets(d.summary) + '</div>' : '') + '</div>';
+                (open ? '<div class="summary-body">' + bullets(d.summary) + summaryVisual(d) + '</div>' : '') + '</div>';
         }
 
         // group navigation
@@ -874,6 +877,14 @@
             if (!state.groups.size || state.groups.size === all.size) state.groups = null;
         }
         render();
+    }
+
+    function summaryVisual(d) {
+        const v = d.summary_visual;
+        if (!v || !(v.src || v.file)) return '';
+        return '<div class="summary-visual"><img src="' + esc(v.src || v.file) + '" alt="Illustration of the ' +
+            esc(scannerName(d.scanner)) + ' summary" loading="lazy">' +
+            (v.credit ? '<div class="credit">' + esc(v.credit) + '</div>' : '') + '</div>';
     }
 
     function toggleSummary(id) {

@@ -38,6 +38,18 @@
       "description": "Optional scanner-specific aggregate numbers",
       "additionalProperties": true
     },
+    "summary_visual": {
+      "type": "object",
+      "description": "Optional generated illustration of the summary, shown at the end of the foldable summary block in the explorer (see skills/illustrators/generate_summary_visuals.py)",
+      "required": ["file"],
+      "additionalProperties": false,
+      "properties": {
+        "file": { "type": "string", "description": "Image path relative to the ai-insights folder, e.g. 'visuals/tech-stack-scan.png'" },
+        "credit": { "type": "string", "description": "Attribution, e.g. the generating model" },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "prompt": { "type": "string", "description": "The prompt used to generate the image" }
+      }
+    },
     "findings": {
       "type": "array",
       "items": {

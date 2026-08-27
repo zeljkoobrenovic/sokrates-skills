@@ -45,9 +45,24 @@ def load_docs(paths):
             skipped.append((path, "combined output (explorer merges itself)"))
             continue
         doc["_file"] = path.name
+        attach_visual(doc, path.parent)
         docs.append(doc)
     docs.sort(key=lambda d: d.get("scanner", ""))
     return docs, skipped
+
+
+def attach_visual(doc, base_dir: Path):
+    """Resolve an optional summary_visual (see generate_summary_visuals.py) to a src the
+    explorer can show: the relative path when the file exists next to the JSON, else dropped."""
+    visual = doc.get("summary_visual")
+    if not isinstance(visual, dict) or not visual.get("file"):
+        return
+    rel = str(visual["file"])
+    if not (base_dir / rel).is_file():
+        print(f"warning: {doc['_file']}: summary visual {rel} not found, skipping", file=sys.stderr)
+        doc.pop("summary_visual", None)
+        return
+    visual["src"] = rel.replace("\\", "/")
 
 
 def resolve_inputs(inputs):

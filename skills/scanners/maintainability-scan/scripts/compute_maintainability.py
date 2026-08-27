@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Roll up Sokrates data into maintainability drivers per ISO/IEC 25010 sub-characteristic.
+"""Roll up Sokrates data into maintainability drivers per sub-characteristic (modularity, reusability, analysability, modifiability, testability).
 
 Deterministic, standard-library only. Reads an UNZIPPED data.zip directory and
 prints, per component and for the system, the numbers the maintainability scanner
@@ -124,6 +124,9 @@ def main(argv=None) -> int:
     ap.add_argument("--decomposition", default="primary")
     ap.add_argument("--json")
     ap.add_argument("--top", type=int, default=10)
+    ap.add_argument("--window", default="180", help="temporal-coupling export to use: 180 (default, recent history), 90, 30, or all (lifetime pairs, dominated by old history)")
+    ap.add_argument("--min-shared", type=int, default=3, help="minimum shared commits for a co-change pair to count (default 3)")
+    ap.add_argument("--src-root", help="source root: counts documentation files in the tree even when Sokrates' config ignores them (docs/, *.md)")
     args = ap.parse_args(argv)
     d = Path(args.data_dir).resolve()
     if not (d / "files.json").is_file():
@@ -135,25 +138,31 @@ def main(argv=None) -> int:
                                 "units": 0, "unit_loc": 0, "unit_loc_high_complexity": 0, "unit_loc_long": 0,
                                 "dup_blocks": 0, "cross_component_dup_blocks": 0, "dup_partners": set(),
                                 "commits": 0, "churn": 0, "single_owner_files": 0, "files_with_history": 0,
-                                "contributors": set(), "stale_files": 0, "top_contributor_share": None,
+                                "contributors": set(), "stale_files": 0,
                                 "fan_in": 0, "fan_out": 0, "cochange_pairs_cross": 0, "cochange_partners": set()})
 
     # --- files and components
     files = load_json(d, "files.json") or []
     file_comp = {}
+    test_like = re.compile(r"(^|/)(tests?|__tests__|spec|testdata|fixtures?)/|_tests?\.\w+$|(^|/)tests?\.rs$|Tests?\.(java|kt|cs)$|\.(spec|test)\.\w+$|(^|/)test_\w+\.py$")
+    test_like_loc = 0
     for f in files:
         c = comp_of(f, decomp)
         file_comp[f["relativePath"]] = c
         e = comp[c]
         e["files"] += 1
         loc = f.get("linesOfCode", 0)
+        if test_like.search(f["relativePath"]):
+            test_like_loc += loc
+            e["test_like_loc"] = e.get("test_like_loc", 0) + loc
+            continue  # test-like files in Sokrates' main scope are excluded from size-risk shares
         e["loc"] += loc
         b = bucket(loc)
         if b in ("high", "very_high"):
             e["loc_high_risk_files"] += loc
         if b == "very_high":
             e["loc_very_high_risk_files"] += loc
-    prov["files"] = "files.json (main scope, component from the %s decomposition)" % decomp
+    prov["files"] = "files.json (main scope, component from the %s decomposition; test-like paths inside main scope — *tests.rs, tests/, *Test.java — are excluded from size-risk shares and reported as test_like_loc)" % decomp
 
     # --- units
     units = load_json(d, "units.json") or []
@@ -167,7 +176,7 @@ def main(argv=None) -> int:
             e["unit_loc_high_complexity"] += loc
         if unit_bucket(loc) in ("high", "very_high"):
             e["unit_loc_long"] += loc
-    prov["units"] = "units.json (Sokrates caps this export at the top 10,000 units on large codebases — a floor, not a total)"
+    prov["units"] = "units.json (Sokrates caps this export at the top 10,000 units — the LARGEST ones — so high_complexity_unit_loc_share is biased upward on big codebases; compare NUMBER_OF_UNITS in metrics.txt)"
     if not units:
         gaps.append("unit-level size/complexity (units.json missing)")
 
@@ -189,7 +198,7 @@ def main(argv=None) -> int:
                 comp[c]["dup_partners"].update(cs - {c})
             key = tuple(sorted(cs))
             cross_pairs[key] += block.get("blockSize", 0)
-    prov["duplication"] = "duplicates.json (blocks with components; cross-component = block spans >1 component)"
+    prov["duplication"] = "duplicates.json (blocks with components; cross-component = block spans >1 component; Sokrates caps this export at 10,000 blocks — 10000 means capped)"
     if not dup:
         gaps.append("duplication (duplicates.json missing or empty)")
 
@@ -209,31 +218,46 @@ def main(argv=None) -> int:
                 if ncontrib == 1:
                     e["single_owner_files"] += 1
                 days_last = int(r[idx["days since last update"]])
-                if days_last > 730:
-                    e["stale_files"] += 1
+                e.setdefault("days_last", []).append(days_last)
+                e["commits_90d"] = e.get("commits_90d", 0) + int(r[idx["# commits (90d)"]])
                 e["contributors"].add(r[idx["last contributor"]]); e["contributors"].add(r[idx["first contributor"]])
             except (KeyError, ValueError, IndexError):
                 continue
-        prov["history"] = "text/mainFilesWithHistory.txt (commits, line churn, contributors, days since last update per file)"
+        all_days = sorted(x for e in comp.values() for x in e.get("days_last", []))
+        stale_threshold = max(365, 2 * all_days[len(all_days) // 2]) if all_days else 730
+        for e in comp.values():
+            e["stale_files"] = sum(1 for x in e.get("days_last", []) if x > stale_threshold)
+        prov["history"] = f"text/mainFilesWithHistory.txt (commits, line churn, contributors, days since last update per file); stale = untouched for > {stale_threshold} days (max(365, 2 x median age of last change)); stale share matters only in components with commits_90d > 0"
     else:
         gaps.append("file history (text/mainFilesWithHistory.txt missing — no git history extracted)")
 
     # --- temporal coupling
-    cochange_cross_pairs = []
-    for name in ("temporal_dependencies.txt", "temporal_dependencies_different_folders.txt", "temporal_dependencies_180_days.txt"):
+    cochange_cross_pairs, all_pairs, window_used = [], 0, None
+    candidates = {"all": ["temporal_dependencies.txt"], "180": ["temporal_dependencies_180_days.txt"],
+                  "90": ["temporal_dependencies_90_days.txt"], "30": ["temporal_dependencies_30_days.txt"]}[args.window] + \
+                 ["temporal_dependencies.txt", "temporal_dependencies_180_days.txt", "temporal_dependencies_90_days.txt"]
+    for name in candidates:
         h, rws = read_tsv(d / "text" / name)
         if rws:
+            window_used = name
             for r in rws:
                 try:
                     f1, f2, same = r[0], r[1], int(r[2])
                 except (ValueError, IndexError):
                     continue
+                if same < args.min_shared:
+                    continue
+                try:
+                    strength = round(same / max(1, min(int(r[3]), int(r[4]))), 2)
+                except (ValueError, IndexError):
+                    strength = None
+                all_pairs += 1
                 c1, c2 = file_comp.get(f1, "(unassigned)"), file_comp.get(f2, "(unassigned)")
                 if c1 != c2:
-                    cochange_cross_pairs.append((same, f1, f2, c1, c2))
+                    cochange_cross_pairs.append((same, f1, f2, c1, c2, strength))
                     comp[c1]["cochange_pairs_cross"] += 1; comp[c2]["cochange_pairs_cross"] += 1
                     comp[c1]["cochange_partners"].add(c2); comp[c2]["cochange_partners"].add(c1)
-            prov["temporal_coupling"] = f"text/{name} (file pairs changed in the same commits)"
+            prov["temporal_coupling"] = f"text/{name}, pairs with >= {args.min_shared} shared commits, strength = shared / min(commits f1, commits f2); per-component counts are pairs touching that component (a cross pair counts for both sides); the export is capped at 10,000 pairs"
             break
     else:
         gaps.append("temporal coupling (no text/temporal_dependencies*.txt)")
@@ -256,18 +280,45 @@ def main(argv=None) -> int:
     for name in ("otherFiles.json", "buildAndDeploymentFiles.json", "files.json"):
         for f in load_json(d, name) or []:
             rp = f.get("relativePath", "")
-            if Path(rp).suffix.lower() in DOC_EXT or DOC_NAME.search(rp):
+            if Path(rp).suffix.lower() in DOC_EXT or (DOC_NAME.search(rp) and Path(rp).suffix.lower() in DOC_EXT | {".html"}):
                 doc_files += 1; doc_loc += f.get("linesOfCode", 0)
-    prov["documentation"] = "files with .md/.rst/.adoc/.txt or doc-like paths across main/other/build scopes"
+    prov["documentation"] = "files with .md/.rst/.adoc or doc-like paths across Sokrates' main/other/build scopes"
+    tree_docs = None
+    if args.src_root and Path(args.src_root).is_dir():
+        sr = Path(args.src_root)
+        md = [q for q in sr.rglob("*") if q.is_file() and q.suffix.lower() in {".md", ".rst", ".adoc"} and not any(x in q.parts for x in ("node_modules", "target", ".git", "_sokrates", "vendor"))]
+        tree_docs = {"doc_files_in_tree": len(md), "doc_lines_in_tree": sum(len(q.read_text(errors="replace").splitlines()) for q in md),
+                     "docs_dir_present": (sr / "docs").is_dir(), "in_sokrates_scope": doc_files}
+        prov["documentation_tree"] = "documentation files found by walking the source root (Sokrates' config may ignore them)"
+        # module/file doc-comment coverage per component: first non-blank, non-import line is a doc comment
+        doc_rx = re.compile(r"^\s*(//!|/\*\*|/\*!|\"\"\"|#!|///|\* @file|// Package|/// <summary>)")
+        for f in files:
+            rp = f["relativePath"]
+            if test_like.search(rp) or Path(rp).suffix.lower() not in {".rs", ".java", ".kt", ".py", ".ts", ".tsx", ".js", ".go", ".cs", ".scala"}:
+                continue
+            q = sr / rp
+            if not q.is_file():
+                continue
+            e = comp[file_comp[rp]]
+            e["code_files_checked"] = e.get("code_files_checked", 0) + 1
+            try:
+                head = q.read_text(encoding="utf-8", errors="replace").splitlines()[:15]
+            except OSError:
+                continue
+            if any(doc_rx.match(l) for l in head):
+                e["doc_commented_files"] = e.get("doc_commented_files", 0) + 1
+        prov["doc_comments"] = "share of code files whose first 15 lines contain a module/file doc comment (//!, /** , \"\"\", ///, package doc)"
 
     # --- concerns (debt markers)
     concerns = {}
     for p in sorted((d / "text").glob("aspect_concern_*.txt")):
-        if "found_text" in p.name or "Unclassified" in p.name:
+        if "found_text" in p.name or "Unclassified" in p.name or "_AND_" in p.name:
+            continue
+        if not re.search(r"debt|todo|deprecat|fixme|hack|legacy|suppress", p.name, re.I):
             continue
         n = max(0, len(p.read_text(encoding="utf-8", errors="replace").splitlines()) - 1)
         concerns[p.stem[len("aspect_concern_"):]] = n
-    prov["concerns"] = "text/aspect_concern_*.txt (files matching each configured concern)"
+    prov["concerns"] = "text/aspect_concern_*.txt (files matching each configured concern; a concern listed with 0 is configured but matched nothing — an absent key means not configured)"
 
     # --- commits
     commit_mix = None
@@ -275,7 +326,7 @@ def main(argv=None) -> int:
         fix = feat = ref = total = 0
         for line in Path(args.commits).read_text(encoding="utf-8", errors="replace").splitlines():
             msg = line.split(" ", 1)[1] if " " in line else ""
-            if not msg:
+            if not msg or msg.lower().startswith("merge "):
                 continue
             total += 1
             if FIX_RX.search(msg):
@@ -287,7 +338,7 @@ def main(argv=None) -> int:
         if total:
             commit_mix = {"commits": total, "fix_share": round(fix / total, 2), "feature_share": round(feat / total, 2),
                           "refactor_share": round(ref / total, 2), "unclassified_share": round((total - fix - feat - ref) / total, 2)}
-            prov["commit_mix"] = f"{args.commits} first lines, keyword classification (fix|bug|regression… / feat|add|implement… / refactor|rename|cleanup…)"
+            prov["commit_mix"] = f"{args.commits} first lines, SYSTEM-WIDE keyword classification (fix|bug|regression… / feat|add|implement… / refactor|rename|cleanup…), merges skipped; unclassified is usually large — quote fix_share only relative to feature_share"
     else:
         gaps.append("fix-vs-feature commit share (pass --commits git-commits.txt)")
 
@@ -308,10 +359,14 @@ def main(argv=None) -> int:
             "dup_partners": sorted(e["dup_partners"]),
             "fan_in": e["fan_in"] if edges else None, "fan_out": e["fan_out"] if edges else None,
             "cross_component_cochange_pairs": e["cochange_pairs_cross"], "cochange_partners": sorted(e["cochange_partners"]),
-            "commits": e["commits"], "line_churn": e["churn"],
+            "file_commits": e["commits"], "line_churn": e["churn"],
             "single_owner_file_share": round(e["single_owner_files"] / e["files_with_history"], 2) if e["files_with_history"] else None,
             "stale_file_share": round(e["stale_files"] / e["files_with_history"], 2) if e["files_with_history"] else None,
-            "contributors_seen": len(e["contributors"]),
+            "commits_90d": e.get("commits_90d", 0),
+            "dormant": e.get("commits_90d", 0) == 0 and e["files_with_history"] > 0,
+            "contributors_seen_first_last": len(e["contributors"]),
+            "doc_commented_file_share": round(e.get("doc_commented_files", 0) / e["code_files_checked"], 2) if e.get("code_files_checked") else None,
+            "test_like_loc_in_main_scope": e.get("test_like_loc", 0),
             "looks_like_shared_utility": bool(UTIL_NAME.search(c)),
         }
     sys_stats = {
@@ -320,23 +375,28 @@ def main(argv=None) -> int:
         "high_risk_file_loc_share": round(sum(e["loc_high_risk_files"] for e in comp.values()) / total_loc, 2),
         "high_complexity_unit_loc_share": round(sum(e["unit_loc_high_complexity"] for e in comp.values()) / max(1, sum(e["unit_loc"] for e in comp.values())), 2),
         "duplicate_blocks": sum(1 for _ in dup.get("duplicates", [])),
-        "cross_component_duplicate_blocks": len(cross_pairs) and sum(1 for b in dup.get("duplicates", []) if len({file_comp.get((fb.get('file') or {}).get('relativePath', ''), '') for fb in b.get('duplicatedFileBlocks', [])}) > 1),
-        "cross_component_cochange_pairs": len(cochange_cross_pairs),
+        "cross_component_duplicate_blocks": sum(1 for b in dup.get("duplicates", []) if len({file_comp.get((fb.get('file') or {}).get('relativePath', ''), '') for fb in b.get('duplicatedFileBlocks', [])}) > 1),
+        "cross_component_duplicated_lines_by_pair": {" <-> ".join(k): n for k, n in sorted(cross_pairs.items(), key=lambda kv: -kv[1])[:args.top]},
+        "test_like_loc_inside_main_scope": test_like_loc,
+        "cochange_window": window_used, "cochange_min_shared_commits": args.min_shared,
+        "cochange_pairs": all_pairs, "cross_component_cochange_pairs": len(cochange_cross_pairs),
+        "cross_component_cochange_share": round(len(cochange_cross_pairs) / all_pairs, 2) if all_pairs else None,
+        "cross_component_cochange_pairs_per_100_files": round(100 * len(cochange_cross_pairs) / max(1, sum(e["files_with_history"] for e in comp.values())), 1),
         "component_dependency_edges": len(edges) if edges else None,
         "component_cycles": [list(c) for c in cycles] if edges else None,
-        "doc_files": doc_files, "doc_loc": doc_loc, "doc_loc_per_kloc": round(doc_loc / (total_loc / 1000), 1),
+        "doc_files": doc_files, "doc_loc": doc_loc, "doc_loc_per_kloc": round(doc_loc / (total_loc / 1000), 1), "documentation_tree": tree_docs,
         "single_owner_file_share": round(sum(e["single_owner_files"] for e in comp.values()) / max(1, sum(e["files_with_history"] for e in comp.values())), 2),
         "stale_file_share": round(sum(e["stale_files"] for e in comp.values()) / max(1, sum(e["files_with_history"] for e in comp.values())), 2),
         "debt_concerns": concerns, "commit_mix": commit_mix,
     }
     # typical-change scenarios: top cross-component co-change pairs, deduped by component pair
     scenarios, seen = [], set()
-    for same, f1, f2, c1, c2 in cochange_cross_pairs:
+    for same, f1, f2, c1, c2, strength in cochange_cross_pairs:
         key = tuple(sorted((c1, c2)))
         if key in seen:
             continue
         seen.add(key)
-        scenarios.append({"components": list(key), "files": [f1, f2], "shared_commits": same})
+        scenarios.append({"components": list(key), "files": [f1, f2], "shared_commits": same, "strength": strength})
         if len(scenarios) >= args.top:
             break
     # metrics.txt totals if present
@@ -354,19 +414,20 @@ def main(argv=None) -> int:
     print(f"Maintainability drivers from {d} ({decomp} decomposition): {sys_stats['components']} components, {total_loc} main LOC\n")
     print("system:")
     for k, v in sys_stats.items():
-        if k not in ("debt_concerns", "commit_mix", "component_cycles"):
+        if k not in ("debt_concerns", "commit_mix", "component_cycles", "documentation_tree"):
             print(f"  {k:36s} {v}")
     print(f"  component_cycles                     {sys_stats['component_cycles']}")
+    print(f"  documentation_tree                   {tree_docs}")
     print(f"  debt_concerns                        {concerns}")
     print(f"  commit_mix                           {commit_mix}")
     print("\nper component (sorted by LOC):")
-    hdr = f"  {'component':40s} {'loc':>7s} {'vhr%':>5s} {'cplx%':>6s} {'xdup':>5s} {'xco':>4s} {'fin':>4s} {'fout':>4s} {'1own%':>6s} {'stale%':>6s} {'commits':>8s}"
+    hdr = f"  {'component':40s} {'loc':>7s} {'vhr%':>5s} {'cplx%':>6s} {'xdup':>5s} {'xco':>4s} {'fin':>4s} {'fout':>4s} {'1own%':>6s} {'stale%':>6s} {'fcommit':>8s}"
     print(hdr)
     for c, t in sorted(table.items(), key=lambda kv: -kv[1]["loc"]):
         pct = lambda x: "-" if x is None else f"{int(x*100)}"
         print(f"  {c[:40]:40s} {t['loc']:7d} {pct(t['very_high_risk_file_loc_share']):>5s} {pct(t['high_complexity_unit_loc_share']):>6s} "
               f"{t['cross_component_dup_blocks']:5d} {t['cross_component_cochange_pairs']:4d} {('-' if t['fan_in'] is None else t['fan_in']):>4} {('-' if t['fan_out'] is None else t['fan_out']):>4} "
-              f"{pct(t['single_owner_file_share']):>6s} {pct(t['stale_file_share']):>6s} {t['commits']:8d}")
+              f"{pct(t['single_owner_file_share']):>6s} {pct(t['stale_file_share']):>6s} {t['file_commits']:8d}")
     print("\ntypical-change scenarios (top cross-component co-change pairs; read these two files each):")
     for sc in scenarios:
         print(f"  {sc['shared_commits']:4d} shared commits  {sc['components'][0]} <-> {sc['components'][1]}\n        {sc['files'][0]}\n        {sc['files'][1]}")

@@ -208,7 +208,7 @@
       "id": "maintainability-scan",
       "name": "Maintainability",
       "emoji": "🧰",
-      "description": "Grades maintainability along the five ISO/IEC 25010 sub-characteristics — modularity, reusability, analysability, modifiability, testability — as evidenced grades per sub-characteristic and per component, rolled up from Sokrates' size, complexity, duplication, coupling, churn and ownership numbers and the other scanners' findings, plus targeted reading of what nobody else covers.",
+      "description": "Grades maintainability along five sub-characteristics — modularity, reusability, analysability, modifiability, testability — as evidenced grades per sub-characteristic and per component, rolled up from Sokrates' size, complexity, duplication, coupling, churn and ownership numbers and the other scanners' findings, plus targeted reading of what nobody else covers.",
       "groups": {
         "modularity": "Change impact radius: component coupling (fan-in/out, cycles), cross-component temporal coupling, boundary leaks — what a change in one component does to others.",
         "reusability": "Which assets are reusable in fact (libraries with no product coupling, shared utilities with one owner) and which are trapped or copy-pasted (cross-component duplication, utilities depending on the product).",

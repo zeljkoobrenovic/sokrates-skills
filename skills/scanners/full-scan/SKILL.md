@@ -20,7 +20,7 @@ Scanners consume earlier scanners' findings (each re-verifies evidence itself, b
 | 3b | `performance-scan`, `storage-scan`, `network-scan` | waves 1–3 (functionality for workload/data/integrations, architecture for the main loop and communication, reliability for the write-safety and retry verdicts they reference) — run after `architecture-scan` and `reliability-scan`; independent of each other |
 | 4 | `security-scan`, `domain-language-scan` | wave 3 (architecture's security boundaries and component map; network/storage for TLS, endpoints and secret files; the feature inventory as the capability list) |
 | 5 | `evolution-scan` | waves 1–4 (component names, hotspots and knowledge risk, migrations in progress to date the story against) |
-| 6 | `maintainability-scan` | everything — the ISO 25010 roll-up grades from Sokrates numbers and the other scanners' findings; run last |
+| 6 | `maintainability-scan` | everything — the maintainability roll-up grades from Sokrates numbers and the other scanners' findings; run last |
 
 Scanners within a wave are independent — run them in parallel (as subagents) when the harness allows; run waves sequentially. If a needed predecessor is missing or fails, its consumers still run (the skills degrade gracefully) — note the gap in the final report.
 

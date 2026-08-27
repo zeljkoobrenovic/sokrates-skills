@@ -183,6 +183,19 @@ def main():
         return 2
 
     errors, warnings = [], []
+    # finding:<id> cross-references must resolve to an id in a sibling findings file (or this one)
+    folder_ids = set()
+    for sib in findings_path.parent.glob("*.json"):
+        try:
+            sd = json.loads(sib.read_text())
+            if isinstance(sd, dict) and sd.get("scanner") != "combined":
+                folder_ids.update(x.get("id", "") for x in sd.get("findings", []) if isinstance(x, dict))
+        except (OSError, json.JSONDecodeError):
+            continue
+    for f in (doc.get("findings") or []):
+        for ref in (f.get("sokrates_refs") or []) if isinstance(f, dict) else []:
+            if isinstance(ref, str) and ref.startswith("finding:") and ref[8:] not in folder_ids:
+                errors.append(f"{f.get('id')}: sokrates_refs cites {ref} but no findings file in the folder has that id")
     findings = check_structure(doc, errors)
     results = verify_evidence(findings, src_root, errors, warnings)
 

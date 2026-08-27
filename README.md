@@ -33,7 +33,7 @@ skills/
 | `storage-scan` | data classes and locations, access patterns, schema/format versioning and migrations, integrity and corruption recovery, retention and cleanup |
 | `network-scan` | endpoint topology, protocols as used, timeouts/TLS/proxies, endpoint configurability, offline behaviour, data in transit |
 | `security-scan` | identity and permission design, secrets by design and in the tree, boundary validation, injection, crypto, unsafe code, third-party and model-output trust, coverage statement |
-| `maintainability-scan` | ISO 25010 grades: modularity, reusability, analysability, modifiability, testability — per component, rolled up from Sokrates numbers and sibling findings |
+| `maintainability-scan` | maintainability grades: modularity, reusability, analysability, modifiability, testability — per component, rolled up from Sokrates numbers and sibling findings |
 | `risk-synthesis-scan` | Sokrates hotspots explained: what each risky file does, knowledge risk, change coupling |
 | `evolution-scan` | the history as a story: eras, growth, focus shift, people, module lifecycle, trajectory |
 

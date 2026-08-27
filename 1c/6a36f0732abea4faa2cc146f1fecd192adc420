@@ -1,0 +1,26 @@
+skills/scanners/testing-scan/scripts/count_test_sites.py
+  s_3fb22a5f8abdd4::t_5c9b3a8ba60773 53-61,66-67,194,223-224,266-270,280-320,341
+  s_3fb22a5f8abdd4::t_b8ed08566edaa0 47,63,71-72,74,157,199,225,235,243,264-265,321-338,343-345
+skills/scanners/testing-scan/SKILL.md
+  s_3fb22a5f8abdd4::t_1dd17b1206835c 29,35,62,66,75,79,91-95,98-99
+  s_3fb22a5f8abdd4::t_870609f3f35a56 34,36,39,41,54,65,80,83,96-97
+skills/scanners/architecture-scan/SKILL.md
+  s_3fb22a5f8abdd4::t_870609f3f35a56 51-66,71
+  s_3fb22a5f8abdd4::t_f2ec2b18960265 22,26,48,78,88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "1c6a36f0732abea4faa2cc146f1fecd192adc420",
+  "prompts": {},
+  "sessions": {
+    "s_3fb22a5f8abdd4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6675bcd7-0e88-4469-8a48-6960b480b641",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

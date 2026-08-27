@@ -1,0 +1,1947 @@
+{
+  "scanner": "functionality-scan",
+  "scanner_version": "1.0",
+  "analyzed_at": "2026-08-27T12:00:00Z",
+  "target": {
+    "name": "Codex",
+    "src_root": "../../..",
+    "commit": "4ac4dd2ea1e49c9095782a29a7057380b50d2e66"
+  },
+  "summary": "Codex is a **local coding agent**: one engine (turns, model tools, sandbox, approvals, persistence) reached through four surfaces, the interactive TUI, the headless `codex exec`/`codex review` runner used by the SDKs, the JSON-RPC **app server** behind the IDE extension, desktop app and remote control, and a deprecated MCP server. The scan enumerated 30 CLI subcommands (31 on macOS/Windows), 58 TUI slash commands, 153 app-server request methods (148 v2), 9 server-to-client requests, 75 notifications, a nine-layer configuration stack with `requirements.toml`, `AGENTS.md`, `SKILL.md`, `.rules` and plugin hook files, and about 18 first-party model tools. Fifteen feature clusters were traced: the agent session, headless runs, review, session lifecycle, compaction, MCP client, plugins and marketplaces, skills and AGENTS.md, lifecycle hooks on 10 events, multi-agent, Codex Cloud, login, maintenance, Claude Code import and the experimental remote control. Hidden and gaps: a **117-entry feature-flag registry** (41 under development, all flippable from the CLI) of which only `network_proxy` appears in the `/experimental` menu; in-repo user docs reduced to redirect stubs by policy; two `DO NOT USE` memory commands visible in the release popup; five hidden subcommands including the user-relevant `execpolicy check`; `codex mcp-server` deprecated at runtime but documented as the MCP interface; memories shipped stable but off; and six realtime voice methods behind an under-development flag. Nothing rose above `low`: the code is candid about its stages, the documentation simply lives outside the repository.",
+  "stats": {
+    "features_described": 15,
+    "entry_points_by_surface": {
+      "cli_subcommands": 30,
+      "cli_subcommands_hidden": 5,
+      "tui_slash_commands": 58,
+      "app_server_client_requests": 153,
+      "app_server_v2_methods": 148,
+      "app_server_server_requests": 9,
+      "app_server_notifications": 75,
+      "config_layers": 9
+    },
+    "surfaces": 7,
+    "workflows_described": 4,
+    "data_stores_found": 8,
+    "integrations_found": 6,
+    "flags_found": 117,
+    "flags_by_stage": {
+      "stable": 38,
+      "under_development": 41,
+      "removed": 34,
+      "deprecated": 3,
+      "experimental": 1
+    },
+    "model_tools_found": 18,
+    "hook_events": 10,
+    "doc_code_gaps_found": 3,
+    "hidden_cli_subcommands": 5
+  },
+  "findings": [
+    {
+      "id": "functionality-scan/purpose/what-codex-is",
+      "group": "purpose",
+      "title": "Codex is a local coding agent with four product surfaces around one engine",
+      "description": "Codex is OpenAI's **coding agent that runs on the developer's machine**: it takes a natural-language task, reads and edits the working tree, runs commands inside an OS sandbox, and asks for approval when a policy requires it. It is for developers working in a terminal, an IDE or the Codex desktop app, individually or under enterprise-managed configuration. One engine (`codex-core`: turns, tools, sandbox, approvals, persistence) is reached through **four surfaces**: the interactive terminal UI (`codex`), the headless runner (`codex exec` and `codex review`, also driven by the TypeScript and Python SDKs), the JSON-RPC **app server** behind the IDE extension, the desktop app and remote control, and a deprecated MCP server (`codex mcp-server`). Feature families at a glance: the agent session (prompting, approvals, sandbox, compaction); session lifecycle (resume, fork, archive, delete, queue, rename); extending the agent (MCP servers, plugins and marketplaces, skills, AGENTS.md, lifecycle hooks); multi-agent work (subagents, side conversations, the shared agents daemon); Codex Cloud tasks; accounts and login; maintenance (`doctor`, `update`, `features`, `completion`); and import from Claude Code. It is deliberately not a hosted service: the README points cloud users to **Codex Web** at chatgpt.com/codex, and this repository ships only the local binary, its SDKs and the protocol bindings. The software is obtained via an install script, npm (`@openai/codex`), Homebrew or GitHub release archives.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "README.md",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "<p align=\"center\"><strong>Codex CLI</strong> is a coding agent from OpenAI that runs locally on your computer.",
+          "note": "README purpose line"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 113,
+          "end_line": 113,
+          "snippet": "override_usage = \"codex [OPTIONS] [PROMPT]\\n       codex [OPTIONS] <COMMAND> [ARGS]\"",
+          "note": "root usage: bare prompt starts the TUI, subcommands select other surfaces"
+        },
+        {
+          "file": "README.md",
+          "start_line": 8,
+          "end_line": 8,
+          "snippet": "</br>If you are looking for the <em>cloud-based agent</em> from OpenAI, <strong>Codex Web</strong>, go to <a href=\"https://chatgpt.com/codex\">chatgpt.com/codex</a>.</p>",
+          "note": "what it is not: the hosted agent lives elsewhere"
+        }
+      ],
+      "tags": [
+        "purpose",
+        "cli",
+        "agent"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "component:TUI frontend",
+        "component:CLI & headless frontends",
+        "component:app-server API"
+      ],
+      "attributes": {
+        "surfaces": [
+          "cli",
+          "ui",
+          "api",
+          "mcp",
+          "config",
+          "hook",
+          "library"
+        ],
+        "audience": "developers; enterprise admins via managed config"
+      }
+    },
+    {
+      "id": "functionality-scan/purpose/engine-capabilities",
+      "group": "purpose",
+      "title": "The engine's capability set is defined by the tools it offers the model",
+      "description": "What Codex can *do* to a machine is exactly the tool list the engine registers for the model, so the tool registry is the most honest capability inventory. The first-party tools are: running commands (`shell_command`, and the unified-exec pair `exec_command`/`write_stdin` for long-running processes), editing files (`apply_patch`), planning (`update_plan`), asking the user a question (`request_user_input`), asking for more permissions (`request_permissions`), viewing images (`view_image`), web search (hosted `WebSearch` tool), calling MCP tools and reading MCP resources, requesting plugin installs, opening a fresh context window, and the multi-agent tools (`spawn_agent`, `send_input`, `wait_agent`, `close_agent`). Everything else a user experiences (review, compaction, cloud tasks) is orchestration around these tools. Which tools are present in a given turn depends on feature flags (for example `multi_agent`, `code_mode`) and on the model family, so the exact count varies per session; about **18 first-party tool names** are registered in the handler specs.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/tools/handlers/shell_spec.rs",
+          "start_line": 214,
+          "end_line": 214,
+          "snippet": "name: \"shell_command\".to_string(),",
+          "note": "command execution tool"
+        },
+        {
+          "file": "codex-rs/core/src/tools/handlers/apply_patch_spec.rs",
+          "start_line": 19,
+          "end_line": 19,
+          "snippet": "name: \"apply_patch\".to_string(),",
+          "note": "file editing tool"
+        },
+        {
+          "file": "codex-rs/core/src/tools/handlers/multi_agents_spec.rs",
+          "start_line": 129,
+          "end_line": 129,
+          "snippet": "name: \"spawn_agent\".to_string(),",
+          "note": "multi-agent tool"
+        }
+      ],
+      "tags": [
+        "tools",
+        "agent"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "file:codex-rs/core/src/tools/spec_plan.rs"
+      ],
+      "attributes": {
+        "model_tools": [
+          "shell_command",
+          "exec_command",
+          "write_stdin",
+          "request_permissions",
+          "apply_patch",
+          "update_plan",
+          "request_user_input",
+          "view_image",
+          "web_search",
+          "mcp tools",
+          "list_mcp_resources",
+          "read_mcp_resource",
+          "request_plugin_install",
+          "new_context",
+          "spawn_agent",
+          "send_input",
+          "wait_agent",
+          "close_agent"
+        ]
+      }
+    },
+    {
+      "id": "functionality-scan/entry-points/cli-command-set",
+      "group": "entry-points",
+      "title": "CLI: 30 top-level subcommands (31 on macOS/Windows), 3 hidden, plus 2 hidden debug subcommands",
+      "description": "The `codex` binary is a clap multitool: with no subcommand the options are forwarded to the interactive TUI; otherwise one of **30 subcommands** in the `Subcommand` enum runs (`app` is compiled only on macOS and Windows, making 31 there). Visible: `agents`, `exec` (alias `e`), `review`, `login`, `logout`, `mcp`, `plugin`, `mcp-server`, `app-server`, `remote-control`, `app`, `completion`, `update`, `doctor`, `sandbox`, `debug`, `apply` (alias `a`), `resume`, `queue`, `archive`, `delete`, `migrate-rollouts`, `unarchive`, `fork`, `cloud` (alias `cloud-tasks`), `exec-server`, `features`. Hidden with `#[clap(hide = true)]`: `execpolicy`, `responses-api-proxy`, `stdio-to-uds`; inside `debug`: `trace-reduce` and `clear-memories`. Marked `[experimental]` in help: `app-server`, `remote-control`, `cloud`, `exec-server`. Global options that flow into every subcommand: `-c key=value` config overrides, `--enable`/`--disable <feature>` (validated against the feature registry), `--remote <ws://...|unix://>` to attach the TUI to a remote app server, and `--profile` for a v2 config profile. One-line behaviour for entries not covered by a feature finding: `completion` prints a shell completion script; `sandbox` runs an arbitrary command under the host sandbox (Seatbelt, Landlock or the Windows sandbox); `apply` git-applies the latest diff produced by a Codex agent task; `debug models`/`prompt-input`/`app-server send-message-v2` dump the model catalog, the model-visible prompt and drive the app server for diagnostics; `exec-server` runs the standalone sandboxed executor or registers it as a remote environment; `migrate-rollouts` inspects or migrates legacy session files into paginated thread history. In-repo help is the only documentation for this set: user docs redirect to developers.openai.com.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 133,
+          "end_line": 133,
+          "snippet": "enum Subcommand {",
+          "note": "the dispatch table (lines 133-230)"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 185,
+          "end_line": 185,
+          "snippet": "#[clap(hide = true)]",
+          "note": "hidden marker on `execpolicy` (also at 218, 222 and in DebugSubcommand)"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 963,
+          "end_line": 963,
+          "snippet": "#[arg(long = \"enable\", value_name = \"FEATURE\", action = clap::ArgAction::Append, global = true)]",
+          "note": "global feature toggles"
+        }
+      ],
+      "tags": [
+        "cli"
+      ],
+      "sokrates_refs": [
+        "component:CLI & headless frontends",
+        "file:codex-rs/cli/src/main.rs"
+      ],
+      "attributes": {
+        "surfaces": [
+          "cli"
+        ],
+        "subcommands_visible": 27,
+        "subcommands_hidden": 3,
+        "debug_subcommands_hidden": 2,
+        "experimental": [
+          "app-server",
+          "remote-control",
+          "cloud",
+          "exec-server"
+        ],
+        "versioned": "single binary version; no per-command versioning"
+      }
+    },
+    {
+      "id": "functionality-scan/entry-points/tui-slash-commands",
+      "group": "entry-points",
+      "title": "TUI: 58 slash commands in presentation order, visibility per platform and build",
+      "description": "The interactive TUI's second surface is the `/` popup, driven by the `SlashCommand` enum: **58 variants** whose enum order is the popup order (the comment says \"DO NOT ALPHA-SORT\"). Some carry aliases through strum (`/setup-default-sandbox`, `/sandbox-add-read-dir`, `/approve`, `/cwd`, `/pet`, `/clean`, `/subagents`), so the number of typed spellings is higher. Visibility is decided per command: `/sandbox-add-read-dir` only on Windows, `/copy` not on Android, `/app` only on macOS and Windows, `/rollout` and `/test-approval` only in debug builds. Families: model and mode (`/model`, `/personality`, `/plan`, `/goal`, `/permissions`, `/experimental`, `/memories`), session (`/new`, `/resume`, `/fork`, `/archive`, `/delete`, `/rename`, `/compact`, `/clear`, `/quit`), context (`/ide`, `/mention`, `/diff`, `/review`, `/init`, `/skills`, `/hooks`, `/mcp`, `/apps`, `/plugins`, `/import`), multi-agent (`/agents`, `/subagents`, `/side` or `/btw`), terminal (`/copy`, `/export`, `/raw`, `/ps`, `/stop`, `/cd`, `/pwd`, `/theme`, `/pets`, `/keymap`, `/vim`, `/title`, `/statusline`), account (`/logout`, `/usage`, `/status`, `/feedback`, `/debug-config`), and two debug memory commands. Each command has a one-line description in `description()`, which is the only in-repo documentation of the slash surface (`docs/slash_commands.md` is a redirect).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/tui/src/slash_command.rs",
+          "start_line": 13,
+          "end_line": 13,
+          "snippet": "// DO NOT ALPHA-SORT! Enum order is presentation order in the popup, so",
+          "note": "the enum is the registration table (lines 12-83)"
+        },
+        {
+          "file": "codex-rs/tui/src/slash_command.rs",
+          "start_line": 271,
+          "end_line": 271,
+          "snippet": "SlashCommand::Rollout | SlashCommand::TestApproval => cfg!(debug_assertions),",
+          "note": "build-dependent visibility"
+        },
+        {
+          "file": "docs/slash_commands.md",
+          "start_line": 3,
+          "end_line": 3,
+          "snippet": "For an overview of Codex CLI slash commands, see [this documentation](https://developers.openai.com/codex/cli/slash-commands).",
+          "note": "in-repo doc is a redirect"
+        }
+      ],
+      "tags": [
+        "ui",
+        "tui"
+      ],
+      "sokrates_refs": [
+        "component:TUI frontend",
+        "file:codex-rs/tui/src/slash_command.rs"
+      ],
+      "attributes": {
+        "surfaces": [
+          "ui"
+        ],
+        "slash_commands": 58,
+        "debug_build_only": [
+          "rollout",
+          "test-approval"
+        ],
+        "platform_gated": [
+          "sandbox-add-read-dir",
+          "copy",
+          "app"
+        ]
+      }
+    },
+    {
+      "id": "functionality-scan/entry-points/app-server-json-rpc",
+      "group": "entry-points",
+      "title": "App server: 153 client-request methods (148 v2), 9 server requests, 75 notifications over stdio, unix socket or websocket",
+      "description": "`codex app-server` exposes the engine as JSON-RPC to IDEs, the desktop app and the SDKs; the same protocol is used in-process by the TUI. The request table is generated by the `client_request_definitions!` macro in `app-server-protocol`: **153 client-to-server methods**, of which 148 use the versioned v2 `family/verb` naming (`thread/start`, `turn/start`, `turn/steer`, `review/start`, `plugin/install`, `fs/readFile`, `command/exec`, `remoteControl/pairing/start`, `account/login/start`, ...) and 5 remain v1-era camelCase (`initialize`, `getConversationSummary`, `gitDiffToRemote`, `getAuthStatus`, `fuzzyFileSearch`). The server initiates **9 requests** back to the client (command and file-change approvals, permission and tool-call requests, MCP elicitation, token refresh, attestation, current time) and emits **75 notifications** (thread, turn and item lifecycle). Families by count: thread lifecycle and queue, projects and thread sections, plugins and marketplaces, skills and hooks, file system, realtime audio, MCP servers, accounts and usage, config and requirements, Windows sandbox, remote control, external-agent import, process and command execution. 59 method or field definitions carry an `#[experimental(...)]` marker and are omitted from generated TypeScript bindings unless `--experimental` is passed to `codex app-server generate-ts`. Transports: `stdio://` (default), `unix://`, `ws://IP:PORT` with bearer-token auth, or `off`; the app server can also run as a managed daemon (`codex app-server daemon start|stop|restart|bootstrap`).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/app-server-protocol/src/protocol/common.rs",
+          "start_line": 487,
+          "end_line": 487,
+          "snippet": "client_request_definitions! {",
+          "note": "request registration table (lines 487-1648)"
+        },
+        {
+          "file": "codex-rs/app-server-protocol/src/protocol/common.rs",
+          "start_line": 1338,
+          "end_line": 1338,
+          "snippet": "GetConversationSummary => \"getConversationSummary\" {",
+          "note": "one of the 5 legacy camelCase methods"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 560,
+          "end_line": 560,
+          "snippet": "/// `unix://`, `unix://PATH`, `ws://IP:PORT`, `off`.",
+          "note": "transport options for `codex app-server --listen`"
+        }
+      ],
+      "tags": [
+        "api",
+        "json-rpc"
+      ],
+      "sokrates_refs": [
+        "component:app-server API",
+        "file:codex-rs/app-server-protocol/src/protocol/common.rs",
+        "finding:architecture-scan/boundaries/app-server-protocol-contract"
+      ],
+      "attributes": {
+        "surfaces": [
+          "api"
+        ],
+        "client_requests": 153,
+        "v2_methods": 148,
+        "legacy_methods": 5,
+        "server_requests": 9,
+        "notifications": 75,
+        "experimental_marked": 59,
+        "versioned": "v1 legacy names and v2 family/verb names in one table; TS and JSON-schema bindings generated"
+      }
+    },
+    {
+      "id": "functionality-scan/entry-points/configuration-and-instruction-files",
+      "group": "entry-points",
+      "title": "Configuration surface: a nine-layer config stack, requirements.toml, AGENTS.md, .rules, skills and hook declarations",
+      "description": "Behaviour is shaped by files more than by flags. `config.toml` is resolved through a **layer stack** whose precedence is fixed in `ConfigLayerSource`: packaged defaults, MDM-managed preferences, a system file, an enterprise cloud bundle, the user file (optionally with a named profile), the project's `.codex` folder, and session flags (`-c`, `--enable/--disable`); two legacy managed-config sources are still read. `requirements.toml` (system or MDM) pins what users may change and is the only place `allow_managed_hooks_only` works. Instruction files: `AGENTS.md` and a local `AGENTS.override.md` are discovered from the project root; skills are folders declared by a `SKILL.md` with frontmatter; plugins ship `hooks/hooks.json`; execpolicy `.rules` files classify commands. Configuration keys are consumed by the features that name them (`features.*`, `model_providers`, `mcp_servers`, `analytics.enabled`, `otel`, `hooks.state`); the schema is generated into `core/config.schema.json`. `/debug-config` in the TUI shows the resolved layers and requirement sources; `codex features list` shows the effective flag state.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/config/src/config_layer_source.rs",
+          "start_line": 8,
+          "end_line": 8,
+          "snippet": "PackagedDefaults { file: AbsolutePathBuf },",
+          "note": "lowest layer of the stack (enum continues to line 27)"
+        },
+        {
+          "file": "codex-rs/config/src/config_layer_source.rs",
+          "start_line": 21,
+          "end_line": 21,
+          "snippet": "Project { dot_codex_folder: AbsolutePathBuf },",
+          "note": "project layer"
+        },
+        {
+          "file": "codex-rs/core/src/agents_md.rs",
+          "start_line": 44,
+          "end_line": 44,
+          "snippet": "pub const LOCAL_AGENTS_MD_FILENAME: &str = \"AGENTS.override.md\";",
+          "note": "instruction file names"
+        }
+      ],
+      "tags": [
+        "config"
+      ],
+      "sokrates_refs": [
+        "component:configuration",
+        "file:codex-rs/config/src/config_layer_source.rs"
+      ],
+      "attributes": {
+        "surfaces": [
+          "config"
+        ],
+        "config_layers": [
+          "PackagedDefaults",
+          "Mdm",
+          "System",
+          "EnterpriseManaged",
+          "User",
+          "Project",
+          "SessionFlags",
+          "LegacyManagedConfigTomlFromFile",
+          "LegacyManagedConfigTomlFromMdm"
+        ],
+        "instruction_files": [
+          "AGENTS.md",
+          "AGENTS.override.md",
+          "SKILL.md",
+          "hooks/hooks.json",
+          ".rules",
+          "requirements.toml"
+        ]
+      }
+    },
+    {
+      "id": "functionality-scan/entry-points/mcp-server-legacy",
+      "group": "entry-points",
+      "title": "Legacy MCP server surface: `codex mcp-server` runs Codex as an MCP server and warns it is deprecated",
+      "description": "`codex mcp-server` starts Codex as a Model Context Protocol server on stdio so an MCP client can drive the engine. At startup the CLI prints `warning: codex mcp-server is deprecated and will be removed in a future release` and refuses workload-identity auth. Its replacement is the app server (`codex app-server`), which the in-repo `codex_mcp_interface.md` already describes as sharing the app-server protocol types. Status: **deprecated**, still shipped and still listed in `codex --help` without a deprecation note (see the hidden-and-gaps finding).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 156,
+          "end_line": 156,
+          "snippet": "/// Start Codex as an MCP server (stdio).",
+          "note": "help text, no deprecation mark"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 1183,
+          "end_line": 1183,
+          "snippet": "\"warning: `codex mcp-server` is deprecated and will be removed in a future release.\"",
+          "note": "runtime warning"
+        }
+      ],
+      "tags": [
+        "mcp",
+        "deprecated"
+      ],
+      "sokrates_refs": [
+        "component:extensibility (MCP, plugins, skills, hooks)",
+        "finding:evolution-scan/lifecycle/mcp-server-deprecated-still-present"
+      ],
+      "attributes": {
+        "surfaces": [
+          "mcp"
+        ],
+        "status": "deprecated",
+        "replacement": "codex app-server"
+      }
+    },
+    {
+      "id": "functionality-scan/features/interactive-agent-session",
+      "group": "features",
+      "title": "Interactive session: the TUI agent loop with approvals and sandbox",
+      "description": "Entry points: `codex [PROMPT]`, `codex resume`, `codex fork`, or `codex --remote ws://...` to attach to a remote app server. The user types a task (with `@file` mentions, `/ide` context, images); the engine runs a turn: the model calls tools, each command execution or patch passes the approval policy and then runs in the OS sandbox. Approval policy defaults to `on-request` (the model decides when to ask) with `untrusted`, `never` and fine-grained variants; the sandbox default is read-only, changed via `/permissions`, `--sandbox` or `--dangerously-bypass-approvals-and-sandbox`. Outputs: streamed agent messages, diffs, command output cells; the transcript is persisted as a rollout after every item. On exit the CLI prints token usage and a `codex resume <id>` hint. Fails with a fatal message (exit code 1) when the engine reports an unrecoverable error; refuses to start outside a Git repository unless `--skip-git-repo-check`. Data owned: the terminal state file for `/theme`, `/keymap`, `/statusline` and `/title` preferences in config.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 102,
+          "end_line": 102,
+          "snippet": "/// If no subcommand is specified, options will be forwarded to the interactive CLI.",
+          "note": "bare invocation starts the TUI"
+        },
+        {
+          "file": "codex-rs/protocol/src/protocol.rs",
+          "start_line": 926,
+          "end_line": 926,
+          "snippet": "OnRequest,",
+          "note": "default approval policy (`#[default]` on the previous line)"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 807,
+          "end_line": 807,
+          "snippet": "lines.push(format!(\"To continue this session, run {command}\"));",
+          "note": "resume hint on exit"
+        }
+      ],
+      "tags": [
+        "tui",
+        "agent"
+      ],
+      "sokrates_refs": [
+        "component:TUI frontend",
+        "component:core engine",
+        "component:sandboxing & policy"
+      ],
+      "attributes": {
+        "entry_points": [
+          "codex",
+          "codex resume",
+          "codex fork",
+          "codex --remote"
+        ],
+        "surfaces": [
+          "cli",
+          "ui"
+        ],
+        "status": "shipped",
+        "component": "TUI frontend"
+      }
+    },
+    {
+      "id": "functionality-scan/features/headless-exec",
+      "group": "features",
+      "title": "`codex exec`: non-interactive runs with JSONL events, output schemas and ephemeral mode",
+      "description": "Entry point: `codex exec [PROMPT]` (alias `e`), with `exec resume` and `exec fork` to continue existing sessions; the SDKs and CI pipelines drive this surface. Inputs: the prompt as an argument or stdin (`-`), images, `--output-schema <json-schema>` to constrain the final message, `--last-message-file` to write the final answer, `-c` overrides. Behaviour: runs a full agent turn without a UI, approvals resolved by policy only. Output: human-readable event log by default; with `--json`, stdout is strict JSONL, one event per line. Switches: `--ephemeral` runs without persisting session files; `--ignore-user-config` skips `config.toml`; `--ignore-rules` skips execpolicy files; `--skip-git-repo-check` allows running outside a repository. Fails when the working directory is not a Git repository (unless skipped) or when the output does not match the schema.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/exec/src/lib.rs",
+          "start_line": 3,
+          "end_line": 3,
+          "snippet": "// - In --json mode, stdout must be valid JSONL, one event per line.",
+          "note": "JSONL contract"
+        },
+        {
+          "file": "codex-rs/exec/src/lib.rs",
+          "start_line": 678,
+          "end_line": 678,
+          "snippet": "true => Box::new(EventProcessorWithJsonOutput::new(last_message_file.clone())),",
+          "note": "json mode selects the JSONL processor"
+        },
+        {
+          "file": "codex-rs/exec/src/cli.rs",
+          "start_line": 30,
+          "end_line": 30,
+          "snippet": "/// Run without persisting session files to disk.",
+          "note": "--ephemeral"
+        }
+      ],
+      "tags": [
+        "cli",
+        "automation"
+      ],
+      "sokrates_refs": [
+        "component:CLI & headless frontends",
+        "component:sdk (TypeScript & Python)",
+        "finding:domain-language-scan/capabilities/automation-exec-sdk-cloud"
+      ],
+      "attributes": {
+        "entry_points": [
+          "codex exec",
+          "codex exec resume",
+          "codex exec fork",
+          "SDK run()"
+        ],
+        "surfaces": [
+          "cli",
+          "library"
+        ],
+        "status": "shipped",
+        "component": "CLI & headless frontends"
+      }
+    },
+    {
+      "id": "functionality-scan/features/code-review",
+      "group": "features",
+      "title": "Code review: `codex review` and `/review` review uncommitted changes, a branch diff or a commit",
+      "description": "Entry points: `codex review` (a thin wrapper that runs `codex exec review`), `codex exec review`, `/review` in the TUI, and `review/start` on the app server. Inputs: `--uncommitted` (staged, unstaged and untracked changes), `--base <branch>`, `--commit <sha>` with optional `--commit-title`, and a custom instruction prompt (or stdin). Behaviour: builds a `ReviewRequest` for the chosen target, runs a dedicated review turn with the review prompt, and prints a summary hint describing what was reviewed. Output: findings as agent messages; in exec mode the same JSONL stream as any run. Fails when the target cannot be resolved (unknown branch or commit).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 1173,
+          "end_line": 1173,
+          "snippet": "exec_cli.command = Some(ExecCommand::Review(review_args));",
+          "note": "`codex review` delegates to exec"
+        },
+        {
+          "file": "codex-rs/exec/src/lib.rs",
+          "start_line": 709,
+          "end_line": 709,
+          "snippet": "let summary = codex_core::review_prompts::user_facing_hint(&review_request.target);",
+          "note": "review target summary"
+        },
+        {
+          "file": "codex-rs/exec/src/cli.rs",
+          "start_line": 269,
+          "end_line": 269,
+          "snippet": "/// Review staged, unstaged, and untracked changes.",
+          "note": "--uncommitted"
+        }
+      ],
+      "tags": [
+        "review"
+      ],
+      "sokrates_refs": [
+        "component:CLI & headless frontends",
+        "component:core engine"
+      ],
+      "attributes": {
+        "entry_points": [
+          "codex review",
+          "codex exec review",
+          "/review",
+          "review/start"
+        ],
+        "surfaces": [
+          "cli",
+          "ui",
+          "api"
+        ],
+        "status": "shipped",
+        "component": "CLI & headless frontends"
+      }
+    },
+    {
+      "id": "functionality-scan/features/session-lifecycle",
+      "group": "features",
+      "title": "Session lifecycle: resume, fork, archive, unarchive, delete, rename, queue and migrate",
+      "description": "Entry points: `codex resume|fork [SESSION_ID|name] [--last] [--all] [--include-non-interactive]`, `codex archive|unarchive|delete <SESSION>`, `codex queue <SESSION> <MESSAGE>`, `codex migrate-rollouts`, the TUI commands `/resume`, `/fork`, `/archive`, `/delete`, `/rename`, `/new`, and the `thread/*` API family (`thread/resume`, `thread/fork`, `thread/archive`, `thread/delete`, `thread/name/set`, `thread/queue/*`, `thread/list`, `thread/search`). Behaviour: `resume` opens a picker of sessions for the current directory (`--all` lifts the filter) and replays the rollout into a new turn; `fork` copies the thread into a new id; `archive` moves the rollout to `archived_sessions`; `delete` removes it and requires confirmation unless `--force` with a UUID; `queue` appends a message to a running session's queue; `migrate-rollouts` moves legacy session files into paginated thread history. Output: the TUI, or a one-line result for the CLI commands. Fails with `No sessions yet` in the picker when nothing was recorded, and `--force requires a session UUID` for named deletes.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 192,
+          "end_line": 192,
+          "snippet": "/// Resume a previous interactive session (picker by default; use --last to continue the most recent).",
+          "note": "resume command"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 941,
+          "end_line": 941,
+          "snippet": "anyhow::bail!(\"--force requires a session UUID; names must be confirmed interactively\");",
+          "note": "delete safeguard"
+        },
+        {
+          "file": "codex-rs/tui/src/resume_picker.rs",
+          "start_line": 3435,
+          "end_line": 3435,
+          "snippet": "vec![\"No sessions yet\".italic().dim()].into()",
+          "note": "empty picker"
+        }
+      ],
+      "tags": [
+        "sessions"
+      ],
+      "sokrates_refs": [
+        "component:persistence (rollout, state, thread-store)",
+        "finding:domain-language-scan/capabilities/thread-lifecycle"
+      ],
+      "attributes": {
+        "entry_points": [
+          "codex resume",
+          "codex fork",
+          "codex archive",
+          "codex unarchive",
+          "codex delete",
+          "codex queue",
+          "codex migrate-rollouts",
+          "/resume",
+          "/fork",
+          "/archive",
+          "/delete",
+          "/rename",
+          "thread/*"
+        ],
+        "surfaces": [
+          "cli",
+          "ui",
+          "api"
+        ],
+        "status": "shipped",
+        "component": "persistence (rollout, state, thread-store)"
+      }
+    },
+    {
+      "id": "functionality-scan/features/context-compaction",
+      "group": "features",
+      "title": "Context compaction: `/compact` and automatic summarisation when the context window fills",
+      "description": "Entry points: `/compact` in the TUI, `thread/compact/start` on the app server, and the engine's inline auto-compaction task that fires mid-turn when the context limit is approached. Behaviour: replaces the conversation history with a model-written summary; manual and pre-turn compaction inject the initial context again, mid-turn compaction keeps the summary as the last item because the model is trained to expect it there. Output: a compaction checkpoint recorded in the rollout; the user sees a notice and continues in the same thread. Related hooks: `PreCompact` and `PostCompact` lifecycle events fire around it.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/tui/src/slash_command.rs",
+          "start_line": 92,
+          "end_line": 92,
+          "snippet": "SlashCommand::Compact => \"summarize conversation to prevent hitting the context limit\",",
+          "note": "user-facing description"
+        },
+        {
+          "file": "codex-rs/core/src/compact.rs",
+          "start_line": 111,
+          "end_line": 111,
+          "snippet": "pub(crate) async fn run_inline_auto_compact_task(",
+          "note": "automatic path"
+        },
+        {
+          "file": "codex-rs/hooks/src/schema.rs",
+          "start_line": 107,
+          "end_line": 107,
+          "snippet": "#[serde(rename = \"PreCompact\")]",
+          "note": "hook event around compaction"
+        }
+      ],
+      "tags": [
+        "context"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "file:codex-rs/core/src/compact.rs"
+      ],
+      "attributes": {
+        "entry_points": [
+          "/compact",
+          "thread/compact/start",
+          "auto"
+        ],
+        "surfaces": [
+          "ui",
+          "api"
+        ],
+        "status": "shipped",
+        "component": "core engine"
+      }
+    },
+    {
+      "id": "functionality-scan/features/mcp-client",
+      "group": "features",
+      "title": "MCP client: configure external MCP servers whose tools and resources the agent can call",
+      "description": "Entry points: `codex mcp list|get|add|remove|login|logout`, `/mcp` (with `verbose`) in the TUI, `config/mcpServer/reload`, `mcpServerStatus/list`, `mcpServer/tool/call`, `mcpServer/resource/read` and `mcpServer/oauth/login` on the app server, and the `mcp_servers` table in `config.toml`. Inputs: a stdio launcher (command, args, env) or a streamable-HTTP URL with an optional bearer-token env var and OAuth client settings (`auto`, `cimd`, `dcr` registration strategies). Behaviour: each configured server is started or connected at session start; its tools are exposed to the model as `mcp__<server>__<tool>` function tools and its resources via `list_mcp_resources`/`read_mcp_resource`; tool calls pass the approval layer (auto-approved in Auto mode based on the server's annotations). Output: server status and tool lists in `/mcp` and `codex mcp list --json`. Fails per server: an unreachable server is reported and skipped, the session continues without its tools.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/mcp_cmd.rs",
+          "start_line": 47,
+          "end_line": 47,
+          "snippet": "/// - `list`   — list configured servers (with `--json`)",
+          "note": "CLI subcommands (46-52)"
+        },
+        {
+          "file": "codex-rs/cli/src/mcp_cmd.rs",
+          "start_line": 51,
+          "end_line": 51,
+          "snippet": "/// - `login`  — authenticate with MCP server using OAuth",
+          "note": "OAuth login"
+        },
+        {
+          "file": "codex-rs/core/src/mcp_tool_call.rs",
+          "start_line": 111,
+          "end_line": 111,
+          "snippet": "pub(crate) async fn handle_mcp_tool_call(",
+          "note": "tool call path"
+        }
+      ],
+      "tags": [
+        "mcp",
+        "integration"
+      ],
+      "sokrates_refs": [
+        "component:extensibility (MCP, plugins, skills, hooks)",
+        "finding:domain-language-scan/capabilities/extensibility-mcp-plugins-skills",
+        "finding:security-design-scan/third-party-trust/mcp-annotation-trust"
+      ],
+      "attributes": {
+        "entry_points": [
+          "codex mcp",
+          "/mcp",
+          "config: mcp_servers",
+          "mcpServer/*"
+        ],
+        "surfaces": [
+          "cli",
+          "ui",
+          "api",
+          "config"
+        ],
+        "status": "shipped",
+        "component": "extensibility (MCP, plugins, skills, hooks)"
+      }
+    },
+    {
+      "id": "functionality-scan/features/plugins-and-marketplaces",
+      "group": "features",
+      "title": "Plugins and marketplaces: install bundles of skills, MCP servers, apps and hooks from local or Git sources",
+      "description": "Entry points: `codex plugin add|list|remove`, `codex plugin marketplace add|list|upgrade|remove`, `/plugins` and `/apps` in the TUI, and the `plugin/*`, `marketplace/*`, `app/*` and `plugin/share/*` API families. Inputs: a marketplace source (local path, `owner/repo[@ref]`, HTTPS or SSH Git URL, optional sparse-checkout paths) and a plugin reference `PLUGIN@MARKETPLACE`. Behaviour: marketplaces are snapshotted into the plugin cache; installing a plugin records it in config and materialises its skills, MCP server declarations, hooks (`hooks/hooks.json`) and app connectors; `upgrade` refreshes Git snapshots; the model can also ask to install one via the `request_plugin_install` tool. Output: JSON with `--json` on every subcommand. Fails when the marketplace is not configured or the plugin is not in its snapshot; enterprise requirements can restrict allowed marketplace sources. Flag: `plugins` (stable, on by default).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/plugin_cmd.rs",
+          "start_line": 49,
+          "end_line": 49,
+          "snippet": "/// Install a plugin from a configured marketplace snapshot.",
+          "note": "plugin add"
+        },
+        {
+          "file": "codex-rs/cli/src/marketplace_cmd.rs",
+          "start_line": 43,
+          "end_line": 43,
+          "snippet": "/// Add a local or Git marketplace to the configured marketplace sources.",
+          "note": "marketplace add"
+        },
+        {
+          "file": "codex-rs/hooks/src/declarations.rs",
+          "start_line": 54,
+          "end_line": 54,
+          "snippet": "let source_path = plugin_root.join(\"hooks/hooks.json\");",
+          "note": "plugins contribute hooks"
+        }
+      ],
+      "tags": [
+        "plugins"
+      ],
+      "sokrates_refs": [
+        "component:extensibility (MCP, plugins, skills, hooks)",
+        "finding:domain-language-scan/glossary/plugin-marketplace",
+        "finding:risk-synthesis-scan/hotspots/core-plugins-manager"
+      ],
+      "attributes": {
+        "entry_points": [
+          "codex plugin",
+          "codex plugin marketplace",
+          "/plugins",
+          "/apps",
+          "plugin/*",
+          "marketplace/*"
+        ],
+        "surfaces": [
+          "cli",
+          "ui",
+          "api"
+        ],
+        "status": "shipped",
+        "flags": [
+          "plugins",
+          "apps"
+        ],
+        "component": "extensibility (MCP, plugins, skills, hooks)"
+      }
+    },
+    {
+      "id": "functionality-scan/features/skills-and-agents-md",
+      "group": "features",
+      "title": "Skills and AGENTS.md: project and user instructions that shape how the agent works",
+      "description": "Entry points: `/skills` and `$skill` mentions in the composer, `skills/list`, `skills/config/write` and `skills/extraRoots/set` on the app server, `/init` to create an `AGENTS.md`, and the files themselves. Inputs: `AGENTS.md` (plus `AGENTS.override.md`) discovered from the project root up to a size limit; skills as directories containing a `SKILL.md` whose frontmatter declares name and description, found under the user's Codex home, the project, plugins, and extra roots. Behaviour: instruction files are prepended to the model context each turn; a mentioned skill's document is injected into the turn; skills can be enabled or disabled per user in config. Output: none beyond changed agent behaviour; `/skills` lists what is loaded. Fails silently: a malformed `SKILL.md` frontmatter is reported as a parse error and the skill is skipped.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/agents_md.rs",
+          "start_line": 42,
+          "end_line": 42,
+          "snippet": "pub const DEFAULT_AGENTS_MD_FILENAME: &str = \"AGENTS.md\";",
+          "note": "instruction file"
+        },
+        {
+          "file": "codex-rs/skills/src/mentions.rs",
+          "start_line": 40,
+          "end_line": 40,
+          "snippet": "const SKILL_FILENAME: &str = \"SKILL.md\";",
+          "note": "skill declaration file"
+        },
+        {
+          "file": "codex-rs/tui/src/slash_command.rs",
+          "start_line": 91,
+          "end_line": 91,
+          "snippet": "SlashCommand::Init => \"create an AGENTS.md file with instructions for Codex\",",
+          "note": "/init"
+        }
+      ],
+      "tags": [
+        "skills",
+        "instructions"
+      ],
+      "sokrates_refs": [
+        "component:extensibility (MCP, plugins, skills, hooks)",
+        "finding:domain-language-scan/glossary/skill"
+      ],
+      "attributes": {
+        "entry_points": [
+          "/skills",
+          "/init",
+          "$skill mention",
+          "skills/*",
+          "AGENTS.md"
+        ],
+        "surfaces": [
+          "ui",
+          "api",
+          "config"
+        ],
+        "status": "shipped",
+        "component": "extensibility (MCP, plugins, skills, hooks)"
+      }
+    },
+    {
+      "id": "functionality-scan/features/lifecycle-hooks",
+      "group": "features",
+      "title": "Lifecycle hooks: user-defined commands and MCP calls on ten agent events",
+      "description": "Entry points: hook declarations in config layers and plugin `hooks/hooks.json`, `/hooks` in the TUI, `hooks/list` on the app server. Events on the wire: `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `UserPromptSubmit`, `SubagentStart`, `SubagentStop`, `Stop` (a `SessionEnd` command input also exists). Behaviour: a matching hook runs a command (or an MCP call) with a JSON payload on stdin; its outcome can block a tool use, decide a permission request, or add context to a prompt; large outputs are spilled to files. Hook enablement state is written only from the user and session layers; project, managed and plugin layers can declare hooks but not flip user state. Admins can force `allow_managed_hooks_only = true` in `requirements.toml`; this is the one hook setting documented in-repo. Flag: `hooks` (stable, on by default).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/hooks/src/schema.rs",
+          "start_line": 101,
+          "end_line": 101,
+          "snippet": "#[serde(rename = \"PreToolUse\")]",
+          "note": "event enum (lines 99-121)"
+        },
+        {
+          "file": "codex-rs/hooks/src/config_rules.rs",
+          "start_line": 12,
+          "end_line": 12,
+          "snippet": "// disabled layers, to match the skills config behavior. Project, managed, and",
+          "note": "which layers may write hook state (11-14)"
+        },
+        {
+          "file": "docs/config.md",
+          "start_line": 11,
+          "end_line": 11,
+          "snippet": "Admins can set top-level `allow_managed_hooks_only = true` in",
+          "note": "the only in-repo hook documentation"
+        }
+      ],
+      "tags": [
+        "hooks"
+      ],
+      "sokrates_refs": [
+        "component:extensibility (MCP, plugins, skills, hooks)",
+        "file:codex-rs/hooks/src/schema.rs"
+      ],
+      "attributes": {
+        "entry_points": [
+          "config hooks",
+          "plugin hooks/hooks.json",
+          "/hooks",
+          "hooks/list"
+        ],
+        "surfaces": [
+          "hook",
+          "config",
+          "ui",
+          "api"
+        ],
+        "status": "shipped",
+        "flags": [
+          "hooks"
+        ],
+        "hook_events": 10,
+        "component": "extensibility (MCP, plugins, skills, hooks)"
+      }
+    },
+    {
+      "id": "functionality-scan/features/multi-agent",
+      "group": "features",
+      "title": "Multi-agent: subagents, side conversations and the shared agents daemon",
+      "description": "Entry points: the model's `spawn_agent`, `send_input`, `wait_agent` and `close_agent` tools; `/subagents` to switch between a session's subagents; `/side` or `/btw` for an ephemeral fork side conversation; `codex agents` and `/agents` to browse every agent session on the shared local app-server daemon. Behaviour: a subagent is a child thread with its own turn loop and a role; the parent waits on or steers it; side conversations fork the thread and are discarded after. `codex agents` attaches to the daemon and refuses invocation-specific overrides (`-c`, `--model`, `--sandbox` ...) because shared sessions cannot carry per-invocation configuration; it is unavailable under workload identity and needs `--remote` on non-Unix platforms. Flags: `multi_agent` (stable, on), `multi_agent_v2` (stable, off by default).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 134,
+          "end_line": 134,
+          "snippet": "/// Browse all agent sessions on the shared local app-server daemon.",
+          "note": "codex agents"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 1113,
+          "end_line": 1113,
+          "snippet": "\"`codex agents` cannot attach to shared sessions with invocation-specific configuration overrides\"",
+          "note": "precondition"
+        },
+        {
+          "file": "codex-rs/features/src/lib.rs",
+          "start_line": 1114,
+          "end_line": 1114,
+          "snippet": "key: \"multi_agent\",",
+          "note": "flag (stable, default true at 1115-1116)"
+        }
+      ],
+      "tags": [
+        "multi-agent"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "component:app-server API",
+        "file:codex-rs/core/src/tools/handlers/multi_agents.rs"
+      ],
+      "attributes": {
+        "entry_points": [
+          "spawn_agent tool",
+          "/subagents",
+          "/side",
+          "/agents",
+          "codex agents"
+        ],
+        "surfaces": [
+          "ui",
+          "cli",
+          "api"
+        ],
+        "status": "shipped",
+        "flags": [
+          "multi_agent",
+          "multi_agent_v2"
+        ],
+        "component": "core engine"
+      }
+    },
+    {
+      "id": "functionality-scan/features/cloud-tasks",
+      "group": "features",
+      "title": "Codex Cloud integration: browse, submit, diff and apply cloud tasks locally",
+      "description": "Entry point: `codex cloud` (alias `cloud-tasks`, marked `[EXPERIMENTAL]`) opens a TUI browser of Codex Cloud tasks; subcommands `exec`, `status`, `list`, `apply` and `diff` work without the TUI. Inputs: a task prompt, target environment id, best-of-N attempts (1-4) and branch for `exec`; a task id and attempt number for `diff`/`apply`; `--json` on `list`. Behaviour: talks to the ChatGPT backend with the signed-in account, lists tasks for an environment, and `apply` git-applies the chosen attempt's diff to the working tree (the same code path as `codex apply`). Fails when not signed in with ChatGPT or when the diff does not apply cleanly.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 213,
+          "end_line": 213,
+          "snippet": "/// [EXPERIMENTAL] Browse tasks from Codex Cloud and apply changes locally.",
+          "note": "subcommand"
+        },
+        {
+          "file": "codex-rs/cloud-tasks/src/cli.rs",
+          "start_line": 17,
+          "end_line": 17,
+          "snippet": "/// Submit a new Codex Cloud task without launching the TUI.",
+          "note": "exec subcommand (enum 16-27)"
+        },
+        {
+          "file": "codex-rs/chatgpt/src/apply_command.rs",
+          "start_line": 14,
+          "end_line": 14,
+          "snippet": "/// Applies the latest diff from a Codex agent task.",
+          "note": "apply path"
+        }
+      ],
+      "tags": [
+        "cloud",
+        "integration"
+      ],
+      "sokrates_refs": [
+        "component:CLI & headless frontends",
+        "finding:domain-language-scan/capabilities/automation-exec-sdk-cloud"
+      ],
+      "attributes": {
+        "entry_points": [
+          "codex cloud",
+          "codex cloud exec|status|list|apply|diff",
+          "codex apply"
+        ],
+        "surfaces": [
+          "cli",
+          "ui"
+        ],
+        "status": "experimental",
+        "component": "CLI & headless frontends"
+      }
+    },
+    {
+      "id": "functionality-scan/features/login-and-accounts",
+      "group": "features",
+      "title": "Login: ChatGPT OAuth or API key, stored in auth.json or the OS keyring",
+      "description": "Entry points: `codex login` (browser OAuth by default, `--device-auth` for device code, `--with-api-key` and `--with-access-token` reading from stdin), `codex login status`, `codex logout`, `/logout`, `/usage`, and the `account/*` API family (`account/login/start`, `account/logout`, `account/rateLimits/read`, `account/usage/read`, `account/bedrock/setup`). Behaviour: OAuth uses PKCE against the ChatGPT issuer with a local callback server; credentials are written to `auth.json` under the Codex home or to the OS keyring depending on `AuthCredentialsStoreMode`; `CODEX_ACCESS_TOKEN` and workload identity provide non-interactive auth. Output: sign-in status and plan; `/usage` shows rate limits and lets the user spend a limit-reset credit. Fails: the old `--api-key VALUE` form now exits with guidance to pipe the key; choosing both stdin sources is rejected.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 498,
+          "end_line": 498,
+          "snippet": "help = \"Read the API key from stdin (e.g. `printenv OPENAI_API_KEY | codex login --with-api-key`)\"",
+          "note": "API key path"
+        },
+        {
+          "file": "codex-rs/login/src/auth/storage.rs",
+          "start_line": 151,
+          "end_line": 151,
+          "snippet": "codex_home.join(\"auth.json\")",
+          "note": "credential file"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 1544,
+          "end_line": 1544,
+          "snippet": "\"The --api-key flag is no longer supported. Pipe the key instead, e.g. `printenv OPENAI_API_KEY | codex login --with-api-key`.\"",
+          "note": "retired flag behaviour"
+        }
+      ],
+      "tags": [
+        "auth"
+      ],
+      "sokrates_refs": [
+        "component:auth & identity",
+        "finding:security-design-scan/secrets-data-protection/secret-storage-redaction"
+      ],
+      "attributes": {
+        "entry_points": [
+          "codex login",
+          "codex logout",
+          "/logout",
+          "/usage",
+          "account/*"
+        ],
+        "surfaces": [
+          "cli",
+          "ui",
+          "api"
+        ],
+        "status": "shipped",
+        "component": "auth & identity"
+      }
+    },
+    {
+      "id": "functionality-scan/features/maintenance-doctor-update-features",
+      "group": "features",
+      "title": "Maintenance: `codex doctor`, `codex update`, `codex features`, `codex completion`",
+      "description": "`codex doctor [--json]` produces a read-mostly diagnostic report of installation, config, auth, terminal, state paths and bounded reachability probes; it never mutates state, so it is safe before filing a support issue. `codex update` detects the installation method (npm, Homebrew, standalone installer) and runs the matching updater; it is unavailable in debug builds and fails with a manual-update link when the method cannot be detected. `codex features list|enable|disable` prints every feature flag with stage and effective state or writes `features.<key>` into `config.toml`; `--enable/--disable` on any command do the same for one run. `codex completion <shell>` prints a completion script.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/doctor.rs",
+          "start_line": 3,
+          "end_line": 3,
+          "snippet": "//! Doctor is intentionally read-mostly: checks inspect the current installation,",
+          "note": "doctor contract"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 895,
+          "end_line": 895,
+          "snippet": "\"Could not detect the Codex installation method. Please update manually: https://developers.openai.com/codex/cli/\"",
+          "note": "update failure mode"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 1016,
+          "end_line": 1016,
+          "snippet": "/// List known features with their stage and effective state.",
+          "note": "features list"
+        }
+      ],
+      "tags": [
+        "maintenance"
+      ],
+      "sokrates_refs": [
+        "component:CLI & headless frontends",
+        "finding:observability-scan/health-diagnostics/codex-doctor"
+      ],
+      "attributes": {
+        "entry_points": [
+          "codex doctor",
+          "codex update",
+          "codex features",
+          "codex completion"
+        ],
+        "surfaces": [
+          "cli"
+        ],
+        "status": "shipped",
+        "component": "CLI & headless frontends"
+      }
+    },
+    {
+      "id": "functionality-scan/features/external-agent-import",
+      "group": "features",
+      "title": "`/import`: migrate settings, project config and recent chats from Claude Code",
+      "description": "Entry points: `/import` in the TUI and `externalAgentConfig/detect`, `externalAgentConfig/import` and the import-history methods on the app server. Inputs: the other agent's `.claude` directory and per-project `.claude.json`. Behaviour: detects a Claude Code installation, rewrites its settings, MCP servers, hooks, subagents, plugins and memory into Codex equivalents, imports recent sessions, and records the migration in history so it is not repeated; a second source type (`cur`) is wired in the migration crate. Output: a report of what was migrated and what was skipped. Flag: `external_agent_memory_import` governs the memory part.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/tui/src/slash_command.rs",
+          "start_line": 108,
+          "end_line": 108,
+          "snippet": "SlashCommand::Import => \"import setup, this project, and recent chats from Claude Code\",",
+          "note": "user-facing description"
+        },
+        {
+          "file": "codex-rs/external-agent-migration/src/source/cla.rs",
+          "start_line": 20,
+          "end_line": 20,
+          "snippet": "pub const CONFIG_DIR: &'static str = \".claude\";",
+          "note": "source directory"
+        },
+        {
+          "file": "codex-rs/external-agent-migration/src/mcp.rs",
+          "start_line": 11,
+          "end_line": 11,
+          "snippet": "const EXTERNAL_AGENT_PROJECT_CONFIG_FILE: &str = \".claude.json\";",
+          "note": "project config source"
+        }
+      ],
+      "tags": [
+        "migration"
+      ],
+      "sokrates_refs": [
+        "component:extensions (ext/*)",
+        "finding:risk-synthesis-scan/knowledge-risk/external-agent-migration"
+      ],
+      "attributes": {
+        "entry_points": [
+          "/import",
+          "externalAgentConfig/*"
+        ],
+        "surfaces": [
+          "ui",
+          "api"
+        ],
+        "status": "shipped",
+        "flags": [
+          "external_agent_memory_import"
+        ],
+        "component": "external-agent-migration"
+      }
+    },
+    {
+      "id": "functionality-scan/features/remote-control",
+      "group": "features",
+      "title": "Remote control: pair a phone or another client with the local app-server daemon",
+      "description": "Entry points: `codex remote-control start|stop|pair` (marked `[experimental]`), `codex app-server daemon enable-remote-control|disable-remote-control`, the hidden `--remote-control` flag on `codex app-server`, and the `remoteControl/*` API family (`enable`, `disable`, `status/read`, `pairing/start`, `pairing/status`, `client/list`, `client/revoke`). Behaviour: starts the managed app-server daemon with remote control enabled, prints a short-lived manual pairing code, and lets paired clients list and revoke each other; a process-level kill switch (`take_remote_control_disabled_env`) forces it off. Output: human or `--json` status describing foreground or daemon mode. Status: experimental; nothing in-repo documents what a paired client is.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 162,
+          "end_line": 162,
+          "snippet": "/// [experimental] Manage the app-server daemon with remote control enabled.",
+          "note": "subcommand"
+        },
+        {
+          "file": "codex-rs/cli/src/remote_control_cmd.rs",
+          "start_line": 60,
+          "end_line": 60,
+          "snippet": "/// Create and print a short-lived manual pairing code.",
+          "note": "pair"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 573,
+          "end_line": 573,
+          "snippet": "#[arg(long = \"remote-control\", hide = true)]",
+          "note": "hidden app-server flag"
+        }
+      ],
+      "tags": [
+        "remote",
+        "daemon"
+      ],
+      "sokrates_refs": [
+        "component:app-server API",
+        "file:codex-rs/cli/src/remote_control_cmd.rs"
+      ],
+      "attributes": {
+        "entry_points": [
+          "codex remote-control",
+          "codex app-server daemon enable-remote-control",
+          "remoteControl/*"
+        ],
+        "surfaces": [
+          "cli",
+          "api"
+        ],
+        "status": "experimental",
+        "component": "app-server API"
+      }
+    },
+    {
+      "id": "functionality-scan/workflows/first-run",
+      "group": "workflows",
+      "title": "Workflow: first run to first completed task",
+      "description": "1. Install via the install script, npm or Homebrew (README) and run `codex`. 2. Sign in: the TUI offers ChatGPT OAuth or an API key (feature `login-and-accounts`); nothing else works until credentials exist in `auth.json` or the keyring. 3. Open a Git repository: outside one the CLI refuses unless `--skip-git-repo-check`; the project trust level picks the approval default. 4. Optionally `/init` to create `AGENTS.md` (feature `skills-and-agents-md`). 5. Type a task; approve commands or patches as prompted (feature `interactive-agent-session`); state left behind is a rollout under `sessions/`, a row in the state database and `history.jsonl`. 6. Exit; the CLI prints token usage and `codex resume <id>` (feature `session-lifecycle`). Exceptional path: an unrecoverable engine error exits with code 1 and a session id for later resume.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "README.md",
+          "start_line": 70,
+          "end_line": 70,
+          "snippet": "Run `codex` and select **Sign in with ChatGPT**. We recommend signing into your ChatGPT account to use Codex as part of your Plus, Pro, Business, Edu, or Enterprise plan. [Learn more about what's included in your ChatGPT plan](https://help.openai.com/en/articles/11369540-codex-in-chatgpt).",
+          "note": "step 2 in the docs"
+        },
+        {
+          "file": "codex-rs/exec/src/cli.rs",
+          "start_line": 26,
+          "end_line": 26,
+          "snippet": "/// Allow running Codex outside a Git repository.",
+          "note": "step 3 precondition"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 809,
+          "end_line": 809,
+          "snippet": "lines.push(format!(\"Session ID: {conversation_id}\"));",
+          "note": "exceptional exit leaves a resumable id"
+        }
+      ],
+      "tags": [
+        "workflow"
+      ],
+      "sokrates_refs": [
+        "component:TUI frontend"
+      ],
+      "attributes": {
+        "features": [
+          "login-and-accounts",
+          "skills-and-agents-md",
+          "interactive-agent-session",
+          "session-lifecycle"
+        ]
+      }
+    },
+    {
+      "id": "functionality-scan/workflows/automation-pipeline",
+      "group": "workflows",
+      "title": "Workflow: scripted use from CI or an SDK",
+      "description": "1. Provide credentials non-interactively: `printenv OPENAI_API_KEY | codex login --with-api-key`, or `CODEX_ACCESS_TOKEN` (feature `login-and-accounts`). 2. Run `codex exec --json [--output-schema schema.json] [--ephemeral] \"task\"` or the SDK's equivalent (feature `headless-exec`); approvals are decided by policy, typically `--full-auto` or `--sandbox workspace-write`. 3. Consume the JSONL event stream or `--last-message-file`; with a schema the final message is validated JSON. 4. For reviews, `codex exec review --base main` in the pull-request job (feature `code-review`). 5. Optionally `codex exec resume <id> \"follow-up\"` to continue the same thread later. State left behind: a rollout unless `--ephemeral`; nothing else touches the repository except the agent's own edits. Exceptional path: the run exits non-zero when the turn fails or the schema is not satisfied.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/exec/src/cli.rs",
+          "start_line": 42,
+          "end_line": 42,
+          "snippet": "/// Path to a JSON Schema file describing the model's final response shape.",
+          "note": "step 3"
+        },
+        {
+          "file": "codex-rs/exec/src/cli.rs",
+          "start_line": 145,
+          "end_line": 145,
+          "snippet": "/// Resume a previous session by id or pick the most recent with --last.",
+          "note": "step 5"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 504,
+          "end_line": 504,
+          "snippet": "help = \"Read the access token from stdin (e.g. `printenv CODEX_ACCESS_TOKEN | codex login --with-access-token`)\"",
+          "note": "step 1"
+        }
+      ],
+      "tags": [
+        "workflow",
+        "automation"
+      ],
+      "sokrates_refs": [
+        "component:CLI & headless frontends",
+        "component:sdk (TypeScript & Python)"
+      ],
+      "attributes": {
+        "features": [
+          "login-and-accounts",
+          "headless-exec",
+          "code-review",
+          "session-lifecycle"
+        ]
+      }
+    },
+    {
+      "id": "functionality-scan/workflows/extend-then-work",
+      "group": "workflows",
+      "title": "Workflow: extending Codex with MCP servers, plugins, skills and hooks before a session",
+      "description": "1. `codex plugin marketplace add <source>` then `codex plugin add PLUGIN@MARKETPLACE` (feature `plugins-and-marketplaces`); the plugin's skills, MCP servers and `hooks/hooks.json` are declared into the config stack. 2. Or add servers directly: `codex mcp add name -- cmd args` / `--url https://...` and `codex mcp login name` for OAuth (feature `mcp-client`). 3. Put a `SKILL.md` under the skills root or `AGENTS.md` in the project (feature `skills-and-agents-md`). 4. Enable hooks in the user layer; check with `/hooks` (feature `lifecycle-hooks`). 5. Start a session; `/mcp`, `/skills`, `/plugins` confirm what loaded. Hidden prerequisites: hook state can only be flipped from the user or session layers; enterprise `requirements.toml` may restrict marketplaces and force managed-only hooks. Exceptional path: an MCP server that fails to start is skipped for the session with a status entry, not a fatal error.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/plugin_cmd.rs",
+          "start_line": 53,
+          "end_line": 53,
+          "snippet": "Add(AddPluginArgs),",
+          "note": "step 1"
+        },
+        {
+          "file": "codex-rs/cli/src/mcp_cmd.rs",
+          "start_line": 49,
+          "end_line": 49,
+          "snippet": "/// - `add`    — add a server launcher entry to `~/.codex/config.toml`",
+          "note": "step 2"
+        },
+        {
+          "file": "docs/config.md",
+          "start_line": 12,
+          "end_line": 12,
+          "snippet": "`requirements.toml` to ignore user, project, and session hook configs while",
+          "note": "hidden prerequisite"
+        }
+      ],
+      "tags": [
+        "workflow",
+        "extensibility"
+      ],
+      "sokrates_refs": [
+        "component:extensibility (MCP, plugins, skills, hooks)"
+      ],
+      "attributes": {
+        "features": [
+          "plugins-and-marketplaces",
+          "mcp-client",
+          "skills-and-agents-md",
+          "lifecycle-hooks"
+        ]
+      }
+    },
+    {
+      "id": "functionality-scan/workflows/recover-and-continue",
+      "group": "workflows",
+      "title": "Workflow: resuming, forking and cleaning up sessions",
+      "description": "1. `codex resume` shows the picker for the current directory (`--all` for every directory, `--last` to skip the picker); `codex resume <id-or-name>` goes straight in (feature `session-lifecycle`). 2. To try an alternative without losing the original, `codex fork <id>` or `/fork` creates a new thread id from the same history. 3. When the context fills, `/compact` (or automatic compaction) summarises and continues (feature `context-compaction`). 4. Finished work: `codex archive <id>` moves the rollout to `archived_sessions`; `codex unarchive` reverses it; `codex delete <id>` removes it after confirmation. 5. Legacy session files from older versions are converted with `codex migrate-rollouts` before they show in paginated history. State: the rollout file and the SQLite state row move together; `history.jsonl` keeps prompt history across sessions. Exceptional path: `--force` deletion is only accepted for UUIDs so a name cannot delete the wrong session.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 350,
+          "end_line": 350,
+          "snippet": "/// Continue the most recent session without showing the picker.",
+          "note": "step 1"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 204,
+          "end_line": 204,
+          "snippet": "/// Inspect or migrate legacy local sessions to paginated thread history.",
+          "note": "step 5"
+        },
+        {
+          "file": "codex-rs/rollout/src/lib.rs",
+          "start_line": 68,
+          "end_line": 68,
+          "snippet": "pub const ARCHIVED_SESSIONS_SUBDIR: &str = \"archived_sessions\";",
+          "note": "step 4 state"
+        }
+      ],
+      "tags": [
+        "workflow",
+        "sessions"
+      ],
+      "sokrates_refs": [
+        "component:persistence (rollout, state, thread-store)"
+      ],
+      "attributes": {
+        "features": [
+          "session-lifecycle",
+          "context-compaction"
+        ]
+      }
+    },
+    {
+      "id": "functionality-scan/data/codex-home",
+      "group": "data",
+      "title": "Local state under $CODEX_HOME: config, credentials, sessions, state database, memories, shell snapshots, logs",
+      "description": "Everything Codex keeps lives under one directory (`CODEX_HOME`, default `~/.codex`). `config.toml` and `<profile>.config.toml`: user configuration (owner: configuration surface). `auth.json`: OAuth tokens or API key unless the keyring store mode is selected (owner: login). `sessions/YYYY/MM/DD/*.jsonl` and `archived_sessions/`: one rollout file per thread, one line per item (owner: session lifecycle); mirrored into `state_5.sqlite`, the SQLx-managed state database that also holds thread metadata, queues, projects and the local log database. `memories/`: generated memory files when the `memories` feature is enabled; `codex debug clear-memories` wipes them. `shell_snapshots/`: captured shell environments used to run commands (flag `shell_snapshot`). `log/`: the opt-in TUI log file; plugin caches and marketplace snapshots also live here. Lifecycle: rollouts persist until archived or deleted; `--ephemeral` skips them entirely; the state database is recreated on corruption by the recovery module.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/rollout/src/lib.rs",
+          "start_line": 67,
+          "end_line": 67,
+          "snippet": "pub const SESSIONS_SUBDIR: &str = \"sessions\";",
+          "note": "rollouts"
+        },
+        {
+          "file": "codex-rs/state/src/sqlite.rs",
+          "start_line": 33,
+          "end_line": 33,
+          "snippet": "const STATE_DB_FILENAME: &str = \"state_5.sqlite\";",
+          "note": "state database"
+        },
+        {
+          "file": "codex-rs/memories/write/src/lib.rs",
+          "start_line": 117,
+          "end_line": 117,
+          "snippet": "codex_home.join(\"memories\")",
+          "note": "memories store"
+        }
+      ],
+      "tags": [
+        "data",
+        "persistence"
+      ],
+      "sokrates_refs": [
+        "component:persistence (rollout, state, thread-store)",
+        "finding:domain-language-scan/glossary/rollout",
+        "finding:architecture-scan/evolution/rollout-jsonl-to-sqlite-state"
+      ],
+      "attributes": {
+        "stores": [
+          "config.toml",
+          "auth.json / keyring",
+          "sessions/ and archived_sessions/",
+          "state_5.sqlite",
+          "memories/",
+          "shell_snapshots/",
+          "log/",
+          "plugin cache"
+        ],
+        "location": "$CODEX_HOME"
+      }
+    },
+    {
+      "id": "functionality-scan/data/what-leaves-the-machine",
+      "group": "data",
+      "title": "Data that leaves the machine: model requests, analytics metrics, feedback uploads, cloud tasks",
+      "description": "Model requests: every turn sends the prompt, instruction files, tool outputs and file contents the agent read to the configured provider (OpenAI by default; Bedrock, Ollama or LM Studio when configured). Analytics: in release builds with `analytics.enabled` true the OTel metrics exporter pushes to Statsig at `ab.chatgpt.com`; the TUI defaults analytics on, `codex app-server` defaults it off unless `--analytics-default-enabled` (the IDE passes it); `[analytics] enabled = false` opts out everywhere. Logs and traces are exported only when `otel` is configured; user prompts are redacted in logs by default. Feedback: `/feedback` uploads a Sentry envelope with a redacted in-memory log ring only when the user submits it. Cloud tasks: `codex cloud` sends task prompts and receives diffs from the ChatGPT backend. MCP servers and hooks receive tool arguments and event payloads by design.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/otel/src/config.rs",
+          "start_line": 9,
+          "end_line": 9,
+          "snippet": "pub(crate) const STATSIG_OTLP_HTTP_ENDPOINT: &str = \"https://ab.chatgpt.com/otlp/v1/metrics\";",
+          "note": "metrics destination"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 578,
+          "end_line": 578,
+          "snippet": "/// Analytics are disabled by default for app-server. Users have to explicitly opt in",
+          "note": "app-server default"
+        },
+        {
+          "file": "codex-rs/config/src/types.rs",
+          "start_line": 221,
+          "end_line": 221,
+          "snippet": "/// When `false`, disables analytics across Codex product surfaces in this profile.",
+          "note": "opt-out key"
+        }
+      ],
+      "tags": [
+        "data",
+        "privacy"
+      ],
+      "sokrates_refs": [
+        "finding:observability-scan/telemetry-pipeline/statsig-metrics-default-on",
+        "component:shared infrastructure (utils & leaf crates)"
+      ],
+      "attributes": {
+        "destinations": [
+          "model provider API",
+          "ab.chatgpt.com (Statsig metrics)",
+          "sentry.io (feedback, on submit)",
+          "ChatGPT backend (cloud tasks, login)",
+          "configured MCP servers and hooks"
+        ]
+      }
+    },
+    {
+      "id": "functionality-scan/integrations/model-providers",
+      "group": "integrations",
+      "title": "Model providers: OpenAI (ChatGPT or API key) by default, Amazon Bedrock, Ollama and LM Studio built in",
+      "description": "The built-in provider catalog contains `openai`, `amazon-bedrock`, `amazon-bedrock-runtime`, `ollama` and `lmstudio`; users add their own under `model_providers` in `config.toml` and select one with `--model`/`--oss` or per profile. Enables: running against ChatGPT plan quotas or an API key, AWS-hosted models (`account/bedrock/setup` walks through credentials), and fully local models over the Responses wire API on the Ollama or LM Studio port. When the provider is unreachable the turn fails with a provider error and the TUI's error classifier maps known messages to user guidance; there is no offline mode.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 494,
+          "end_line": 494,
+          "snippet": "pub fn built_in_model_providers(",
+          "note": "catalog (lines 494-528)"
+        },
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 491,
+          "end_line": 491,
+          "snippet": "pub const OLLAMA_OSS_PROVIDER_ID: &str = \"ollama\";",
+          "note": "local provider"
+        },
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 41,
+          "end_line": 41,
+          "snippet": "pub const AMAZON_BEDROCK_PROVIDER_ID: &str = \"amazon-bedrock\";",
+          "note": "Bedrock"
+        }
+      ],
+      "tags": [
+        "integration",
+        "llm"
+      ],
+      "sokrates_refs": [
+        "component:model backends & API clients",
+        "finding:tech-stack-scan/external-services/openai-api"
+      ],
+      "attributes": {
+        "providers": [
+          "openai",
+          "amazon-bedrock",
+          "amazon-bedrock-runtime",
+          "ollama",
+          "lmstudio",
+          "custom via config"
+        ],
+        "when_absent": "turn fails; no offline mode"
+      }
+    },
+    {
+      "id": "functionality-scan/integrations/desktop-app-and-ide",
+      "group": "integrations",
+      "title": "Desktop app and IDE: `codex app`, `/app`, `/ide` and the app-server daemon",
+      "description": "The IDE extension and the desktop app are separate products that talk to this binary through the app server. `codex app [PATH]` (macOS and Windows only) opens the workspace in the desktop app and downloads the installer when it is missing; `/app` hands the current session over to it. `/ide` pulls the current selection and open files from a connected IDE into the prompt. `codex app-server daemon bootstrap` installs durable daemon management for SSH-driven use, and `codex app-server proxy` relays stdio to the control socket. When no app or IDE is connected these commands are inert: `/ide` adds nothing and `codex app` falls back to the installer download.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 165,
+          "end_line": 165,
+          "snippet": "/// Launch the Desktop app (opens the app installer if missing).",
+          "note": "codex app"
+        },
+        {
+          "file": "codex-rs/cli/src/app_cmd.rs",
+          "start_line": 19,
+          "end_line": 19,
+          "snippet": "crate::desktop_app::run_app_open_or_install(workspace, cmd.download_url_override).await",
+          "note": "open-or-install"
+        },
+        {
+          "file": "codex-rs/tui/src/slash_command.rs",
+          "start_line": 125,
+          "end_line": 125,
+          "snippet": "\"include current selection, open files, and other context from your IDE\"",
+          "note": "/ide"
+        }
+      ],
+      "tags": [
+        "integration",
+        "ide"
+      ],
+      "sokrates_refs": [
+        "component:app-server API",
+        "component:TUI frontend"
+      ],
+      "attributes": {
+        "when_absent": "commands are inert or trigger the installer",
+        "platforms": "app: macOS, Windows"
+      }
+    },
+    {
+      "id": "functionality-scan/hidden-and-gaps/feature-flag-switchboard",
+      "group": "hidden-and-gaps",
+      "title": "117 feature flags: 41 under development, 34 removed-but-accepted, only 1 in the /experimental menu",
+      "description": "The `FEATURES` registry in `codex-features` is the central switchboard: **117 entries** with stages `Stable` (38), `UnderDevelopment` (41), `Removed` (34), `Deprecated` (3) and `Experimental` (1). Any key, including under-development ones such as `code_mode`, `realtime_conversation`, `guardianv2` and `unified_exec_zsh_fork`, can be flipped by a user with `--enable <key>`, `codex features enable <key>` or `features.<key>` in config; the only guard is that the key must exist. The `/experimental` menu in the TUI lists only flags whose stage is `Experimental`, which today is just `network_proxy`, so the menu under-represents what the registry exposes. 34 removed keys are still parsed so old configs do not break; 3 deprecated keys (`web_search_request`, `web_search_cached`, one more) map to the newer `web_search` mode. Stable-but-off defaults worth knowing: `memories`, `multi_agent_v2`. Intent is clear from the stage doc comments, so this is filed as `low`: the gap is that no in-repo document explains the stages to users beyond `codex features list`.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/features/src/lib.rs",
+          "start_line": 43,
+          "end_line": 43,
+          "snippet": "pub enum Stage {",
+          "note": "stage vocabulary (lines 43-58)"
+        },
+        {
+          "file": "codex-rs/features/src/lib.rs",
+          "start_line": 1099,
+          "end_line": 1099,
+          "snippet": "stage: Stage::Experimental {",
+          "note": "the single Experimental entry (`network_proxy`, line 1098)"
+        },
+        {
+          "file": "codex-rs/tui/src/chatwidget/settings_popups.rs",
+          "start_line": 93,
+          "end_line": 93,
+          "snippet": "let name = spec.stage.experimental_menu_name()?;",
+          "note": "menu filters on the Experimental stage"
+        }
+      ],
+      "recommendation": "Document the stage vocabulary next to `codex features list` output and consider warning when an `UnderDevelopment` flag is enabled from the CLI.",
+      "tags": [
+        "flags"
+      ],
+      "sokrates_refs": [
+        "component:configuration",
+        "file:codex-rs/features/src/lib.rs"
+      ],
+      "attributes": {
+        "flags_total": 117,
+        "flags_by_stage": {
+          "stable": 38,
+          "under_development": 41,
+          "removed": 34,
+          "deprecated": 3,
+          "experimental": 1
+        },
+        "how_to_flip": [
+          "--enable/--disable",
+          "codex features enable|disable",
+          "features.<key> in config.toml",
+          "/experimental (Experimental stage only)"
+        ]
+      }
+    },
+    {
+      "id": "functionality-scan/hidden-and-gaps/docs-moved-offsite",
+      "group": "hidden-and-gaps",
+      "title": "In-repo user docs are redirect stubs; the README leads with install and sign-in only",
+      "description": "`docs/getting-started.md`, `config.md`, `exec.md`, `slash_commands.md`, `sandbox.md`, `skills.md`, `agents_md.md`, `authentication.md`, `execpolicy.md` and `example-config.md` are three-line files pointing at developers.openai.com. `AGENTS.md` instructs contributors not to add user-facing documentation to `docs/`, so this is deliberate. The consequence for a reader of the repository: the functional surface described in this scan (30 subcommands, 58 slash commands, 153 API methods, 117 flags) is documented in-repo only through clap help strings, the slash-command `description()` table and the `codex-rs/docs` protocol notes, one of which (`protocol_v1.md`) warns that the code may not match it. Not a defect, but a due-diligence reader must treat help text as the manual.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "docs/exec.md",
+          "start_line": 3,
+          "end_line": 3,
+          "snippet": "For information about non-interactive mode, see [this documentation](https://developers.openai.com/codex/noninteractive).",
+          "note": "redirect stub"
+        },
+        {
+          "file": "AGENTS.md",
+          "start_line": 32,
+          "end_line": 32,
+          "snippet": "- Do not add general product or user-facing documentation to the `docs/` folder. The official Codex documentation lives elsewhere. The exception is app-server API documentation, which is covered by the app-server guidance below.",
+          "note": "the policy"
+        },
+        {
+          "file": "codex-rs/docs/protocol_v1.md",
+          "start_line": 5,
+          "end_line": 5,
+          "snippet": "NOTE: The code might not completely match this spec. There are a few minor changes that need to be made after this spec has been reviewed, which will not alter the existing TUI's functionality.",
+          "note": "the one in-repo protocol doc disclaims itself"
+        }
+      ],
+      "recommendation": "Keep the stubs but add a one-paragraph pointer in README to `codex --help`, `codex features list` and `codex app-server generate-json-schema` as the authoritative in-repo surface descriptions.",
+      "tags": [
+        "docs"
+      ],
+      "sokrates_refs": [
+        "finding:domain-language-scan/language-drift/docs-external-stubs"
+      ],
+      "attributes": {
+        "doc_stubs": 10
+      }
+    },
+    {
+      "id": "functionality-scan/hidden-and-gaps/debug-memory-slash-commands-visible",
+      "group": "hidden-and-gaps",
+      "title": "`/debug-m-drop` and `/debug-m-update` show in the release popup labelled `DO NOT USE`",
+      "description": "The `SlashCommand` enum ends with two debugging commands, `MemoryDrop` (`/debug-m-drop`) and `MemoryUpdate` (`/debug-m-update`), whose popup description is literally `DO NOT USE`. Unlike `/rollout` and `/test-approval`, they are not gated on `debug_assertions` in `is_visible()`, so they appear in release builds' popup for every user. The behaviour they trigger belongs to the memory pipeline that is off by default; a user who runs them without memories enabled gets a no-op or an error rather than harm, so severity is `low`.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/tui/src/slash_command.rs",
+          "start_line": 121,
+          "end_line": 121,
+          "snippet": "SlashCommand::MemoryDrop => \"DO NOT USE\",",
+          "note": "popup text"
+        },
+        {
+          "file": "codex-rs/tui/src/slash_command.rs",
+          "start_line": 79,
+          "end_line": 79,
+          "snippet": "#[strum(serialize = \"debug-m-drop\")]",
+          "note": "typed spelling"
+        },
+        {
+          "file": "codex-rs/tui/src/slash_command.rs",
+          "start_line": 271,
+          "end_line": 271,
+          "snippet": "SlashCommand::Rollout | SlashCommand::TestApproval => cfg!(debug_assertions),",
+          "note": "the visibility gate that does not include them"
+        }
+      ],
+      "recommendation": "Add `MemoryDrop | MemoryUpdate => cfg!(debug_assertions)` to `is_visible()` or hide them until memories is enabled.",
+      "tags": [
+        "ui",
+        "debug"
+      ],
+      "sokrates_refs": [
+        "component:TUI frontend",
+        "file:codex-rs/tui/src/slash_command.rs"
+      ],
+      "attributes": {
+        "status": "shipped",
+        "surfaces": [
+          "ui"
+        ]
+      }
+    },
+    {
+      "id": "functionality-scan/hidden-and-gaps/hidden-cli-subcommands",
+      "group": "hidden-and-gaps",
+      "title": "Hidden CLI subcommands: execpolicy, responses-api-proxy, stdio-to-uds, debug trace-reduce, debug clear-memories",
+      "description": "Five subcommands are registered but hidden from `codex --help`. `responses-api-proxy` and `stdio-to-uds` are internal plumbing (the desktop app and daemon use them) and their doc comments say `Internal:`; hiding them is a design decision. `execpolicy check` evaluates the Starlark `.rules` files against a command line, which is exactly what a user writing rules needs, and `docs/execpolicy.md` is a redirect; this looks like forgotten documentation rather than intent. `debug trace-reduce` replays a rollout trace bundle and `debug clear-memories` resets local memory state; the latter is user-relevant once memories are enabled. Also hidden: the `--remote-control` flag on `codex app-server`, the `experimental_issuer` and `experimental_client-id` login flags, and `app-server generate-internal-json-schema`.",
+      "severity": "low",
+      "confidence": "possible",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 184,
+          "end_line": 184,
+          "snippet": "/// Execpolicy tooling.",
+          "note": "user-relevant hidden command (hidden at 185)"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 217,
+          "end_line": 217,
+          "snippet": "/// Internal: run the responses API proxy.",
+          "note": "internal by intent"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 260,
+          "end_line": 260,
+          "snippet": "/// Internal: reset local memory state for a fresh start.",
+          "note": "debug clear-memories (hidden at 261)"
+        }
+      ],
+      "recommendation": "Unhide `execpolicy check` or mention it in the execpolicy documentation; keep the internal relays hidden.",
+      "tags": [
+        "cli",
+        "hidden"
+      ],
+      "sokrates_refs": [
+        "component:CLI & headless frontends"
+      ],
+      "attributes": {
+        "hidden_subcommands": [
+          "execpolicy",
+          "responses-api-proxy",
+          "stdio-to-uds",
+          "debug trace-reduce",
+          "debug clear-memories"
+        ],
+        "hidden_flags": [
+          "app-server --remote-control",
+          "login --experimental_issuer",
+          "login --experimental_client-id"
+        ]
+      }
+    },
+    {
+      "id": "functionality-scan/hidden-and-gaps/mcp-server-deprecated-but-documented",
+      "group": "hidden-and-gaps",
+      "title": "`codex mcp-server` is deprecated at runtime while still listed in help and documented as the MCP interface",
+      "description": "Running `codex mcp-server` prints a deprecation warning, but the clap help string (`Start Codex as an MCP server (stdio).`) carries no deprecation mark and `codex-rs/docs/codex_mcp_interface.md` still presents it as the server binary of the experimental MCP interface. A reader of the docs therefore adopts a surface the code is retiring; the replacement (`codex app-server`) is named only in the architecture and the evolution history, not next to the command.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 1183,
+          "end_line": 1183,
+          "snippet": "\"warning: `codex mcp-server` is deprecated and will be removed in a future release.\"",
+          "note": "code side"
+        },
+        {
+          "file": "codex-rs/docs/codex_mcp_interface.md",
+          "start_line": 6,
+          "end_line": 6,
+          "snippet": "- Server binary: `codex mcp-server` (or `codex-mcp-server`)",
+          "note": "docs side"
+        },
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 156,
+          "end_line": 156,
+          "snippet": "/// Start Codex as an MCP server (stdio).",
+          "note": "help text without deprecation"
+        }
+      ],
+      "recommendation": "Mark the subcommand `[deprecated]` in its help string and add the replacement to `codex_mcp_interface.md`.",
+      "tags": [
+        "deprecated",
+        "docs"
+      ],
+      "sokrates_refs": [
+        "finding:evolution-scan/lifecycle/mcp-server-deprecated-still-present",
+        "component:extensibility (MCP, plugins, skills, hooks)"
+      ],
+      "attributes": {
+        "status": "deprecated"
+      }
+    },
+    {
+      "id": "functionality-scan/hidden-and-gaps/memories-stable-but-off",
+      "group": "hidden-and-gaps",
+      "title": "Memories: a stable feature that is off by default and reachable only via config or /memories",
+      "description": "The `memories` flag is `Stable` with `default_enabled: false`; the pipeline writes generated memories under `$CODEX_HOME/memories` and injects them into later sessions. It is switchable through `/memories` in the TUI, `thread/memoryMode/set` and `memory/reset` on the app server, and `features.memories` in config, and it is described in-repo only by the crate README. Since a menu entry exists this is a `shipped-off-by-default` feature rather than a gap; it is filed here because the crate README is the only text that says what a memory is, and because two debug commands for it leak into the popup.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/features/src/lib.rs",
+          "start_line": 984,
+          "end_line": 984,
+          "snippet": "key: \"memories\",",
+          "note": "flag (stable at 985, default false at 986)"
+        },
+        {
+          "file": "codex-rs/tui/src/slash_command.rs",
+          "start_line": 144,
+          "end_line": 144,
+          "snippet": "SlashCommand::Memories => \"configure memory use and generation\",",
+          "note": "user switch"
+        },
+        {
+          "file": "codex-rs/memories/README.md",
+          "start_line": 3,
+          "end_line": 3,
+          "snippet": "This directory owns reusable memory crates and the memory pipeline documentation.",
+          "note": "only in-repo description"
+        }
+      ],
+      "tags": [
+        "flags",
+        "memories"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "file:codex-rs/memories/README.md"
+      ],
+      "attributes": {
+        "status": "shipped-off-by-default",
+        "flags": [
+          "memories"
+        ],
+        "flag_stage": "stable"
+      }
+    },
+    {
+      "id": "functionality-scan/hidden-and-gaps/realtime-voice-under-development",
+      "group": "hidden-and-gaps",
+      "title": "Realtime voice conversation: six API methods shipped behind an under-development flag",
+      "description": "The app server registers `thread/realtime/start`, `appendAudio`, `appendText`, `appendSpeech`, `stop` and `listVoices`, and the engine has a realtime conversation path, but the `realtime_conversation` flag is `UnderDevelopment` and off by default. A client that discovers the methods from the generated schema (they are experimental-marked) can enable the flag with `--enable realtime_conversation` and reach unfinished behaviour; nothing in-repo describes the feature. Filed as `low` because the stage is explicit and the methods are marked experimental; confidence `likely` because the gating point was not traced into the handler.",
+      "severity": "low",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/features/src/lib.rs",
+          "start_line": 1468,
+          "end_line": 1468,
+          "snippet": "key: \"realtime_conversation\",",
+          "note": "flag"
+        },
+        {
+          "file": "codex-rs/features/src/lib.rs",
+          "start_line": 1469,
+          "end_line": 1469,
+          "snippet": "stage: Stage::UnderDevelopment,",
+          "note": "stage"
+        },
+        {
+          "file": "codex-rs/app-server-protocol/src/protocol/common.rs",
+          "start_line": 979,
+          "end_line": 979,
+          "snippet": "ThreadRealtimeStart => \"thread/realtime/start\" {",
+          "note": "API method"
+        }
+      ],
+      "tags": [
+        "flags",
+        "api"
+      ],
+      "sokrates_refs": [
+        "component:app-server API",
+        "file:codex-rs/features/src/lib.rs"
+      ],
+      "attributes": {
+        "status": "experimental",
+        "flags": [
+          "realtime_conversation"
+        ],
+        "flag_stage": "under_development"
+      }
+    }
+  ]
+}

@@ -714,22 +714,7 @@
                 '</div><div class="sum">' + bullets(d.summary, 3) + '</div></div>';
         });
         html += '</div>';
-
-        const attention = sortFindings(allFindings.filter(f => f.severity !== 'info')).slice(0, 12);
-        if (attention.length) {
-            html += '<h3 style="margin-top: 30px">Top attention items</h3>' + attentionTable(attention) +
-                '<p style="margin-top: 8px"><a href="#" onclick="go(\'attention\'); return false;">All ' +
-                allFindings.filter(f => f.severity !== 'info').length + ' attention items →</a></p>';
-        }
         return html;
-    }
-
-    function attentionTable(list) {
-        return '<table class="list"><thead><tr><th></th><th>Finding</th><th>Scanner</th><th>Group</th><th>Confidence</th></tr></thead><tbody>' +
-            list.map(f => '<tr onclick="go(\'' + esc(f._scanner) + '\', \'' + esc(f.id) + '\')" style="cursor:pointer">' +
-                '<td style="text-align:center">' + sevDot(f.severity) + '</td><td>' + scannerIcon(f._scanner) + hl(f.title) + '</td>' +
-                '<td class="scanner">' + esc(scannerName(f._scanner)) + '</td><td class="scanner">' + esc(f.group) + '</td><td>' + pill(f.confidence) + '</td></tr>').join('') +
-            '</tbody></table>';
     }
 
     function toolbar(findings, showGroups) {

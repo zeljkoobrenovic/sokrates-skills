@@ -26,7 +26,7 @@ Every network call is a dependency on something the program does not control. Th
 
 ## Workflow
 
-1. **Orient per the core skill.** From `tech-stack-scan` (HTTP clients, servers, protocol libraries), `functionality-scan` (integrations), `architecture-scan` (runtime communication), `reliability-scan` (retry/timeout verdicts), `security-design-scan` (trust boundaries). Decide the system kind: a client of remote APIs, a server, both (an agent runtime that calls model APIs *and* serves a protocol), or offline software with incidental network use (update checks, telemetry). A batch tool with no network use gets a short `topology/no-network` finding and stops — say so and do not pad.
+1. **Orient per the core skill.** From `tech-stack-scan` (HTTP clients, servers, protocol libraries), `functionality-scan` (integrations), `architecture-scan` (runtime communication), `reliability-scan` (retry/timeout verdicts), `security-design-scan` (trust boundaries). Decide the system kind: a client of remote APIs, a server, both (an agent runtime that calls model APIs *and* serves a protocol), or offline software with incidental network use (update checks, telemetry). A batch tool with no network use gets a short `topology/no-network` finding and stops — say so and do not pad. An empty `external-services` group in `tech-stack-scan` is itself a strong signal. If the program's *produced artifacts* depend on the network (generated HTML loading CDN scripts, reports linking out), mention it inside `no-network` with references to `functionality-scan`/`security-design-scan` — do not open further groups; that is not "incidental use". Incidental use means the *process* makes a few opt-in or side calls (update checks, telemetry, docs links opened in a browser).
 2. **Count with the script, then find the connectivity code.** Run
    ```bash
    python3 <this-skill-path>/scripts/count_network_sites.py <src-root> --json <scratch>/network-counts.json
@@ -69,7 +69,7 @@ Slugs are **endpoint-class, mechanism or artifact names, never consequences**. F
 | `data-in-transit` | `payloads-<class>`, `local-content-egress`, `inbound-trust` |
 | `network-posture` | `posture` |
 
-Project-specific findings get a free slug naming the endpoint or mechanism, never the consequence. Several mechanisms sharing a slug are listed in `attributes`.
+Project-specific findings get a free slug naming the endpoint or mechanism, never the consequence. The `<class>` token is the same string across groups (`outbound-model-api`, `streaming-model-api`, `payloads-model-api`) so refs line up. Several mechanisms sharing a slug are listed in `attributes`.
 
 ## What a good finding looks like
 
@@ -89,12 +89,12 @@ Expect 10–16 findings for a networked client/server or agent runtime; 3–6 fo
 
 Follow the core workflow: write `_sokrates/findings/ai-insights/network-scan.json`, validate until OK, render the explorer, re-merge if a combined report exists, report leading with the posture summary (what the software connects to by default and what happens when it cannot, in two sentences) and any above-info findings.
 
-`stats` — copy the script's **facts** under its own keys (omit keys whose shape does not exist in the ecosystem), add `count_rule`, and on top:
+`stats` — copy the script's **facts** under its own keys (omit keys whose shape does not exist in the ecosystem; a fact key you verified to be entirely false positives is omitted and named in `count_notes`), add `count_rule`, and on top:
 
 - `endpoint_classes` — list as used in the findings
 - `outbound_endpoints` — object: class → default host (or `configurable`), e.g. `{"model-api": "api.openai.com", "telemetry": "configurable, off by default"}`
 - `listeners` — list of `protocol:port` or `unix socket` entries; `[]` for none
 - `protocols` — list as used, e.g. `["HTTPS", "SSE", "WebSocket", "MCP over stdio"]`
-- `tls_verification` — `platform-roots`, `bundled-roots`, `configurable`, `disabled-on-<path>`
-- `proxy_support` — `env-vars`, `system`, `config`, `none`
+- `tls_verification` — `platform-roots`, `bundled-roots`, `configurable`, `disabled-on-<path>`, `not-applicable`
+- `proxy_support` — `env-vars`, `system`, `config`, `ignored` (connections made, proxies not honoured), `not-applicable` (no connections)
 - `offline_mode` — `full`, `partial`, `none`, `not-applicable`

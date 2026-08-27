@@ -23,22 +23,25 @@ EXTS = {
     "rust": {".rs"}, "java": {".java", ".kt", ".scala"}, "csharp": {".cs"},
     "js": {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}, "python": {".py"}, "go": {".go"},
     "config": {".toml", ".yaml", ".yml", ".json", ".env", ".ini", ".properties", ".sql"},
+    "markup": {".html", ".htm", ".vue", ".svelte"},
 }
 SKIP_DIRS = {"node_modules", "target", "build", "dist", "out", ".git", "vendor", "venv", ".venv",
              "__pycache__", "_sokrates", "_sokrates_landscape"}
 TEST_SEGMENT = re.compile(r"(^|[._-])(tests?|spec|specs|mocks?|fixtures?|testdata|test[-_]support)([._-]|$)", re.I)
 TEST_FILE = re.compile(r"(_tests?\.\w+$|Tests?\.java$|\.spec\.\w+$|\.test\.\w+$|^test_.*\.py$|^tests?\.rs$|^conftest\.py$)", re.I)
+COMMENT = re.compile(r"^\s*(//|/\*|\*|#|<!--)")
+HTML_TAG = re.compile(r"<(script|link|a|img|iframe)\b|href=|src=|@import|url\(", re.I)
 RUST_CFG_TEST = re.compile(r"#\[cfg\(test\)\]")
 RUST_MOD_OPEN = re.compile(r"^\s*(pub(\([^)]*\))?\s+)?mod\s+\w+\s*\{")
 
 # key -> (regex, languages or None for all, note). Keys ending in _candidates/_keyword_files are leads.
 PATTERNS = {
-    "http_client_sites": (re.compile(r"reqwest::Client|Client::builder\(\)|ClientBuilder|HttpClient\.newBuilder|HttpClients\.|OkHttpClient|RestTemplate|WebClient\.|new HttpClient\(|axios\.create\(|axios\.|\bfetch\(|got\(|undici|requests\.(get|post|put|delete|Session)\(|httpx\.|aiohttp\.|urllib\.request|http\.(Get|Post|Client)\{|http\.NewRequest\(|curl_easy"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "HTTP client construction and calls"),
-    "server_listen_sites": (re.compile(r"\.bind\(|\.listen\(|TcpListener::bind|HttpServer::new|axum::Server|Router::new\(\)|warp::serve|actix_web|ServerSocket\(|SpringBootApplication|@RestController|@GetMapping|@PostMapping|app\.(get|post|put|delete|listen)\(|createServer\(|express\(\)|fastify\(|uvicorn|FastAPI\(|Flask\(|@app\.route|http\.ListenAndServe|net\.Listen\("), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "servers, listeners and routes"),
+    "http_client_sites": (re.compile(r"reqwest::Client|Client::builder\(\)|ClientBuilder|HttpClient\.new(Builder|HttpClient)\(|HttpURLConnection|\.openConnection\(\)|\.openStream\(\)|HttpClients\.|OkHttpClient|RestTemplate|WebClient\.|new HttpClient\(|axios\.create\(|axios\.|\bfetch\(|got\(|undici|requests\.(get|post|put|delete|Session)\(|httpx\.|aiohttp\.|urllib\.request|http\.(Get|Post|Client)\{|http\.NewRequest\(|curl_easy|cloneRepository\(|CloneCommand|\.fetch\(\)\.|setURI\(|Desktop\.getDesktop\(\)\.browse\(|WebEngine.*\.load\("), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "HTTP client construction and calls"),
+    "server_listen_sites": (re.compile(r"TcpListener::bind|UdpSocket::bind|ServerSocket\(|socket\.bind\(|\.bind\(\s*\(|\.bind\(\s*['\"]\d|\.listen\(\s*\d|server\.listen\(|HttpServer::new|axum::Server|Router::new\(\)|warp::serve|actix_web|ServerSocket\(|SpringBootApplication|@RestController|@GetMapping|@PostMapping|app\.(get|post|put|delete|listen)\(|createServer\(|express\(\)|fastify\(|uvicorn|FastAPI\(|Flask\(|@app\.route|http\.ListenAndServe|net\.Listen\("), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "servers, listeners and routes"),
     "port_literal_sites": (re.compile(r"(port|PORT)\s*[:=]\s*\d{2,5}|:\d{4,5}[\"'/]|0\.0\.0\.0|127\.0\.0\.1|localhost:\d+"), ['rust', 'java', 'csharp', 'js', 'python', 'go', 'config'], "port and bind-address literals"),
     "websocket_sites": (re.compile(r"WebSocket|tokio_tungstenite|tungstenite|ws://|wss://|socket\.io|SockJS|@ServerEndpoint"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "WebSocket usage"),
     "sse_stream_sites": (re.compile(r"text/event-stream|EventSource|eventsource|bytes_stream\(\)|\.stream\(\)\.await|StreamingResponse|ServerSentEvent|SseEmitter|data:\s*\[DONE\]"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "SSE / streamed responses"),
-    "grpc_rpc_sites": (re.compile(r"tonic::|grpc|GrpcChannel|ManagedChannel|@GrpcService|jsonrpc|JSON-RPC|rpc\.|mcp::|McpServer|McpClient|stdio transport"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "gRPC / RPC / MCP layers"),
+    "grpc_rpc_sites": (re.compile(r"tonic::|\bgrpc(::|\.|-)|GrpcChannel|ManagedChannel|@GrpcService|jsonrpc|JSON-RPC|\brpc::|mcp::|McpServer|McpClient|stdio transport"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "gRPC / RPC / MCP layers"),
     "raw_socket_sites": (re.compile(r"TcpStream::connect|UnixStream|UnixListener|new Socket\(|SocketChannel|net\.createConnection|net\.Socket|socket\.socket\(|net\.Dial\(|named pipe|\\\\\\\\\.\\\\pipe"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "raw TCP/Unix sockets and pipes"),
     "url_literal_sites": (re.compile(r"https?://(?!www\.w3\.org|schemas\.|xmlns|example\.com|localhost)[a-zA-Z0-9.-]+\.[a-z]{2,}[^\s\"')]*"), ['rust', 'java', 'csharp', 'js', 'python', 'go', 'config'], "URL literals (hosts the code knows about)"),
     "endpoint_env_sites": (re.compile(r"(getenv|env::var|process\.env\.|os\.environ|System\.getenv)\s*\(?\s*[\"']?[A-Z0-9_]*(URL|HOST|ENDPOINT|BASE|API|PORT|PROXY|SOCKET|ADDR)[A-Z0-9_]*"), ['rust', 'java', 'csharp', 'js', 'python', 'go'], "env vars that set endpoints, hosts, ports or proxies"),
@@ -110,11 +113,16 @@ def scan(root: Path, excludes):
         rel = path.relative_to(root).as_posix()
         candidates = rust_non_test(lines) if lang == "rust" else enumerate(lines, 1)
         for lineno, line in candidates:
+            if COMMENT.match(line):
+                continue
             for key, (rx, langs, _note) in PATTERNS.items():
                 if langs and lang not in langs:
                     continue
-                if rx.search(line):
-                    hits[key].append((rel, lineno, line.strip()[:160]))
+                if not rx.search(line):
+                    continue
+                if key == "url_literal_sites" and HTML_TAG.search(line):
+                    key = "url_in_markup_candidates"
+                hits[key].append((rel, lineno, line.strip()[:160]))
     return hits, files_seen
 
 
@@ -136,7 +144,7 @@ def main(argv=None) -> int:
         stats[k] = len({f for f, _, _ in v}) if k.endswith("_keyword_files") else len(v)
     leads = {k: n for k, n in stats.items() if k.endswith(("_candidates", "_keyword_files"))}
     facts = {k: n for k, n in stats.items() if k not in leads}
-    notes = {k: PATTERNS[k][2] for k in stats}
+    notes = {k: (PATTERNS[k][2] if k in PATTERNS else "lead: URLs inside markup/link tags (CDN and hyperlinks in generated output, not connections)") for k in stats}
     print(f"Scanned {sum(files_seen.values())} non-test files "
           f"({', '.join(f'{l}: {n}' for l, n in sorted(files_seen.items()))}) under {root}\n")
     print("stats (copy into findings stats):")

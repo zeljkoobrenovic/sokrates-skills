@@ -183,6 +183,7 @@ def main(argv=None) -> int:
     # --- duplication
     dup = load_json(d, "duplicates.json") or {}
     cross_pairs = defaultdict(int)
+    dup_ranges = {}
     for block in dup.get("duplicates", []):
         comps = []
         for fb in block.get("duplicatedFileBlocks", []):
@@ -192,13 +193,33 @@ def main(argv=None) -> int:
         cs = set(comps)
         for c in cs:
             comp[c]["dup_blocks"] += 1
+        for fb in block.get("duplicatedFileBlocks", []):
+            fo = fb.get("file") or {}
+            rp = fo.get("relativePath", "")
+            a, b = fb.get("startLine") or fb.get("start"), fb.get("endLine") or fb.get("end")
+            if rp and isinstance(a, int) and isinstance(b, int):
+                dup_ranges.setdefault(rp, []).append((a, b))
         if len(cs) > 1:
             for c in cs:
                 comp[c]["cross_component_dup_blocks"] += 1
                 comp[c]["dup_partners"].update(cs - {c})
             key = tuple(sorted(cs))
             cross_pairs[key] += block.get("blockSize", 0)
-    prov["duplication"] = "duplicates.json (blocks with components; cross-component = block spans >1 component; Sokrates caps this export at 10,000 blocks — 10000 means capped)"
+    for rp, ranges in dup_ranges.items():  # union of ranges per file -> unique duplicated lines
+        ranges.sort()
+        covered, cur_a, cur_b = 0, None, None
+        for a, b in ranges:
+            if cur_b is None or a > cur_b + 1:
+                if cur_b is not None:
+                    covered += cur_b - cur_a + 1
+                cur_a, cur_b = a, b
+            else:
+                cur_b = max(cur_b, b)
+        if cur_b is not None:
+            covered += cur_b - cur_a + 1
+        c = file_comp.get(rp, "(unassigned)")
+        comp[c]["dup_lines"] = comp[c].get("dup_lines", 0) + covered
+    prov["duplication"] = "duplicates.json (blocks with components; cross-component = block spans >1 component; duplicated_line_share = union of duplicated line ranges per file / component LOC; Sokrates caps this export at 10,000 blocks — 10000 means capped)"
     if not dup:
         gaps.append("duplication (duplicates.json missing or empty)")
 
@@ -224,10 +245,10 @@ def main(argv=None) -> int:
             except (KeyError, ValueError, IndexError):
                 continue
         all_days = sorted(x for e in comp.values() for x in e.get("days_last", []))
-        stale_threshold = max(365, 2 * all_days[len(all_days) // 2]) if all_days else 730
+        stale_threshold = min(1095, max(365, 2 * all_days[len(all_days) // 2])) if all_days else 730
         for e in comp.values():
             e["stale_files"] = sum(1 for x in e.get("days_last", []) if x > stale_threshold)
-        prov["history"] = f"text/mainFilesWithHistory.txt (commits, line churn, contributors, days since last update per file); stale = untouched for > {stale_threshold} days (max(365, 2 x median age of last change)); stale share matters only in components with commits_90d > 0"
+        prov["history"] = f"text/mainFilesWithHistory.txt (commits, line churn, contributors, days since last update per file); stale = untouched for > {stale_threshold} days (2 x median age of last change, clamped to 1–3 years); stale share matters only in components with commits_90d > 0"
     else:
         gaps.append("file history (text/mainFilesWithHistory.txt missing — no git history extracted)")
 
@@ -253,6 +274,8 @@ def main(argv=None) -> int:
                     strength = None
                 all_pairs += 1
                 c1, c2 = file_comp.get(f1, "(unassigned)"), file_comp.get(f2, "(unassigned)")
+                for c in {c1, c2}:
+                    comp[c]["cochange_pairs_all"] = comp[c].get("cochange_pairs_all", 0) + 1
                 if c1 != c2:
                     cochange_cross_pairs.append((same, f1, f2, c1, c2, strength))
                     comp[c1]["cochange_pairs_cross"] += 1; comp[c2]["cochange_pairs_cross"] += 1
@@ -335,12 +358,14 @@ def main(argv=None) -> int:
                 ref += 1
             elif FEAT_RX.search(msg):
                 feat += 1
-        if total:
+        if total and (fix + feat + ref) / total >= 0.5:
             commit_mix = {"commits": total, "fix_share": round(fix / total, 2), "feature_share": round(feat / total, 2),
                           "refactor_share": round(ref / total, 2), "unclassified_share": round((total - fix - feat - ref) / total, 2)}
             prov["commit_mix"] = f"{args.commits} first lines, SYSTEM-WIDE keyword classification (fix|bug|regression… / feat|add|implement… / refactor|rename|cleanup…), merges skipped; unclassified is usually large — quote fix_share only relative to feature_share"
+        elif total:
+            gaps.append(f"fix-vs-feature commit share: {round(100*(total-fix-feat-ref)/total)}% of {total} commit titles unclassifiable by keyword — too weak to quote")
     else:
-        gaps.append("fix-vs-feature commit share (pass --commits git-commits.txt)")
+        gaps.append("fix-vs-feature commit share (pass --commits <project>/git-commits.txt — it lives in the project or _sokrates root, not in the data dir)")
 
     # --- system totals and per-component table
     total_loc = sum(e["loc"] for e in comp.values()) or 1
@@ -359,6 +384,8 @@ def main(argv=None) -> int:
             "dup_partners": sorted(e["dup_partners"]),
             "fan_in": e["fan_in"] if edges else None, "fan_out": e["fan_out"] if edges else None,
             "cross_component_cochange_pairs": e["cochange_pairs_cross"], "cochange_partners": sorted(e["cochange_partners"]),
+            "cross_component_cochange_share": round(e["cochange_pairs_cross"] / e["cochange_pairs_all"], 2) if e.get("cochange_pairs_all") else None,
+            "duplicated_line_share": round(e.get("dup_lines", 0) / e["loc"], 2) if e["loc"] else None,
             "file_commits": e["commits"], "line_churn": e["churn"],
             "single_owner_file_share": round(e["single_owner_files"] / e["files_with_history"], 2) if e["files_with_history"] else None,
             "stale_file_share": round(e["stale_files"] / e["files_with_history"], 2) if e["files_with_history"] else None,
@@ -385,6 +412,7 @@ def main(argv=None) -> int:
         "component_dependency_edges": len(edges) if edges else None,
         "component_cycles": [list(c) for c in cycles] if edges else None,
         "doc_files": doc_files, "doc_loc": doc_loc, "doc_loc_per_kloc": round(doc_loc / (total_loc / 1000), 1), "documentation_tree": tree_docs,
+        "doc_commented_file_share": (round(sum(e.get("doc_commented_files", 0) for e in comp.values()) / max(1, sum(e.get("code_files_checked", 0) for e in comp.values())), 2) if any(e.get("code_files_checked") for e in comp.values()) else None),
         "single_owner_file_share": round(sum(e["single_owner_files"] for e in comp.values()) / max(1, sum(e["files_with_history"] for e in comp.values())), 2),
         "stale_file_share": round(sum(e["stale_files"] for e in comp.values()) / max(1, sum(e["files_with_history"] for e in comp.values())), 2),
         "debt_concerns": concerns, "commit_mix": commit_mix,

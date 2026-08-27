@@ -91,9 +91,8 @@ MOTIFS = {
 STYLE = (
     "Create a single, calm, aesthetically pleasing illustration that tells the story of the analysis "
     "summary below - a reader should grasp its one or two big ideas at a glance. Text is welcome but "
-    "sparse: a few short labels or key words (roughly 3 to 8, one to three words each) that anchor the "
-    "story; no sentences, no numbers, no dates, no titles, no legends, no dense diagrams or flowcharts, "
-    "no dashboards or screenshots. Let shapes, metaphor, composition and colour carry most of the meaning. "
+    "sparse: several short labels or key words that anchor the story; "
+    "Let shapes, metaphor, composition and colour carry most of the meaning. "
     "Style: polished flat vector illustration, crisp outlines, minimal shading, generous margins so nothing "
     "touches the edges, a disciplined palette of deep blue, teal, soft green and warm orange accents on a "
     "light background. Uncluttered - a few well-chosen elements and plenty of negative space. "

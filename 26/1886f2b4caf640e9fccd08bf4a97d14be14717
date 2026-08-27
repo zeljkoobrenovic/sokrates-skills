@@ -1,0 +1,33 @@
+skills/scanners/sokrates-scan-core/SKILL.md
+  s_9c82e2ca8d5dc4::t_5512e18f07cfb2 54
+skills/scanners/full-scan/SKILL.md
+  s_9c82e2ca8d5dc4::t_22f61c75e9546a 3,17,19,26,44
+skills/scanners/README.md
+  s_9c82e2ca8d5dc4::t_22f61c75e9546a 20-21
+skills/scanners/functionality-scan/SKILL.md
+  s_9c82e2ca8d5dc4::t_fce0447c993118 8,14-15,17,19,24-25,28-32,39-41,43,47,49,51,54-56,58-61,63,65,67,72,77,80
+  s_9c82e2ca8d5dc4::t_3d70ff6f1d08cf 1-7,9-13,16,21-23,33-38,42,44-46,48,57,62,64,66,68-71,73-76,78,81-85
+  s_9c82e2ca8d5dc4::t_5512e18f07cfb2 18,20,26-27,50,52-53,79,86
+skills/scanners/sokrates-scan-core/templates/scanners.json
+  s_9c82e2ca8d5dc4::t_4cdee3d5a615e2 5-18
+  s_9c82e2ca8d5dc4::t_6371256dafb37c 46-58
+  s_9c82e2ca8d5dc4::t_7e9346791bea40 4,45
+README.md
+  s_9c82e2ca8d5dc4::t_22f61c75e9546a 23,51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "261886f2b4caf640e9fccd08bf4a97d14be14717",
+  "prompts": {},
+  "sessions": {
+    "s_9c82e2ca8d5dc4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1d22c1c5-43b5-4af3-9f0a-9d2f31702890",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

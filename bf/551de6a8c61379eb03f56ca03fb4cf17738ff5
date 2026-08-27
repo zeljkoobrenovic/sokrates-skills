@@ -1,0 +1,49 @@
+examples/codex/ai-insights/combined-report.json
+  s_3fb22a5f8abdd4::t_5f9af07d70d447 1-13227
+examples/codex/ai-insights/index.html
+  s_3fb22a5f8abdd4::t_5fec5875bbefe7 10,13,372-373
+examples/codex/ai-insights/architecture-scan.json
+  s_3fb22a5f8abdd4::t_059f70d4da6b5e 936-937
+examples/codex/ai-insights/cicd-scan.json
+  s_3fb22a5f8abdd4::t_9396c7ba5a4796 604-605
+examples/codex/ai-insights/domain-language-scan.json
+  s_3fb22a5f8abdd4::t_cbe5a40b1c5cb2 808-809
+examples/codex/ai-insights/evolution-scan.json
+  s_3fb22a5f8abdd4::t_225828be446529 1344-1345
+examples/codex/ai-insights/functionality-scan.json
+  s_3fb22a5f8abdd4::t_1974bb571ea7a3 1950-1951
+examples/codex/ai-insights/network-scan.json
+  s_3fb22a5f8abdd4::t_0a5e197add808b 852-853
+examples/codex/ai-insights/observability-scan.json
+  s_3fb22a5f8abdd4::t_9b97a054902a79 526-527
+examples/codex/ai-insights/performance-scan.json
+  s_3fb22a5f8abdd4::t_de005ce3a2967e 866-867
+examples/codex/ai-insights/reliability-scan.json
+  s_3fb22a5f8abdd4::t_a72a00775732ca 852-853
+examples/codex/ai-insights/risk-synthesis-scan.json
+  s_3fb22a5f8abdd4::t_b7192496cc0699 617-618
+examples/codex/ai-insights/security-scan.json
+  s_3fb22a5f8abdd4::t_7427803f95b9ba 1220-1221
+examples/codex/ai-insights/storage-scan.json
+  s_3fb22a5f8abdd4::t_2037b805875758 787-788
+examples/codex/ai-insights/tech-stack-scan.json
+  s_3fb22a5f8abdd4::t_3dc32b9e2a41b9 1469-1470
+examples/codex/ai-insights/testing-scan.json
+  s_3fb22a5f8abdd4::t_f69defa5326e84 1161-1162
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "bf551de6a8c61379eb03f56ca03fb4cf17738ff5",
+  "prompts": {},
+  "sessions": {
+    "s_3fb22a5f8abdd4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6675bcd7-0e88-4469-8a48-6960b480b641",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

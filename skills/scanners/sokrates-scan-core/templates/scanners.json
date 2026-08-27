@@ -134,6 +134,35 @@
       }
     },
     {
+      "id": "storage-scan",
+      "name": "Storage",
+      "emoji": "🗄️",
+      "description": "Maps how the system works with persistent data: the data classes and where they live, access patterns (ORM/SQL, transactions, locking, streaming), schema and on-disk format ownership, versioning and migrations, integrity and corruption recovery, and the data lifecycle — with the risk per data class.",
+      "groups": {
+        "persistence-model": "The data-class inventory: what is stored where, in what format, resolved how, owned by whom, how sensitive; storage technologies as used.",
+        "access-patterns": "How data is read and written: ORM/SQL/query builders, prepared statements, transactions, connections and pooling, locking and concurrent access, streaming vs. whole-file, append vs. rewrite, read-modify-write.",
+        "schema-and-format": "Schema ownership, migrations and their mechanism, on-disk format definitions and versioning, backward/forward compatibility, handling of data from other versions.",
+        "integrity": "Atomic writes and durability, checksums, corruption detection and recovery, partial-output handling, validation on read.",
+        "lifecycle": "Initialization, retention and cleanup, backup/restore, export/import, deletion, unbounded accumulation.",
+        "storage-posture": "The synthesis: per data class the verdict on durability, compatibility and lifecycle; the riskiest data class; the highest-leverage changes."
+      }
+    },
+    {
+      "id": "network-scan",
+      "name": "Network",
+      "emoji": "🌐",
+      "description": "Maps how the system talks over the network: the endpoint topology (what it listens on, what it connects to, defaults), protocols as used, connection management (clients, timeouts, TLS, proxies, reconnection), endpoint configurability, behaviour without connectivity, and the data that crosses the wire.",
+      "groups": {
+        "topology": "The endpoint inventory: what listens, what connects out, direction, hosts/ports, defaults, opt-in vs. default path, local IPC.",
+        "protocols": "Protocols as used in code: request/response vs. streaming, SSE/WebSocket/gRPC/MCP mechanics, wire-format versioning, payload bounds.",
+        "connection-management": "Client construction and reuse, pooling and keep-alive, timeouts per phase, reconnection, TLS configuration, proxy support, DNS/IPv6, identification headers.",
+        "configurability": "How endpoints, ports and transports are configured: env vars, config keys, flags, precedence, hardcoded hosts, self-hosting and air-gapped feasibility.",
+        "offline-behaviour": "Connectivity checks, offline modes, cached fallbacks, startup without network, what the user sees when unreachable.",
+        "data-in-transit": "What crosses the wire per endpoint class: identifiers, file contents, environment, user content; sizes; what is received and trusted.",
+        "network-posture": "The synthesis: the endpoint map with defaults, strongest and weakest connection handling, the offline story, deployability behind proxies or air-gapped, the highest-leverage changes."
+      }
+    },
+    {
       "id": "security-design-scan",
       "name": "Security Design",
       "emoji": "🛡️",

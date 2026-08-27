@@ -49,8 +49,9 @@ SKIP_DIRS = {"node_modules", "target", "build", "dist", "out", ".git", "vendor",
 TEST_SEGMENT = re.compile(r"(^|[._-])(tests?|spec|specs|mocks?|fixtures?|testdata|test[-_]support|benches?)([._-]|$)", re.I)
 TEST_FILE = re.compile(r"(_tests?\.\w+$|Tests?\.java$|\.spec\.\w+$|\.test\.\w+$|^test_.*\.py$|^tests?\.rs$|^conftest\.py$)", re.I)
 
-LOOP_OPEN = re.compile(r"\b(for|while)\s*\(|\bloop\s*\{|\bfor\s+\w[^{;]*\bin\b[^{;]*\{|\.forEach\s*\(|\.for_each\s*\(|\.stream\(\)|\.iter(_mut)?\(\)\s*$|\.map\(\s*\|?|\.filter\(\s*\|?|^\s*(for|while)\b.*:\s*$")
-STATIC_INIT = re.compile(r"\bstatic\s+(final\s+)?|LazyLock|OnceLock|OnceCell|Lazy::new|lazy_static!|^\s*const\s+[A-Z_]+|^\s*static\s+[A-Z_]+|^[A-Z_]{3,}\s*=")
+LOOP_OPEN = re.compile(r"\b(for|while)\s*\(|\bloop\s*\{|\bfor\s+\w[^{;]*\bin\b[^{;]*\{|\.forEach\s*\(|\.for_each\s*\(|^\s*(for|while)\b.*:\s*$")
+COMMENT = re.compile(r"^\s*(//|/\*|\*|#)")
+STATIC_INIT = re.compile(r"\bstatic\s+(final\s+)?[\w<>\[\], ?]+\s+\w+\s*=|\bstatic\s*\{|LazyLock|OnceLock|OnceCell|Lazy::new|lazy_static!|^\s*(pub\s+)?const\s+[A-Z_]+|^\s*(pub\s+)?static\s+[A-Z_]+|^[A-Z_]{3,}\s*=")
 ASYNC_FN = re.compile(r"\basync\s+fn\b|\basync\s+(function|\(|\w+\s*\()|^\s*async\s+def\b")
 RUST_CFG_TEST = re.compile(r"#\[cfg\(test\)\]")
 RUST_MOD_OPEN = re.compile(r"^\s*(pub(\([^)]*\))?\s+)?mod\s+\w+\s*\{")
@@ -66,8 +67,8 @@ COMMON = {
     "parallel_sites": (re.compile(r"parallelStream\(\)|\.parallel\(\)|rayon::|par_iter\(\)|tokio::spawn\(|JoinSet|join_all\(|FuturesOrdered|FuturesUnordered|buffer_unordered\(|buffered\(|Promise\.all(Settled)?\(|multiprocessing\.|concurrent\.futures|asyncio\.gather\(|ThreadPoolExecutor|go func"), False, False, "parallelism present"),
     "executor_sites": (re.compile(r"Executors\.new\w+\(|newFixedThreadPool\(\s*\d+|ForkJoinPool\(|worker_threads\(\s*\d+|max_workers\s*=\s*\d+|new Worker\(|threadpool|num_cpus|available_processors|availableProcessors\(\)"), False, False, "thread/worker pool creation and sizing"),
     "lock_sites": (re.compile(r"\bsynchronized\b|ReentrantLock|std::sync::(Mutex|RwLock)|tokio::sync::(Mutex|RwLock)|Mutex::new\(|RwLock::new\(|threading\.Lock\(|sync\.(Mutex|RWMutex)"), False, False, "locks (read which ones sit on hot paths)"),
-    "cache_sites": (re.compile(r"@lru_cache|functools\.cache|@cached|Caffeine|CacheBuilder|LoadingCache|memoize|useMemo\(|useCallback\(|OnceCell|OnceLock|LazyLock|lazy_static!|lru::LruCache|LruCache|moka::|cached!"), False, False, "caches/memoization present"),
-    "limit_constants": (re.compile(r"\b(const|static|final|let)\b[^=\n]*\b(MAX|MAXIMUM|LIMIT|CAP|BUDGET|THRESHOLD|MAX_[A-Z_]+|max[A-Z]\w+|maxNumberOf\w+|max_\w+)\b[^=\n]*=\s*-?\d+"), False, False, "named numeric caps and limits"),
+    "cache_sites": (re.compile(r"@lru_cache|functools\.cache|@cached\b|Caffeine|CacheBuilder|LoadingCache|\bmemoize\(|useMemo\(|useCallback\(|OnceCell|OnceLock|LazyLock|lazy_static!|lru::LruCache|LruCache|moka::|cached!|(Concurrent)?HashMap<[^>]*>\s+\w*([cC]ache|[mM]emo|compiled)\w*\s*=|\w*([cC]ache|[mM]emo)\w*\s*=\s*new (Concurrent)?HashMap"), False, False, "caches/memoization present (library caches and map fields named cache/memo)"),
+    "limit_constants": (re.compile(r"\b(const|static|final|let|var|int|long|usize|u32|u64|i32|i64|private|public|protected)\b[^=\n]*\b\w*(MAX|MAXIMUM|LIMIT|CAP|BUDGET|THRESHOLD|[mM]ax[A-Z_]\w*|[lL]imit\w*|[tT]hreshold\w*)\w*\s*(:\s*\w+)?\s*=\s*-?\d+"), False, False, "named numeric caps and limits (constants and fields)"),
     "nested_loop_candidates": (re.compile(r"\b(for|while)\s*\(|\bfor\s+\w[^{;]*\bin\b|\.forEach\s*\(|\.for_each\s*\(|\.stream\(\)"), True, False, "lead: loop header inside another loop body — read for same-collection nesting"),
     "linear_lookup_in_loop_candidates": (re.compile(r"\.contains\(|\.indexOf\(|\.containsKey\(|\bin\s+\w+_list\b|\.includes\(|\.find\(\s*\(?\w*\)?\s*=>|\.iter\(\)\.(find|any|position)\(|\.stream\(\)\.(filter|anyMatch)\([^)]*\)\.(findAny|findFirst|isPresent)"), True, False, "lead: membership/search call inside a loop — read the receiver's type (List = linear)"),
     "io_in_loop_candidates": (re.compile(r"new File(Input|Output)Stream\(|FileUtils\.\w+\(|Files\.\w+\(|File::open\(|fs::\w+\(|open\(|readFile|writeFile|\.execute\(|\.query\(|fetch\(|\.get\(\s*\"http|reqwest::|http\.(get|post)|requests\.(get|post)|\.send\(\)\.await"), True, False, "lead: I/O, DB or network call inside a loop (N+1 shapes)"),
@@ -182,6 +183,8 @@ def scan(root: Path, excludes):
         rel = path.relative_to(root).as_posix()
         candidates = rust_non_test(lines) if lang == "rust" else enumerate(lines, 1)
         for lineno, line in candidates:
+            if COMMENT.match(line):
+                continue
             for key, (rx, in_loop, excl_static, note) in shapes.items():
                 if not rx.search(line):
                     continue

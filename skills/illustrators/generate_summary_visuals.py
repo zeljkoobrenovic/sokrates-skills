@@ -79,6 +79,8 @@ MOTIFS = {
     "cicd-scan": "a conveyor or pipeline carrying code through build, test and release stages towards users",
     "reliability-scan": "a structure that stays standing while one part fails: firewalls between compartments, a safety net, a spring that bends and recovers",
     "performance-scan": "flow through a system with one narrow bottleneck glowing, wide parallel channels elsewhere, a gauge or stopwatch",
+    "storage-scan": "shelves, vaults and drawers holding different kinds of records, one sealed and labelled with a version, one spilling out",
+    "network-scan": "a small machine connected by cables and beams to distant towers, one link dotted and broken, a proxy gate in between",
     "observability-scan": "instruments, gauges and signal lines revealing what a system is doing inside",
     "security-design-scan": "walls, gates and locks marking trust boundaries between an inside and an outside",
     "security-scan": "a magnifying glass over code lines, spotting a few flagged fragments in an otherwise clean field",

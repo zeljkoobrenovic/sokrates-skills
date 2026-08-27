@@ -29,6 +29,8 @@ skills/
 | `observability-scan` | logging, metrics, tracing, error reporting, health surfaces, telemetry pipeline, blind spots |
 | `reliability-scan` | error model, failure handling on load-bearing paths, isolation and blast radius, retries/timeouts, degradation, resource cleanup and shutdown |
 | `performance-scan` | workload model and scaling factors, hot-path algorithms and data structures, I/O and memory, parallelism, caching, cost limits, ranked bottlenecks |
+| `storage-scan` | data classes and locations, access patterns, schema/format versioning and migrations, integrity and corruption recovery, retention and cleanup |
+| `network-scan` | endpoint topology, protocols as used, timeouts/TLS/proxies, endpoint configurability, offline behaviour, data in transit |
 | `security-design-scan` | trust boundaries, sandboxing, identity and access, secrets handling, third-party trust, posture |
 | `security-scan` | code-level audit: secrets, injection, crypto, unsafe code, input handling, coverage statement |
 | `risk-synthesis-scan` | Sokrates hotspots explained: what each risky file does, knowledge risk, change coupling |

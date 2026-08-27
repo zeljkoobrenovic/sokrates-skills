@@ -17,7 +17,7 @@ All scanners share one contract, defined in **`sokrates-scan-core`**:
 | skill | status | what it finds |
 |---|---|---|
 | `sokrates-scan-core` | ✅ | (shared foundation, not a scanner) |
-| `full-scan` | ✅ | Orchestrator: runs all twelve scanners in dependency order (waves), merges into the combined report, diffs against previous results on re-runs |
+| `full-scan` | ✅ | Orchestrator: runs all fourteen scanners in dependency order (waves), merges into the combined report, diffs against previous results on re-runs |
 | `functionality-scan` | ✅ | What the software does, from the code: purpose and audience, feature inventory with entry points and behaviour, surfaces (CLI/API/UI/config/hooks), end-to-end workflows, data managed, integrations, hidden/dormant functionality and doc-vs-code gaps |
 | `tech-stack-scan` | ✅ | Languages, frameworks, libraries, build tooling, CI/CD, infrastructure, databases, external services, protocols |
 | `risk-synthesis-scan` | ✅ | Narrative explanation of Sokrates hotspots: what each risky file does and why it's risky, knowledge risk (bus factor, single-owner areas), change coupling explained |
@@ -25,6 +25,8 @@ All scanners share one contract, defined in **`sokrates-scan-core`**:
 | `observability-scan` | ✅ | How the code observes itself: logging, metrics, tracing, error reporting, health surfaces, where telemetry flows, and what monitoring the emitted signals can (and cannot) support |
 | `reliability-scan` | ✅ | How the code behaves when things go wrong: error model, handling on load-bearing paths (swallowed, catch-all, panics), failure isolation and blast radius, retries/timeouts/circuit breakers, degradation and fallbacks, resource cleanup and shutdown, posture per failure source |
 | `performance-scan` | ✅ | Static performance review: workload model and scaling factors, algorithmic/data-structure choices on hot paths, I/O and memory, parallelism and contention, caching and recomputation, cost limits — ranked likely bottlenecks and highest-leverage optimizations |
+| `storage-scan` | ✅ | How persistent data is handled: data classes and where they live, access patterns (ORM/SQL, transactions, locking, streaming), schema/format ownership and migrations, integrity and corruption recovery, lifecycle (retention, cleanup, backup) |
+| `network-scan` | ✅ | Connectivity behaviour: endpoint topology (listens/connects, defaults), protocols as used, connection management (timeouts, TLS, proxies, reconnection), endpoint configurability, offline behaviour, data in transit |
 | `security-design-scan` | ✅ | The security architecture as implemented: trust boundaries, sandboxing/isolation, identity and access design, secrets handling, third-party/runtime trust, posture synthesis and gaps |
 | `architecture-scan` | ✅ | The implemented architecture: style, component responsibilities, load-bearing boundaries and contracts, dependency-direction violations, runtime communication, migrations in progress |
 | `security-scan` | ✅ | Code-level security audit: secrets in the tree, injection-prone construction, crypto fitness, unsafe-code hygiene, input handling — with an explicit clean-coverage statement (design-level review is `security-design-scan`) |

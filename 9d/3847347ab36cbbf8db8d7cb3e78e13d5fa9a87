@@ -1,0 +1,37 @@
+skills/scanners/storage-scan/SKILL.md
+  s_3fb22a5f8abdd4::t_2c3d4490cf32f4 20-21,23,36,55,63-65,76,81,84,90,96,99
+  s_3fb22a5f8abdd4::t_041efe00db3353 42
+  s_3fb22a5f8abdd4::t_d7a2d8169fe989 18,30,35,66-67,80,95,97-98
+skills/scanners/network-scan/scripts/count_network_sites.py
+  s_3fb22a5f8abdd4::t_041efe00db3353 28,40,44,51-52,59,158-163
+  s_3fb22a5f8abdd4::t_30d5f63b456d65 45
+skills/scanners/network-scan/SKILL.md
+  s_3fb22a5f8abdd4::t_041efe00db3353 20-21,29,42,56,64,72,83-84,96,98-101
+skills/scanners/storage-scan/scripts/count_storage_sites.py
+  s_3fb22a5f8abdd4::t_662366f2fb6f77 31,38,44-47,56,119-120,148-150,152,158
+  s_3fb22a5f8abdd4::t_d7a2d8169fe989 37,40-41,50,53-55,58,142-145,147
+README.md
+  s_3fb22a5f8abdd4::t_c9ef39355881f9 60
+examples/codex/ai-insights/index.html
+  s_3fb22a5f8abdd4::t_6387d47491ac24 10-13,372-373,375,377
+examples/codex/ai-insights/network-scan.json
+  s_3fb22a5f8abdd4::t_e9839bc6e54c19 1-855
+examples/codex/ai-insights/storage-scan.json
+  s_3fb22a5f8abdd4::t_677433b2ea4d70 1-790
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "9d3847347ab36cbbf8db8d7cb3e78e13d5fa9a87",
+  "prompts": {},
+  "sessions": {
+    "s_3fb22a5f8abdd4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6675bcd7-0e88-4469-8a48-6960b480b641",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

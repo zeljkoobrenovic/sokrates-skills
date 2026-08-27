@@ -1,706 +1,939 @@
 {
   "scanner": "architecture-scan",
-  "scanner_version": "1.0",
-  "analyzed_at": "2026-08-24",
+  "scanner_version": "1.1",
+  "analyzed_at": "2026-08-28T10:00:00Z",
   "target": {
-    "name": "Codex",
+    "name": "openai / codex",
     "src_root": "../../.."
   },
-  "summary": "Codex is a 133-crate Rust workspace compiled into a single multitool binary, organized as a strictly layered dependency DAG (no cycles at the manifest level, 756 internal edges, 23 depth levels): a wide vocabulary layer (codex-protocol, depended on by 68 crates) at the bottom, an engine crate (codex-core) in the middle, a ring of first-party extensions and the app-server JSON-RPC API above it, and thin frontends (TUI, exec, cloud-tasks, CLI dispatcher) on top. The load-bearing seam is the app-server protocol: the same versioned JSON-RPC API served to IDEs over stdio/WebSocket/control-socket is also what the local TUI uses in-process, making 'UI = app-server client' the de facto style. Contracts are unusually explicit - versioned v1/v2 protocol with generated TS bindings and codified wire rules, a minimum-supported-version constant on the sandboxed exec-server boundary, a trait/contributor extension API that keeps core below its extensions. The deviations are mostly acknowledged or transitional: codex-core is a self-admitted bloated hub (AGENTS.md: 'resist adding code to codex-core') that imports 62 sibling crates and spans MCP, plugins, sandboxing, skills and persistence; core imports wire types from the outward-facing app-server-protocol crate; the TUI honors the client seam for thread lifecycle but still links storage and exec-server crates directly; and the TypeScript SDK talks a second, hand-mirrored JSONL contract instead of the generated one. Three visible migrations are in flight: app-server v1 to v2, the Conversation-to-Thread rename, and JSONL rollouts being mirrored into a SQLite state DB. Sokrates' folder-depth-1 decomposition collapses 97% of the code into one 'codex-rs' component and should be reconfigured to the crate graph.",
+  "summary": "Codex is a **133-crate Rust workspace** shaped as a layered hub: a serde-typed `codex-protocol` vocabulary at the bottom (68 dependents), a `codex-core` engine that owns the session loop and pulls in 61 workspace crates, and thin frontends (`tui`, `exec`, `cli`) that reach the engine through an app-server JSON-RPC layer. Commands the model wants to run cross a **process and OS-sandbox boundary**: `codex-sandboxing` selects Seatbelt, seccomp plus Landlock or bubblewrap, or a Windows restricted token, while `exec-server` can move execution to another machine over the same protocol. The production dependency graph has **no cycles**; the notable structural defects are the god-crate `core` that the repo's own AGENTS.md warns against, a `protocol` crate that depends on the policy engine and network-proxy service crates it is supposed to sit beneath, and a TUI that mostly uses the app-server client but still imports the executor directly. Security boundaries are well structured but the **Windows sandbox defaults to disabled** and the manager silently degrades to `SandboxType::None` there; MCP servers and hooks run outside the command sandbox by design.",
   "stats": {
-    "components_mapped": 12,
-    "boundaries_traced": 6,
+    "components_mapped": 7,
+    "boundaries_traced": 5,
     "violations_found": 4,
-    "cycles_found": 2,
-    "crates_in_workspace": 133,
-    "internal_dependency_edges": 756,
-    "dependency_depth_levels": 23,
-    "max_in_degree_crate": "codex-protocol (68)"
+    "cycles_found": 0,
+    "test_only_cycles": 1,
+    "test_only_cycle_size": 21,
+    "trust_boundaries_mapped": 5,
+    "escape_hatches": 7,
+    "workspace_crates": 133,
+    "max_in_degree_crate": "protocol",
+    "max_out_degree_crate": "core"
   },
   "findings": [
     {
-      "id": "architecture-scan/style/layered-crate-dag-multitool",
+      "id": "architecture-scan/style/layered-hub-with-sandboxed-executor",
       "group": "style",
-      "title": "Style: a strictly layered 133-crate DAG compiled into one multitool binary",
-      "description": "The architecture is a Cargo workspace of 133 crates whose internal dependencies form a clean DAG - zero cycles at the manifest level - with 23 distinct depth levels: utility and vocabulary crates at the bottom (codex-protocol at depth 3), mid-level services (config, state, rollout, exec-server), the engine codex-core at depth 15, first-party extensions and the app-server at 16-18, frontends (tui, exec) at 20, and the codex-cli dispatcher at the top (depth 22, importing 46 sibling crates). Everything ships as one 'codex' binary that dispatches subcommands (tui default, exec, app-server, cloud-tasks, responses-api-proxy, login, mcp, plugin) plus busybox-style argv[0] personalities via codex-arg0. The structure optimizes for compile-time boundary enforcement (many small crates with explicit manifests, per AGENTS.md 'Prefer private modules and explicitly exported public crate API') over deployment granularity - process boundaries are chosen at runtime, not at packaging time.",
+      "title": "Layered crate hub around a session-loop engine, with execution pushed across a process boundary",
+      "description": "The `codex-rs` Cargo workspace declares 133 member crates and the manifest graph reads as **four layers**. At the bottom sits `codex-protocol` (68 in-workspace dependents) plus small `utils/*` crates. Above it are service crates: `config`, `sandboxing`, `network-proxy`, `execpolicy`, `exec-server`, `rollout`/`state`, model clients. `codex-core` is the engine hub: it depends on 61 workspace crates and is depended on by 23, and it runs every conversation as an **async actor**: a bounded submission channel in, an unbounded event channel out. The top layer is frontends and API: `app-server` exposes the engine over JSON-RPC on stdio, Unix socket or WebSocket, and `tui` consumes it through `app-server-client` rather than linking `core`. Anything the model executes is transformed by `codex-sandboxing` into an OS-sandboxed child process, or shipped to a remote `exec-server`, so the **execution boundary is a process boundary** by construction. The structure optimises for many entry points sharing one engine and for moving execution off the host, at the price of a very large `core`.",
       "severity": "info",
-      "confidence": "certain",
+      "confidence": "likely",
       "evidence": [
         {
           "file": "codex-rs/Cargo.toml",
-          "start_line": 2,
-          "end_line": 2,
-          "snippet": "members = [",
-          "note": "single Cargo workspace; 133 member crates counted from this list"
-        },
-        {
-          "file": "codex-rs/cli/src/main.rs",
-          "start_line": 10,
-          "end_line": 10,
-          "snippet": "use codex_arg0::arg0_dispatch_or_else;",
-          "note": "one binary dispatching by argv[0] personality"
-        },
-        {
-          "file": "codex-rs/cli/src/main.rs",
-          "start_line": 32,
-          "end_line": 32,
-          "snippet": "use codex_tui::Cli as TuiCli;",
-          "note": "CLI is the top-level aggregator of frontends (tui, exec, app-server, cloud-tasks)"
-        }
-      ],
-      "tags": [
-        "rust",
-        "workspace",
-        "layering",
-        "monolith-binary"
-      ],
-      "attributes": {
-        "crates": "133",
-        "internal_edges": "756",
-        "manifest_cycles": "0"
-      }
-    },
-    {
-      "id": "architecture-scan/style/ui-as-app-server-client",
-      "group": "style",
-      "title": "Style: every UI is an app-server client - the product API doubles as the internal seam",
-      "description": "The design doc states the engine 'is intended to be operated by arbitrary UI implementations', and the code now takes that literally for its own frontends: the TUI has no dependency on codex-core at all and drives the engine through codex-app-server-client, a facade that wraps the app-server's in-process mode behind async mpsc channels; codex exec uses the same client. External IDEs and remote controllers speak the identical JSON-RPC protocol over stdio, WebSocket, or a UDS control socket. The consequence is a single API surface where product features must land before any UI can show them, which is what makes the versioning discipline on app-server-protocol (see boundaries findings) load-bearing.",
-      "severity": "info",
-      "confidence": "certain",
-      "evidence": [
-        {
-          "file": "codex-rs/app-server-client/src/lib.rs",
           "start_line": 1,
-          "end_line": 1,
-          "snippet": "//! Shared in-process app-server client facade for CLI surfaces.",
-          "note": "the crate that makes local UIs API clients"
+          "end_line": 2,
+          "snippet": "[workspace]\nmembers = [",
+          "note": "workspace manifest; 133 members resolved from it"
+        },
+        {
+          "file": "codex-rs/core/src/session/mod.rs",
+          "start_line": 530,
+          "end_line": 531,
+          "snippet": "        let (tx_sub, rx_sub) = async_channel::bounded(SUBMISSION_CHANNEL_CAPACITY);\n        let (tx_event, rx_event) = async_channel::unbounded();",
+          "note": "the engine's actor seam"
         },
         {
           "file": "codex-rs/tui/Cargo.toml",
           "start_line": 30,
           "end_line": 30,
           "snippet": "codex-app-server-client = { workspace = true }",
-          "note": "TUI's engine access; its [dependencies] contain no codex-core entry"
-        },
-        {
-          "file": "codex-rs/docs/protocol_v1.md",
-          "start_line": 43,
-          "end_line": 43,
-          "snippet": "The UI is external to `Codex`, as `Codex` is intended to be operated by arbitrary UI implementations.",
-          "note": "the stated design this structure implements"
+          "note": "TUI links the API client, not codex-core"
         }
       ],
       "tags": [
-        "client-server",
-        "json-rpc",
-        "frontend",
-        "seam"
+        "rust",
+        "layered",
+        "actor",
+        "process-boundary"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "component:protocol (shared vocabulary)",
+        "finding:tech-stack-scan/languages-runtimes/rust"
       ]
     },
     {
-      "id": "architecture-scan/components/component-map",
+      "id": "architecture-scan/components/core-engine",
       "group": "components",
-      "title": "Component map: vocabulary, engine, API server, sandbox executor, persistence, extensions, frontends",
-      "description": "The 133 crates cluster into roughly twelve components. (1) codex-protocol: pure domain vocabulary (ThreadId, items, Op/EventMsg, permissions) - no behavior, 68 dependents. (2) codex-core: the agent engine - session/turn loop, model client, tool execution, MCP management, sandbox orchestration, rollout recording; its central type is ThreadManager. (3) app-server + app-server-protocol/-transport/-client/-daemon: the JSON-RPC API server, its wire types with generated TS bindings, its transports, and the client facade. (4) exec-server (+ exec-server-protocol): the sandboxed command-execution service, spoken to over a versioned JSON-RPC dialect. (5) code-mode-* : an embedded V8 'code mode' runtime with its own protocol crate, reached via gRPC or WebSocket session providers. (6) Persistence: rollout (JSONL session logs), codex-state (SQLite mirror), thread-store (storage-neutral interface). (7) ext/*: first-party extensions (web-search, memories, skills, mcp, guardian-v2, goal, queue, agent, image-generation) plugging into codex-extension-api. (8) config + cloud-config + features: layered configuration. (9) login/auth + workload-identity + keyring-store. (10) model-provider(-info) + ollama/lmstudio/aws-auth: model backends. (11) Frontends: tui (Ratatui), exec (headless/JSONL), cloud-tasks, cli (dispatcher). (12) ~40 leaf utility crates (utils/*, ansi-escape, git-utils, otel, http-client) clustered as shared infrastructure. Replacing codex-core breaks everything above depth 15; replacing any frontend breaks nothing else.",
+      "title": "codex-core: the conversation engine that owns sessions, turns, tool dispatch and policy decisions",
+      "description": "`codex-core` is responsible for running a thread: it holds the `Session` and `CodexThread` types, the `submission_loop` that consumes user submissions, the tool-call pipeline including `exec` and `apply_patch`, and the in-engine glue for config, exec policy, hooks, MCP and guardian review. It re-exports network-policy types from `codex-network-proxy` and turn-input types from `codex-protocol`, which is why frontends rarely need the lower crates. It depends on **61 workspace crates** and 23 depend on it, including `app-server`, `exec`, `cli`, `mcp-server` and every `ext/*` extension except `ext/skills` and `ext/extension-api`. Replacing it means replacing the product; it is the one component with no substitute.",
       "severity": "info",
       "confidence": "certain",
       "evidence": [
         {
+          "file": "codex-rs/core/src/session/mod.rs",
+          "start_line": 782,
+          "end_line": 782,
+          "snippet": "            submission_loop(session_for_loop, configured_config, rx_sub)",
+          "note": "the session actor loop"
+        },
+        {
           "file": "codex-rs/core/src/lib.rs",
-          "start_line": 118,
-          "end_line": 118,
-          "snippet": "pub use thread_manager::ThreadManager;",
-          "note": "core's central export - the engine's entry type"
+          "start_line": 34,
+          "end_line": 35,
+          "snippet": "pub use codex_network_proxy::EnvironmentNetworkPolicy;\npub use codex_network_proxy::NetworkDomainPermission;",
+          "note": "core re-exports lower-layer policy types as its own API"
         },
         {
-          "file": "codex-rs/thread-store/src/lib.rs",
-          "start_line": 1,
-          "end_line": 1,
-          "snippet": "//! Storage-neutral thread persistence interfaces.",
-          "note": "persistence cluster's interface crate"
-        },
-        {
-          "file": "codex-rs/Cargo.toml",
-          "start_line": 195,
-          "end_line": 195,
-          "snippet": "codex-extension-api = { path = \"ext/extension-api\" }",
-          "note": "extension ring rooted under ext/"
+          "file": "codex-rs/core/src/exec_policy.rs",
+          "start_line": 10,
+          "end_line": 11,
+          "snippet": "use codex_execpolicy::AmendError;\nuse codex_execpolicy::Decision;",
+          "note": "exec-policy evaluation lives inside the engine"
         }
       ],
       "tags": [
-        "components",
-        "responsibilities",
-        "map"
+        "engine",
+        "hub"
       ],
       "sokrates_refs": [
-        "component:codex-rs"
+        "component:core engine",
+        "finding:risk-synthesis-scan/hotspots/core-config-mod",
+        "finding:reliability-scan/isolation/turn-task-panic-never-observed"
       ]
     },
     {
-      "id": "architecture-scan/components/sokrates-decomposition-too-coarse",
+      "id": "architecture-scan/components/execution-and-sandboxing-cluster",
       "group": "components",
-      "title": "Sokrates' folder-depth-1 decomposition collapses 97% of the code into one component",
-      "description": "The Sokrates analysis decomposes at top-level folder depth 1, which yields components like 'codex-rs' (691,590 LOC across 2,204 files - about 97% of main code), 'sdk' (~6k LOC) and 'scripts'. For this repository that decomposition carries almost no information: the real architecture lives one level down, in the 133-crate workspace whose manifest-declared dependency graph gives an exact, tool-checkable component structure. Any hotspot, coupling, or duplication rollup at component granularity currently averages away everything interesting inside codex-rs.",
+      "title": "Execution cluster: sandboxing, platform sandboxes, exec-server, arg0 dispatch and process hardening",
+      "description": "Nine crates together own **how a model-requested command becomes a confined child process**. `codex-sandboxing` is the platform-neutral manager: it picks a `SandboxType` and rewrites an argv into a Seatbelt, Linux or Windows wrapper invocation. `linux-sandbox` (bubblewrap launcher, seccomp, Landlock), `windows-sandbox-rs` (restricted token) and `bwrap` (a bundled bubblewrap build) are the platform backends. `execpolicy` is a rule engine deciding allow/prompt/forbid per command prefix, used by `core` and `config`. `exec-server` plus `exec-server-protocol` turn process spawning into a JSON-RPC service that can run locally or on a remote environment. `arg0` multiplexes the single `codex` binary into these helpers by executable name or first argument, and `process-hardening` runs pre-main to disable core dumps and ptrace. `network-proxy` belongs here functionally but sits below `protocol` in the graph (see the violations group).",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/sandboxing/src/manager.rs",
+          "start_line": 37,
+          "end_line": 42,
+          "snippet": "pub enum SandboxType {\n    None,\n    MacosSeatbelt,\n    LinuxSeccomp,\n    WindowsRestrictedToken,\n}",
+          "note": "the platform-neutral choice point"
+        },
+        {
+          "file": "codex-rs/arg0/src/lib.rs",
+          "start_line": 95,
+          "end_line": 95,
+          "snippet": "    if exe_name == CODEX_LINUX_SANDBOX_ARG0 {",
+          "note": "one binary, many helper roles"
+        },
+        {
+          "file": "codex-rs/process-hardening/src/lib.rs",
+          "start_line": 12,
+          "end_line": 12,
+          "snippet": "pub fn pre_main_hardening() {",
+          "note": "pre-main hardening entry"
+        }
+      ],
+      "tags": [
+        "sandbox",
+        "executor"
+      ],
+      "sokrates_refs": [
+        "component:sandboxing & policy",
+        "component:exec-server (sandboxed executor)",
+        "finding:tech-stack-scan/libraries/sandboxing-primitives"
+      ]
+    },
+    {
+      "id": "architecture-scan/components/frontends-and-app-server",
+      "group": "components",
+      "title": "Frontends and the app-server API layer",
+      "description": "`app-server` is the **product API**: it hosts `codex-core`, wires in every `ext/*` extension, and speaks `app-server-protocol` JSON-RPC over the transports in `app-server-transport` (stdio, Unix socket, WebSocket, and a remote-control mode with its own kill switch). `app-server-client` is the in-tree consumer library. `tui` is a client of that API and does not link `core`; `exec` (headless) links both the client and `core`; `cli` is the binary shell that mounts every subcommand, including `mcp-server`, `exec-server`, `responses-api-proxy` and `cloud-tasks`. The 54-dependency `app-server` and 44-dependency `cli` are hubs by role, not by accident: they are the composition roots.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/app-server-transport/src/transport/mod.rs",
+          "start_line": 28,
+          "end_line": 29,
+          "snippet": "mod stdio;\nmod unix_socket;",
+          "note": "transports owned by the API layer"
+        },
+        {
+          "file": "codex-rs/app-server-transport/src/transport/mod.rs",
+          "start_line": 34,
+          "end_line": 34,
+          "snippet": "pub use remote_control::REMOTE_CONTROL_DISABLED_ENV_VAR;",
+          "note": "remote-control transport has its own disable switch"
+        },
+        {
+          "file": "codex-rs/tui/Cargo.toml",
+          "start_line": 30,
+          "end_line": 31,
+          "snippet": "codex-app-server-client = { workspace = true }\ncodex-app-server-protocol = { workspace = true }",
+          "note": "TUI depends on the API, not on the engine"
+        }
+      ],
+      "tags": [
+        "frontend",
+        "api",
+        "composition-root"
+      ],
+      "sokrates_refs": [
+        "component:app-server API",
+        "component:TUI frontend",
+        "component:CLI & headless frontends",
+        "finding:network-scan/topology/listeners"
+      ]
+    },
+    {
+      "id": "architecture-scan/components/extension-clusters",
+      "group": "components",
+      "title": "Two extension clusters: in-tree ext/* contributors and external MCP, plugin, skill and hook surfaces",
+      "description": "Two different things are called extensions. The **in-tree** `ext/*` crates (agent, goal, guardian-v2, image-generation, mcp, memories, queue, skills, web-search, git-attribution, connectors) implement contributor traits from `ext/extension-api` and are registered by `app-server`; ten of them still depend on `core` directly, so they are engine plugins compiled into the binary, not a stable public extension point. The **external** surfaces are the crates for third-party code: `rmcp-client` launches MCP servers as stdio child processes or connects over HTTP, `mcp-server` exposes Codex itself as an MCP server (its own header still calls it a prototype), `codex-mcp` holds the MCP bindings and capability negotiation, `plugin` and `utils/plugins` model marketplace plugin packages, `skills` loads skill folders, and `hooks` runs user-configured hook commands with a trust gate.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/ext/extension-api/src/contributors.rs",
+          "start_line": 279,
+          "end_line": 279,
+          "snippet": "pub trait ToolContributor: Send + Sync {",
+          "note": "in-tree contributor seam"
+        },
+        {
+          "file": "codex-rs/rmcp-client/src/executor_process_transport.rs",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "//! rmcp transport adapter for an executor-managed MCP stdio process.",
+          "note": "external MCP servers are child processes"
+        },
+        {
+          "file": "codex-rs/mcp-server/src/lib.rs",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "//! Prototype MCP server.",
+          "note": "Codex-as-MCP-server crate"
+        }
+      ],
+      "tags": [
+        "extensions",
+        "mcp",
+        "plugins"
+      ],
+      "sokrates_refs": [
+        "component:extensions (ext/*)",
+        "component:extensibility (MCP, plugins, skills, hooks)"
+      ]
+    },
+    {
+      "id": "architecture-scan/components/sokrates-decomposition-verdict",
+      "group": "components",
+      "title": "Sokrates primary decomposition: right at the top, misleading at two seams",
+      "description": "The 17-component `primary` decomposition matches the crate layering well for `core engine`, `app-server API`, `TUI frontend`, `persistence` and `configuration`. Three placements mislead. **`network-proxy` is filed under `sandboxing & policy`** but in the manifest graph it is a dependency of `protocol`, i.e. it sits in the bottom layer under everything; the component view therefore shows the vocabulary layer depending on the sandbox layer. **`apply-patch` is filed under `core engine`** while it depends on `exec-server`, making the engine component appear to depend on the executor at a point where the real edge is a helper-dispatch one. **`shared infrastructure` is a remainder bucket** defined as `.*/codex-rs/.*` minus every other component, so it collects `otel`, `git-utils`, `utils/*` and unassigned crates without a shared responsibility. The `by-layer` decomposition is closer to the truth for direction questions.",
       "severity": "low",
       "confidence": "certain",
       "evidence": [
         {
           "file": "_sokrates/config.json",
-          "start_line": 297,
-          "end_line": 297,
-          "snippet": "\"componentsFolderDepth\" : 1,",
-          "note": "the decomposition rule producing the one-component view"
+          "start_line": 577,
+          "end_line": 577,
+          "snippet": "          \"name\": \"shared infrastructure (utils & leaf crates)\",",
+          "note": "the remainder component"
         },
         {
-          "file": "codex-rs/Cargo.toml",
-          "start_line": 2,
-          "end_line": 2,
-          "snippet": "members = [",
-          "note": "the 133-crate list that is the natural component decomposition"
+          "file": "codex-rs/protocol/Cargo.toml",
+          "start_line": 22,
+          "end_line": 22,
+          "snippet": "codex-network-proxy = { workspace = true }",
+          "note": "network-proxy is below protocol, not beside the sandbox"
+        },
+        {
+          "file": "codex-rs/apply-patch/Cargo.toml",
+          "start_line": 21,
+          "end_line": 21,
+          "snippet": "codex-exec-server = { workspace = true }",
+          "note": "apply-patch depends on the executor"
         }
       ],
-      "recommendation": "Reconfigure the Sokrates logical decomposition to use the codex-rs crate directories as components (folder depth 2 under codex-rs, or explicit components from the workspace members list), so per-component metrics align with the real architecture.",
+      "recommendation": "Move `network-proxy` (and `execpolicy`) into a `policy vocabulary` component next to `protocol`, move `apply-patch` into the exec-server component, and split `shared infrastructure` into `observability (otel)` and `utils`. Then the component dependency view will show the same direction as the manifests.",
       "tags": [
         "sokrates",
-        "decomposition",
-        "analysis-config"
+        "decomposition"
       ],
       "sokrates_refs": [
-        "component:codex-rs",
-        "metric:loc"
+        "component:shared infrastructure (utils & leaf crates)",
+        "component:sandboxing & policy",
+        "component:core engine"
       ]
     },
     {
-      "id": "architecture-scan/boundaries/codex-protocol-vocabulary",
+      "id": "architecture-scan/boundaries/protocol-crate-contract",
       "group": "boundaries",
-      "title": "codex-protocol is the shared vocabulary layer: 68 of 133 crates depend on it, and it holds",
-      "description": "codex-protocol sits at depth 3 of the DAG and is imported by 68 of the 133 workspace crates - by far the highest in-degree. It is a pure-data crate: identifiers (ThreadId, SessionId), item/event enums, config types, permission profiles; its own dependencies are only small utility crates. This is the healthy kind of hub - a vocabulary everything shares so that higher layers can interoperate without depending on each other - and it has stayed acyclic and behavior-free. Its one known tax is change amplification: risk-synthesis-scan found protocol's EnvironmentConfig co-changes 100% with core's validation/selection code, the expected cost of a shared vocabulary type still under active evolution.",
+      "title": "codex-protocol is the shared vocabulary that 68 crates agree on",
+      "description": "`codex-protocol` defines the **serde-typed contract** for everything that crosses a seam inside Codex: `SandboxPolicy`, `AskForApproval`, `PermissionProfile`, thread and turn items, MCP policy, the `Event`/`Submission` pair. 68 of 133 crates depend on it and it has no dependency on `core`, so it holds as the one-directional floor of the workspace. Its versioning is by serde attributes rather than by version numbers: renames and aliases such as `on-failure` for `OnRequest` are the compatibility mechanism, and a `legacy_events` module keeps older wire shapes decodable. That makes the contract wide but shallow: any field added here reaches every layer at once.",
       "severity": "info",
       "confidence": "certain",
       "evidence": [
         {
-          "file": "codex-rs/Cargo.toml",
-          "start_line": 231,
-          "end_line": 231,
-          "snippet": "codex-protocol = { path = \"protocol\" }",
-          "note": "workspace-wide alias every crate pulls in"
+          "file": "codex-rs/protocol/src/protocol.rs",
+          "start_line": 1002,
+          "end_line": 1004,
+          "snippet": "pub enum SandboxPolicy {\n    /// No restrictions whatsoever. Use with caution.\n    #[serde(rename = \"danger-full-access\")]",
+          "note": "policy vocabulary defined once"
+        },
+        {
+          "file": "codex-rs/protocol/src/protocol.rs",
+          "start_line": 924,
+          "end_line": 926,
+          "snippet": "    #[serde(alias = \"on-failure\")]\n    #[default]\n    OnRequest,",
+          "note": "alias as compatibility mechanism"
         },
         {
           "file": "codex-rs/protocol/src/lib.rs",
-          "start_line": 14,
-          "end_line": 14,
-          "snippet": "pub use thread_id::ThreadId;",
-          "note": "identifier vocabulary"
-        },
-        {
-          "file": "codex-rs/protocol/src/lib.rs",
-          "start_line": 40,
-          "end_line": 40,
-          "snippet": "pub mod protocol;",
-          "note": "the Op/EventMsg definitions named by docs/protocol_v1.md"
+          "start_line": 25,
+          "end_line": 25,
+          "snippet": "mod legacy_events;",
+          "note": "backward-compatible decoding kept in the vocabulary crate"
         }
       ],
       "tags": [
-        "vocabulary",
-        "hub",
-        "healthy-boundary"
+        "contract",
+        "serde"
       ],
       "sokrates_refs": [
-        "metric:temporal-coupling"
+        "component:protocol (shared vocabulary)"
       ]
     },
     {
-      "id": "architecture-scan/boundaries/app-server-protocol-contract",
+      "id": "architecture-scan/boundaries/app-server-protocol",
       "group": "boundaries",
-      "title": "app-server-protocol is the product API contract: versioned, TS-generated, with codified wire rules",
-      "description": "The app-server JSON-RPC protocol crate is the most heavily engineered boundary in the repo. It carries two protocol versions side by side (an enumerated, effectively frozen v1 export list and a glob-exported v2), generates TypeScript bindings via ts_rs so external clients share types with the server, and its evolution is governed by written rules in AGENTS.md (camelCase wire naming, resource/method RPC naming, cursor pagination defaults, an #[experimental] gating mechanism for unstable surface). What crosses it: client requests/notifications downward, server notifications and approval/input requests upward, over stdio, WebSocket, UDS control socket, or in-process channels. Compatibility guarantee: v1 is kept working for existing clients while all new surface lands in v2.",
+      "title": "app-server-protocol: the versioned JSON-RPC contract between engine and clients",
+      "description": "`app-server-protocol` is the **external API contract**: request, response and notification types with schema export for TypeScript and other SDKs, organised into `v1` and `v2` modules that are both exported. Thirteen crates depend on it, on both sides of the process boundary (`app-server`, `app-server-client`, `tui`, `exec`, `cli`, `core`). The contract is what lets `tui` be a pure client. It is also the reason `core` depends on `app-server-protocol` rather than the reverse: the engine produces API-shaped items directly, which couples the engine to the API version.",
       "severity": "info",
       "confidence": "certain",
       "evidence": [
         {
-          "file": "codex-rs/app-server-protocol/src/lib.rs",
-          "start_line": 51,
-          "end_line": 51,
-          "snippet": "pub use protocol::v2::*;",
-          "note": "active protocol version, glob-exported"
+          "file": "codex-rs/app-server-protocol/src/protocol/mod.rs",
+          "start_line": 11,
+          "end_line": 12,
+          "snippet": "pub mod v1;\npub mod v2;",
+          "note": "two protocol generations exported side by side"
         },
         {
-          "file": "codex-rs/app-server/src/lib.rs",
-          "start_line": 53,
-          "end_line": 53,
-          "snippet": "use codex_app_server_protocol::JSONRPCMessage;",
-          "note": "the server consumes the contract crate's envelope type"
-        },
-        {
-          "file": "AGENTS.md",
-          "start_line": 270,
-          "end_line": 270,
-          "snippet": "All active API development should happen in app-server v2. Do not add new API surface area to v1.",
-          "note": "written compatibility rule governing the boundary"
+          "file": "codex-rs/tui/Cargo.toml",
+          "start_line": 31,
+          "end_line": 31,
+          "snippet": "codex-app-server-protocol = { workspace = true }",
+          "note": "client side of the seam"
         }
       ],
       "tags": [
         "json-rpc",
-        "api-contract",
-        "versioning",
-        "codegen"
-      ]
-    },
-    {
-      "id": "architecture-scan/boundaries/exec-server-versioned-dialect",
-      "group": "boundaries",
-      "title": "The exec-server boundary is a versioned JSON-RPC dialect with an explicit minimum-supported-version",
-      "description": "Command execution is isolated behind exec-server, and its contract crate (exec-server-protocol) encodes real compatibility guarantees: a named minimum supported Codex version constant ('Oldest Codex release supported by the executor protocol', currently 0.145.0) and a documented wire dialect - JSON-RPC that deliberately omits the 'jsonrpc':'2.0' field. The protocol crate also carries hardening at the parse layer (bounded JSON value-node counts to prevent memory-expansion attacks), consistent with this being a trust boundary; security-design-scan covers the sandbox semantics on the far side. Direction: core and frontends call downward into exec-server; the protocol crate depends only on vocabulary crates.",
-      "severity": "info",
-      "confidence": "certain",
-      "evidence": [
-        {
-          "file": "codex-rs/exec-server-protocol/src/lib.rs",
-          "start_line": 14,
-          "end_line": 14,
-          "snippet": "pub const MINIMUM_SUPPORTED_CODEX_VERSION: &str = \"0.145.0\";",
-          "note": "explicit cross-version compatibility guarantee"
-        },
-        {
-          "file": "codex-rs/exec-server-protocol/src/rpc.rs",
-          "start_line": 3,
-          "end_line": 4,
-          "snippet": "//! Exec-server uses the Codex JSON-RPC dialect, which omits the",
-          "note": "documented wire dialect of the boundary"
-        }
-      ],
-      "tags": [
-        "exec",
-        "sandbox",
-        "json-rpc",
+        "api",
         "versioning"
+      ],
+      "sokrates_refs": [
+        "component:app-server API",
+        "finding:network-scan/protocols/rpc-mcp"
       ]
     },
     {
-      "id": "architecture-scan/boundaries/extension-api-contributor-traits",
+      "id": "architecture-scan/boundaries/exec-server-protocol",
       "group": "boundaries",
-      "title": "codex-extension-api inverts the dependency: core hosts extensions through contributor traits",
-      "description": "The extension seam is a classic dependency inversion. codex-extension-api (depth 13) defines contributor traits - ToolContributor, TurnLifecycleContributor, ThreadLifecycleContributor, McpServerContributor, PromptFragment slots - plus an ExtensionRegistry; codex-core (depth 15) depends on the API crate and drives registered contributors at the appropriate lifecycle points, while the ext/* crates (depth 16) implement the traits above core. This keeps the engine from knowing concrete extensions at compile time and gives features like web-search, memories, skills and guardian-v2 a uniform attachment mechanism. The API is not yet fully self-sufficient - extensions still import codex-core for its Config type and helpers (see the evolution finding) - but the direction rule (core never names a concrete extension in [dependencies]) holds throughout the graph.",
+      "title": "exec-server-protocol: the engine-to-executor contract that makes execution location-independent",
+      "description": "`exec-server-protocol` defines the JSON-RPC envelope the engine uses to spawn and control processes through `exec-server`: `InitializeParams`, `ExecParams`, environment capabilities, and a **network-policy round trip** in which the executor asks the engine whether a connection should be allowed and receives an `ExecServerNetworkPolicyDecision`. Because the same contract runs over a local WebSocket or a Noise-encrypted relay to a remote environment, the sandbox can be on another machine without the engine changing. 17 crates depend on `exec-server`, including `apply-patch`, `arg0` and the `ext/*` crates that need to run commands, which makes the executor the second hub after `core`.",
       "severity": "info",
       "confidence": "certain",
       "evidence": [
         {
-          "file": "codex-rs/ext/extension-api/src/lib.rs",
-          "start_line": 81,
-          "end_line": 81,
-          "snippet": "pub use registry::ExtensionRegistry;",
-          "note": "the registry core consumes"
+          "file": "codex-rs/exec-server-protocol/src/protocol.rs",
+          "start_line": 213,
+          "end_line": 213,
+          "snippet": "pub struct ExecParams {",
+          "note": "the exec request contract"
         },
         {
-          "file": "codex-rs/ext/extension-api/src/lib.rs",
-          "start_line": 64,
-          "end_line": 64,
-          "snippet": "pub use contributors::ToolContributor;",
-          "note": "contributor trait implemented by extensions"
+          "file": "codex-rs/exec-server-protocol/src/network_policy.rs",
+          "start_line": 65,
+          "end_line": 65,
+          "snippet": "pub enum ExecServerNetworkPolicyDecision {",
+          "note": "policy decision crosses back from engine to executor"
         },
         {
-          "file": "codex-rs/core/Cargo.toml",
-          "start_line": 40,
-          "end_line": 40,
-          "snippet": "codex-extension-api = { workspace = true }",
-          "note": "core depends on the API, not on concrete extensions"
+          "file": "codex-rs/exec-server/README.md",
+          "start_line": 19,
+          "end_line": 19,
+          "snippet": "The server speaks the exec-specific `codex-exec-server-protocol` message",
+          "note": "stated contract"
         }
       ],
       "tags": [
-        "extension",
-        "dependency-inversion",
-        "traits",
-        "plugin-surface"
+        "json-rpc",
+        "executor",
+        "remote"
+      ],
+      "sokrates_refs": [
+        "component:exec-server (sandboxed executor)",
+        "finding:reliability-scan/isolation/child-process-containment"
       ]
     },
     {
-      "id": "architecture-scan/boundaries/sdk-exec-jsonl-contract",
+      "id": "architecture-scan/boundaries/extension-api-contributors",
       "group": "boundaries",
-      "title": "The TypeScript SDK rides a second, hand-mirrored contract: codex exec --experimental-json JSONL",
-      "description": "While IDE clients get generated TypeScript types from app-server-protocol, the published TypeScript SDK takes a different path: it spawns the codex binary as a child process with ['exec', '--experimental-json'] and parses JSONL events whose TS definitions are maintained by hand - the file says so itself: 'based on event types from codex-rs/exec/src/exec_events.rs'. That makes the SDK boundary weaker than the app-server one on every axis: process-spawn instead of a connection, hand-mirrored instead of generated types, and a flag still named experimental. Nothing mechanical prevents the Rust event types and the TS mirror from drifting apart.",
-      "severity": "low",
+      "title": "ext/extension-api: trait-based contributor seam for in-tree extensions",
+      "description": "`ext/extension-api` defines a family of **contributor traits** (`ToolContributor`, `McpServerContributor`, `ContextContributor`, `TurnLifecycleContributor`, `ApprovalReviewContributor` and others) plus an `ExtensionRegistryBuilder` that `app-server` fills. The seam is intended to let features be added without touching `core`. It is only half enforced: `extension-api` itself does not depend on `core`, but ten of the twelve `ext/*` implementations do, so the traits bound what an extension *provides* to the engine while the extension still reaches freely into engine internals. The seam holds in one direction.",
+      "severity": "info",
       "confidence": "certain",
       "evidence": [
         {
-          "file": "sdk/typescript/src/exec.ts",
-          "start_line": 90,
-          "end_line": 90,
-          "snippet": "const commandArgs: string[] = [\"exec\", \"--experimental-json\"];",
-          "note": "the SDK's actual transport: spawning the CLI"
+          "file": "codex-rs/ext/extension-api/src/contributors.rs",
+          "start_line": 69,
+          "end_line": 69,
+          "snippet": "pub trait McpServerContributor<C: Sync>: Send + Sync {",
+          "note": "contributor trait"
         },
         {
-          "file": "sdk/typescript/src/events.ts",
-          "start_line": 1,
-          "end_line": 1,
-          "snippet": "// based on event types from codex-rs/exec/src/exec_events.rs",
-          "note": "hand-mirrored contract types on the TS side"
+          "file": "codex-rs/ext/extension-api/src/registry.rs",
+          "start_line": 23,
+          "end_line": 23,
+          "snippet": "pub struct ExtensionRegistryBuilder<C: Sync> {",
+          "note": "registry the host fills"
         }
       ],
-      "recommendation": "Generate the SDK's event types from exec_events.rs (the ts_rs machinery already exists for app-server-protocol), or move the SDK onto the app-server protocol so both external surfaces share one generated contract.",
       "tags": [
-        "sdk",
-        "typescript",
-        "contract-drift",
-        "jsonl"
+        "trait",
+        "extension-point"
+      ],
+      "sokrates_refs": [
+        "component:extensions (ext/*)"
       ]
     },
     {
-      "id": "architecture-scan/violations/codex-core-bloat",
+      "id": "architecture-scan/boundaries/tui-through-app-server-client",
+      "group": "boundaries",
+      "title": "The TUI does not link the engine: it is a client of the app-server API",
+      "description": "`tui` has no dependency on `codex-core`; it drives conversations through `app-server-client` and types from `app-server-protocol`. This is the strongest layering rule the workspace enforces and it has held: the interactive frontend cannot bypass the API and must work with what a remote or embedded client would see. The one leak (direct `exec-server` and `sandboxing` imports for local helpers) is recorded under violations.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/tui/Cargo.toml",
+          "start_line": 30,
+          "end_line": 30,
+          "snippet": "codex-app-server-client = { workspace = true }",
+          "note": "API client dependency; no codex-core line exists in this manifest"
+        }
+      ],
+      "tags": [
+        "layering",
+        "strength"
+      ],
+      "sokrates_refs": [
+        "component:TUI frontend",
+        "component:app-server API"
+      ]
+    },
+    {
+      "id": "architecture-scan/violations/core-god-crate",
       "group": "violations",
-      "title": "codex-core is a self-acknowledged god-crate: 62 dependencies, 23 dependents, and a rule it keeps straining",
-      "description": "The rule is stated by the repo itself: AGENTS.md admits codex-core 'has become bloated' and instructs contributors to 'resist adding code to codex-core!'. The breach is the crate's present shape: it imports 62 of the 133 workspace crates (highest out-degree), is imported by 23, and its lib.rs alone spans the turn loop, model client, MCP management, plugin manager glue, sandboxing, skills, web search, rollout persistence, compaction, guardian, hooks and config re-exports. Every crate above depth 15 - all extensions, the app-server, every frontend but the TUI - rebuilds when core changes, and risk-synthesis-scan independently found core's config module to be the repo's biggest merge magnet and core's tool-registry assembly a per-feature accretion point. The countervailing force is real (the extension API and the many extracted crates exist precisely to bleed responsibilities off), but as of this snapshot the hub taxes most changes in the middle of the graph.",
+      "title": "codex-core is the god crate the repo's own guidance says not to grow",
+      "description": "AGENTS.md states the rule: `codex-core` has become bloated and contributors should **resist adding code to codex-core**. The manifests show the rule losing: `core` depends on 61 of 133 workspace crates, the largest fan-out in the tree, and 23 crates depend on it, so it is both the widest consumer and the second-widest provider. Extension crates that were split out (`ext/*`) mostly still link `core`, the `codex_thread`/`session` modules carry config, exec, MCP, hooks, guardian and compaction concerns, and `core` re-exports lower-layer types as its own API. The cost is that most changes rebuild and re-test the whole engine and that the compile-time seam around the engine constrains almost nothing.",
       "severity": "medium",
       "confidence": "certain",
       "evidence": [
         {
           "file": "AGENTS.md",
-          "start_line": 76,
-          "end_line": 76,
-          "snippet": "To that end: **resist adding code to codex-core**!",
-          "note": "the rule: stated intent from the repo's own guidance"
+          "start_line": 74,
+          "end_line": 74,
+          "snippet": "Over time, the `codex-core` crate (defined in `codex-rs/core/`) has become bloated because it is the largest crate, so it is often easier to add something new to `codex-core` rather than refactor out the library code you need so your new code neither takes a dependency on, nor contributes to the size of, `codex-core`.",
+          "note": "the rule (stated intent)"
         },
         {
           "file": "AGENTS.md",
-          "start_line": 74,
-          "end_line": 74,
-          "snippet": "the `codex-core` crate (defined in `codex-rs/core/`) has become bloated because it is the largest crate",
-          "note": "the rule's own diagnosis"
+          "start_line": 76,
+          "end_line": 76,
+          "snippet": "To that end: **resist adding code to codex-core**!",
+          "note": "the rule"
         },
         {
           "file": "codex-rs/core/src/lib.rs",
-          "start_line": 6,
-          "end_line": 6,
-          "snippet": "#![deny(clippy::print_stdout, clippy::print_stderr)]",
-          "note": "the breach lives in this lib.rs: 200+ lines of module declarations spanning MCP, plugins, sandboxing, skills, rollout, web search"
+          "start_line": 64,
+          "end_line": 66,
+          "snippet": "mod guardian;\nmod hook_mcp_executor;\nmod hook_runtime;",
+          "note": "the breach: guardian, hooks and MCP execution still live inside core"
         }
       ],
-      "recommendation": "Continue the stated extraction strategy with explicit targets: the extension-api generic-config work (removing extensions' need for codex_core::config::Config) and moving rollout/persistence re-exports behind thread-store would cut the widest dependent edges first. Track core's out-degree in CI as a ratchet.",
+      "recommendation": "Pick the next two extractions by dependency count: hook and MCP execution (`hook_runtime`, `hook_mcp_executor`, `mcp_*`) into the existing `hooks`/`rmcp-client` crates, and the `sandboxing`/`exec` modules into the execution cluster. Make `ext/*` crates depend on `extension-api` only, so the extension seam constrains both directions.",
       "tags": [
-        "god-crate",
         "hub",
-        "erosion",
-        "stated-intent"
+        "god-crate"
       ],
       "sokrates_refs": [
-        "metric:churn",
-        "metric:commits-90d"
+        "component:core engine",
+        "metric:loc",
+        "finding:risk-synthesis-scan/hotspots/core-config-mod"
       ]
     },
     {
-      "id": "architecture-scan/violations/core-imports-app-server-protocol",
+      "id": "architecture-scan/violations/protocol-depends-on-service-crates",
       "group": "violations",
-      "title": "The engine imports the outward-facing API crate: core uses app-server-protocol's history types",
-      "description": "The layering the workspace implies is engine below, API layer above: app-server adapts codex-core to the wire. But codex-core itself declares a dependency on codex-app-server-protocol, and its ThreadManager imports ThreadHistoryBuilder and TurnStatus from it - the engine's thread-history handling is built on types that belong to the external API's contract crate. No cycle results (the protocol crate sits lower in the DAG precisely because it contains no engine code), and single-sourcing the history projection in the wire-type crate may be deliberate; but it means the product API's types are load-bearing inside the engine, so a wire-format change can no longer be reasoned about as 'adapter-layer only'. Marked low because the dependency is narrow (two files in core) and possibly intentional.",
-      "severity": "low",
-      "confidence": "likely",
+      "title": "The vocabulary crate depends on the policy engine, the network proxy and the HTTP client",
+      "description": "`codex-protocol` is named and used as the shared vocabulary, and Sokrates' decomposition files it that way. Its manifest, however, pulls in `codex-execpolicy` (the rule engine), `codex-network-proxy` (the egress proxy implementation with its TLS stack) and `codex-http-client`. The uses are real: `environment.rs` embeds `RequirementsExecPolicy` and `EnvironmentNetworkPolicy`, `error.rs` wraps `HttpError`. The effect is that every one of the 68 dependents of `protocol` transitively compiles the proxy and the policy engine, and that those two crates can never depend on `protocol` types themselves, which is why `network-proxy` defines its own policy vocabulary that `core` then re-exports. The evident intent (a leaf types crate) is inverted at this seam.",
+      "severity": "medium",
+      "confidence": "certain",
       "evidence": [
         {
-          "file": "codex-rs/core/Cargo.toml",
-          "start_line": 29,
-          "end_line": 29,
-          "snippet": "codex-app-server-protocol = { workspace = true }",
-          "note": "the breach: engine manifest depends on the API contract crate"
+          "file": "codex-rs/protocol/Cargo.toml",
+          "start_line": 19,
+          "end_line": 19,
+          "snippet": "codex-execpolicy = { workspace = true }",
+          "note": "breach: vocabulary depends on the engine"
         },
         {
-          "file": "codex-rs/core/src/thread_manager.rs",
-          "start_line": 24,
-          "end_line": 24,
-          "snippet": "use codex_app_server_protocol::ThreadHistoryBuilder;",
-          "note": "the concrete use inside the engine's central type"
+          "file": "codex-rs/protocol/Cargo.toml",
+          "start_line": 21,
+          "end_line": 22,
+          "snippet": "codex-http-client = { workspace = true }\ncodex-network-proxy = { workspace = true }",
+          "note": "breach: vocabulary depends on service crates"
+        },
+        {
+          "file": "codex-rs/protocol/src/environment.rs",
+          "start_line": 5,
+          "end_line": 6,
+          "snippet": "use codex_execpolicy::RequirementsExecPolicy;\nuse codex_network_proxy::EnvironmentNetworkPolicy;",
+          "note": "where the types are embedded"
         }
       ],
-      "recommendation": "Move the thread-history projection types into codex-protocol (or a small shared history crate) so the engine and the API crate both depend downward on them, restoring the engine-knows-no-wire rule.",
+      "recommendation": "Split the plain data types out of `execpolicy` and `network-proxy` (policy structs, decisions, domain permission entries) into `protocol` or a tiny `policy-types` crate, and have the engines depend on that. `protocol` should then have only `utils/*` and `async-utils` below it.",
       "tags": [
         "layering",
-        "inverted-dependency",
-        "wire-types"
+        "dependency-direction"
+      ],
+      "sokrates_refs": [
+        "component:protocol (shared vocabulary)",
+        "component:sandboxing & policy"
       ]
     },
     {
-      "id": "architecture-scan/violations/tui-bypasses-app-server-seam",
+      "id": "architecture-scan/violations/tui-direct-executor-imports",
       "group": "violations",
-      "title": "The TUI honors the app-server seam for the engine but still reaches directly into storage and exec-server",
-      "description": "The rule is the one the TUI itself established: it dropped its codex-core dependency and drives the engine exclusively through the app-server client facade. The breach is that the same crate still links roughly 40 workspace crates directly, including the persistence layer (codex_rollout's StateDbHandle, codex-state) and the exec-server's EnvironmentManager - state that, under the client-server model, would be owned by the server and reached via the API. Today this is safe because the TUI runs the app-server in-process (same process, same files), but it quietly constrains the architecture: the TUI cannot become a pure remote client while it opens the state DB itself, and any storage-format change has two consumers instead of one. This looks like a migration frontier rather than accidental erosion, so it is rated low.",
+      "title": "TUI skips the API layer for exec-server and sandboxing",
+      "description": "Against the rule that the TUI is a client of `app-server` (it does not link `core`), `tui` declares direct dependencies on `codex-exec-server`, `codex-sandboxing` and `codex-core-plugins`. These support local concerns (sandbox warnings at startup, Windows sandbox setup prompts, plugin browsing) but they mean the TUI has knowledge of the executor that a remote client cannot have, and they are the reason the exec-server has 17 dependents. Contained: three edges, all for auxiliary UI.",
       "severity": "low",
-      "confidence": "likely",
+      "confidence": "certain",
       "evidence": [
         {
-          "file": "codex-rs/tui/src/lib.rs",
-          "start_line": 29,
-          "end_line": 29,
-          "snippet": "use codex_app_server_client::InProcessAppServerClient;",
-          "note": "the rule: TUI's sanctioned path to the engine"
+          "file": "codex-rs/tui/Cargo.toml",
+          "start_line": 39,
+          "end_line": 39,
+          "snippet": "codex-exec-server = { workspace = true }",
+          "note": "breach: frontend links the executor"
         },
         {
-          "file": "codex-rs/tui/src/lib.rs",
-          "start_line": 62,
-          "end_line": 62,
-          "snippet": "use codex_rollout::StateDbHandle;",
-          "note": "the breach: direct storage access beside the API client"
+          "file": "codex-rs/tui/Cargo.toml",
+          "start_line": 54,
+          "end_line": 54,
+          "snippet": "codex-sandboxing = { workspace = true }",
+          "note": "breach: frontend links the sandbox manager"
         },
         {
-          "file": "codex-rs/tui/src/lib.rs",
-          "start_line": 49,
-          "end_line": 49,
-          "snippet": "use codex_exec_server::EnvironmentManager;",
-          "note": "the breach: direct exec-server linkage, skipping the API"
+          "file": "codex-rs/tui/src/app/startup.rs",
+          "start_line": 425,
+          "end_line": 425,
+          "snippet": "            .maybe_prompt_windows_sandbox_enable(should_prompt_windows_sandbox_nux_at_startup);",
+          "note": "what the edge is used for"
         }
       ],
-      "recommendation": "When app-server v2 grows the corresponding surface (session listing/resume, environment management), migrate the TUI's direct rollout/state/exec-server uses onto it; until then, treat these crates' formats as having two independent consumers in reviews.",
+      "recommendation": "Expose sandbox status and Windows sandbox setup as app-server requests so the TUI can drop the executor dependencies; this also makes remote TUIs behave identically.",
       "tags": [
-        "skip-layer",
-        "migration-frontier",
-        "tui"
+        "skip-layer"
+      ],
+      "sokrates_refs": [
+        "component:TUI frontend",
+        "component:exec-server (sandboxed executor)"
       ]
     },
     {
-      "id": "architecture-scan/violations/test-only-core-extension-cycles",
+      "id": "architecture-scan/violations/dependency-cycles",
       "group": "violations",
-      "title": "Two test-only cycles: core dev-depends on extensions that depend on core",
-      "description": "codex-core's [dev-dependencies] include codex-image-generation-extension and codex-web-search-extension, both of which depend on codex-core in their normal [dependencies] - forming core -> extension -> core loops that exist only when compiling core's tests. Cargo permits this and it is a common pattern (the engine's integration tests want real extensions registered), but it means core's test suite cannot build without the extension ring, and it slightly blurs the otherwise-clean claim that nothing below depth 16 knows a concrete extension. The production graph remains acyclic.",
+      "title": "No production cycles; one 21-crate cycle exists through dev-dependencies",
+      "description": "A manifest pass over all 133 crates finds **zero production dependency cycles**: the workspace is a DAG at build time. Adding `dev-dependencies` closes one strongly connected component of 21 crates (`core`, `exec-server`, `linux-sandbox`, `arg0`, `apply-patch`, `codex-mcp`, `core-plugins`, `tools`, `plugin`, several `ext/*`), created by `core` dev-depending on `exec-server/tests/support`, `ext/image-generation`, `ext/web-search` and `test-binary-support`, and `linux-sandbox` dev-depending on `core`. Cargo permits this and it only affects test builds, but it means the sandbox crate's tests are compiled against the whole engine.",
       "severity": "info",
       "confidence": "certain",
       "evidence": [
         {
-          "file": "codex-rs/core/Cargo.toml",
-          "start_line": 140,
-          "end_line": 140,
-          "snippet": "[dev-dependencies]",
-          "note": "test-only section - the cycles do not exist in the production graph"
-        },
-        {
-          "file": "codex-rs/core/Cargo.toml",
-          "start_line": 144,
-          "end_line": 144,
-          "snippet": "codex-image-generation-extension = { workspace = true }",
-          "note": "one of the two back-edges"
-        },
-        {
-          "file": "codex-rs/core/Cargo.toml",
-          "start_line": 149,
-          "end_line": 149,
-          "snippet": "codex-web-search-extension = { workspace = true }",
-          "note": "the other back-edge"
+          "file": "codex-rs/Cargo.toml",
+          "start_line": 1,
+          "end_line": 2,
+          "snippet": "[workspace]\nmembers = [",
+          "note": "graph computed from the member manifests' dependencies and dev-dependencies"
         }
       ],
       "tags": [
-        "dev-dependencies",
-        "test-cycle",
-        "contained"
+        "cycles",
+        "dev-dependencies"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "component:sandboxing & policy"
       ]
     },
     {
-      "id": "architecture-scan/communication/sq-eq-queue-pair",
+      "id": "architecture-scan/communication/session-actor-channels",
       "group": "communication",
-      "title": "Inside the engine: a Submission/Event queue pair, explicitly in-process and non-exhaustive",
-      "description": "The engine's own interface is a pair of async queues: UIs submit Op values on the SQ and consume EventMsg values on the EQ, correlated by a caller-chosen sub_id; one Task runs at a time per session, and parallel work means running multiple engine instances. The protocol doc is explicit that this layer is 'primarily in-process Rust types rather than a stable serde wire contract' with non_exhaustive enums - i.e., the stable contract is deliberately one level up, at the app-server protocol, and the SQ/EQ layer is free to evolve. Ordering assumption worth knowing: events carry the sub_id of the submission that started the current task, not unique ids.",
+      "title": "Engine runtime: one actor per thread, bounded submissions in, unbounded events out",
+      "description": "Each conversation runs as a Tokio task: `submission_loop` reads `Submission`s from a **bounded** `async_channel` and everything the session emits goes out on an **unbounded** event channel that the API layer drains. Backpressure therefore exists on the input side only; an idle or slow consumer of events lets them accumulate. Tool calls, MCP calls and sub-agents are spawned as further tasks and report back through the same event sender, which is the ordering assumption every frontend relies on.",
       "severity": "info",
       "confidence": "certain",
       "evidence": [
         {
-          "file": "codex-rs/docs/protocol_v1.md",
-          "start_line": 16,
-          "end_line": 16,
-          "snippet": "Communicated to via a queue pair – SQ (Submission Queue) / EQ (Event Queue)",
-          "note": "the core runtime communication model"
+          "file": "codex-rs/core/src/session/mod.rs",
+          "start_line": 366,
+          "end_line": 367,
+          "snippet": "    pub(crate) tx_sub: Sender<Submission>,\n    pub(crate) rx_event: Receiver<Event>,",
+          "note": "the session I/O pair"
         },
         {
-          "file": "codex-rs/docs/protocol_v1.md",
-          "start_line": 57,
-          "end_line": 57,
-          "snippet": "In the current codebase these are primarily in-process Rust types rather than a stable serde wire contract",
-          "note": "explicitly not a stable wire contract - stability lives at app-server level"
+          "file": "codex-rs/core/src/session/mod.rs",
+          "start_line": 530,
+          "end_line": 531,
+          "snippet": "        let (tx_sub, rx_sub) = async_channel::bounded(SUBMISSION_CHANNEL_CAPACITY);\n        let (tx_event, rx_event) = async_channel::unbounded();",
+          "note": "bounded in, unbounded out"
         }
       ],
       "tags": [
+        "actor",
         "channels",
-        "async",
-        "queues",
-        "in-process"
+        "backpressure"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "finding:reliability-scan/isolation/tool-call-task-boundary"
       ]
     },
     {
-      "id": "architecture-scan/communication/json-rpc-many-transports",
+      "id": "architecture-scan/communication/process-rpc-seams",
       "group": "communication",
-      "title": "Between processes: JSON-RPC everywhere, over five different transports",
-      "description": "Every process boundary speaks a JSON-RPC variant, but the transport differs per seam: the app-server accepts stdio connections, a WebSocket acceptor, and a UDS control socket (plus remote control), and is bridged in-process over bounded mpsc channels for the TUI/exec (with a deliberately unbounded consumer-side event queue so unread notifications cannot block request responses); the exec-server speaks its own JSON-RPC dialect over its connection (with Noise-encrypted relay modules for remote environments); code-mode V8 sessions are reached via gRPC or WebSocket session providers; and the TypeScript SDK spawns the CLI and reads JSONL from stdout. Sync/async: everything is Tokio-async; backpressure is explicit at the app-server bridge (bounded command channels, CHANNEL_CAPACITY) and documented per queue.",
+      "title": "Three process-crossing RPC seams: app-server JSON-RPC, exec-server JSON-RPC, MCP stdio and HTTP",
+      "description": "Codex crosses process boundaries in three places, all JSON-RPC. **Client to engine**: `app-server` over stdio, a Unix socket, a WebSocket, or the remote-control channel. **Engine to executor**: `exec-server` over a local WebSocket or a Noise-encrypted relay, with a forwarding mode that relays frames without parsing them. **Engine to tools**: `rmcp-client` spawns MCP servers as stdio children through the executor's `ExecBackend` or talks streamable HTTP. The exec-server seam crosses the trust boundary described under security-boundaries; MCP servers cross it in the other direction (they are untrusted third-party code but run outside the command sandbox).",
       "severity": "info",
       "confidence": "certain",
       "evidence": [
         {
-          "file": "codex-rs/app-server/src/lib.rs",
-          "start_line": 50,
-          "end_line": 50,
-          "snippet": "use crate::transport::start_websocket_acceptor;",
-          "note": "one of the app-server's transports (beside stdio and control socket at lines 49/47)"
+          "file": "codex-rs/app-server-transport/src/transport/mod.rs",
+          "start_line": 32,
+          "end_line": 32,
+          "snippet": "mod websocket;",
+          "note": "client-to-engine transport"
         },
         {
-          "file": "codex-rs/app-server/src/lib.rs",
-          "start_line": 6,
-          "end_line": 7,
-          "snippet": "use codex_code_mode::GrpcCodeModeSessionProvider;",
-          "note": "code-mode reached over gRPC (WebSocket provider on the next line)"
-        },
-        {
-          "file": "codex-rs/app-server-client/src/lib.rs",
+          "file": "codex-rs/exec-server/README.md",
           "start_line": 3,
-          "end_line": 3,
-          "snippet": "//! This crate wraps [`codex_app_server::in_process`] behind a single async API",
-          "note": "in-process channel bridging as the fifth transport"
+          "end_line": 4,
+          "snippet": "`codex-exec-server` is the library backing `codex exec-server`, a small\nJSON-RPC server for spawning and controlling subprocesses through",
+          "note": "engine-to-executor seam"
+        },
+        {
+          "file": "codex-rs/rmcp-client/src/stdio_server_launcher.rs",
+          "start_line": 281,
+          "end_line": 281,
+          "snippet": "            let mut command = Command::new(&resolved_program);",
+          "note": "MCP server child process"
         }
       ],
       "tags": [
         "json-rpc",
-        "transports",
-        "websocket",
-        "grpc",
-        "backpressure"
-      ]
-    },
-    {
-      "id": "architecture-scan/evolution/app-server-v1-to-v2",
-      "group": "evolution",
-      "title": "Migration in flight: app-server protocol v1 frozen, v2 active, both still exported",
-      "description": "The API contract crate carries both protocol generations: v1 types are re-exported through an explicit, enumerated list (ApplyPatchApprovalParams, ConversationSummary, InitializeParams, ...) while v2 is glob-exported - the syntactic signature of 'frozen legacy beside living surface'. AGENTS.md makes the direction binding: all active API development in v2, no new surface in v1. The v1 names still show the pre-rename vocabulary (Conversation*), tying this migration to the Conversation-to-Thread rename. Expect v1 to persist as long as external clients pin it; the deprecation path is explicit rather than time-boxed.",
-      "severity": "info",
-      "confidence": "certain",
-      "evidence": [
-        {
-          "file": "codex-rs/app-server-protocol/src/lib.rs",
-          "start_line": 29,
-          "end_line": 29,
-          "snippet": "pub use protocol::v1::ApplyPatchApprovalParams;",
-          "note": "frozen v1: enumerated exports"
-        },
-        {
-          "file": "codex-rs/app-server-protocol/src/lib.rs",
-          "start_line": 51,
-          "end_line": 51,
-          "snippet": "pub use protocol::v2::*;",
-          "note": "living v2: glob export"
-        },
-        {
-          "file": "AGENTS.md",
-          "start_line": 270,
-          "end_line": 270,
-          "snippet": "Do not add new API surface area to v1.",
-          "note": "the binding migration rule"
-        }
+        "ipc",
+        "mcp"
       ],
-      "tags": [
-        "migration",
-        "api-versioning",
-        "parallel-structures"
+      "sokrates_refs": [
+        "finding:network-scan/topology/listeners",
+        "finding:network-scan/protocols/rpc-mcp",
+        "finding:reliability-scan/isolation/mcp-server-timeouts"
       ]
     },
     {
-      "id": "architecture-scan/evolution/conversation-to-thread-rename",
+      "id": "architecture-scan/evolution/api-v1-to-v2-and-legacy-paths",
       "group": "evolution",
-      "title": "Migration in flight: Conversation is becoming Thread, with deprecated aliases still wired",
-      "description": "A domain-wide rename from 'Conversation' to 'Thread' is visibly mid-flight: codex-core exports deprecated type aliases (ConversationManager = ThreadManager, NewConversation = NewThread, CodexConversation = CodexThread) and deprecated function re-exports (find_conversation_path_by_id_str pointing at find_thread_path_by_id_str), while the app-server v1 protocol keeps the old nouns (ConversationSummary, InterruptConversationResponse) and v2 uses thread/* method naming. The aliases mean old call sites still compile with warnings rather than breaking - a deliberate soft migration. New code should use only Thread vocabulary; the aliases are the cleanup marker for when the rename can be declared done.",
-      "severity": "info",
-      "confidence": "certain",
-      "evidence": [
-        {
-          "file": "codex-rs/core/src/lib.rs",
-          "start_line": 126,
-          "end_line": 127,
-          "snippet": "#[deprecated(note = \"use ThreadManager\")]",
-          "note": "deprecated alias, still exported (ConversationManager on the next line)"
-        },
-        {
-          "file": "codex-rs/core/src/lib.rs",
-          "start_line": 127,
-          "end_line": 127,
-          "snippet": "pub type ConversationManager = ThreadManager;",
-          "note": "the wired legacy name"
-        },
-        {
-          "file": "codex-rs/core/src/lib.rs",
-          "start_line": 168,
-          "end_line": 168,
-          "snippet": "pub use rollout::find_conversation_path_by_id_str;",
-          "note": "deprecated function re-export in the rollout API (deprecation attribute on line 167)"
-        }
-      ],
-      "tags": [
-        "rename",
-        "deprecated-but-wired",
-        "migration"
-      ]
-    },
-    {
-      "id": "architecture-scan/evolution/rollout-jsonl-to-sqlite-state",
-      "group": "evolution",
-      "title": "Persistence in transition: JSONL rollouts stay the source of truth, SQLite mirrors them, thread-store abstracts both",
-      "description": "Session persistence is mid-architecture-change with all three generations visible at once. JSONL rollout files remain the durable record; codex-state describes itself as intentionally small, extracting rollout metadata and mirroring it 'into a local SQLite database' (with backfill orchestration living in codex-core); and thread-store defines storage-neutral interfaces declaring ThreadId 'the only durable thread handle', resolvable to 'local rollout files, RPC requests, or any other backing store' - i.e., the abstraction that will eventually hide which store is authoritative. The CLI ships the migration tooling in-tree (mod migrate_rollouts, plus state-DB recovery). The design keeps a single source of truth (mirror, not second master), which avoids the classic dual-write trap; the cost is that consumers written before thread-store (the TUI's direct StateDbHandle use) see the mirror directly.",
-      "severity": "info",
-      "confidence": "certain",
-      "evidence": [
-        {
-          "file": "codex-rs/state/src/lib.rs",
-          "start_line": 4,
-          "end_line": 4,
-          "snippet": "//! from JSONL rollouts and mirrors it into a local SQLite database. Backfill",
-          "note": "SQLite as mirror, not master"
-        },
-        {
-          "file": "codex-rs/thread-store/src/lib.rs",
-          "start_line": 3,
-          "end_line": 3,
-          "snippet": "//! Application code should treat [`codex_protocol::ThreadId`] as the only durable thread handle.",
-          "note": "the target abstraction over both stores"
-        },
-        {
-          "file": "codex-rs/cli/src/main.rs",
-          "start_line": 56,
-          "end_line": 56,
-          "snippet": "mod migrate_rollouts;",
-          "note": "migration tooling shipped in the CLI"
-        }
-      ],
-      "tags": [
-        "persistence",
-        "migration",
-        "sqlite",
-        "jsonl",
-        "single-source-of-truth"
-      ]
-    },
-    {
-      "id": "architecture-scan/evolution/extension-api-not-yet-self-sufficient",
-      "group": "evolution",
-      "title": "Extension API in adolescence: first-party extensions still import codex-core for Config and helpers",
-      "description": "The extension seam exists and holds directionally (see the boundaries finding), but it has not yet cut the cord: every first-party extension under ext/ depends on both codex-extension-api and codex-core, mostly to name codex_core::config::Config (the registry's config type parameter) plus scattered helpers (parse_turn_item, web-search header constants). So the extension API today is a structuring device for OpenAI's own code, not yet a boundary a third party could build against without the engine crate - the 'extension point prepared but not yet opened' stage. The generic ExtensionRegistryBuilder<C> shape suggests the intended end state: bind extensions to an abstract config capability and drop the core dependency.",
+      "title": "Parallel generations still wired: app-server v1 and v2, legacy events, compaction v1 and v2, guardian-v2",
+      "description": "Several migrations are visibly mid-flight. `app-server-protocol` exports both `v1` and `v2` modules; `protocol` keeps a `legacy_events` module for older wire shapes; `core` has `compact_remote` beside `compact_remote_v2`; the only guardian in `ext/` is `guardian-v2` while `core` still contains a `guardian` module. None of these is isolated behind a deprecation attribute in the manifests, so both generations compile into every binary. Direction is clear (v2 and `ext/*` are the destination); what is unclear is whether v1 removal is planned or v1 is a permanent compatibility surface for external SDKs.",
       "severity": "info",
       "confidence": "likely",
       "evidence": [
         {
-          "file": "codex-rs/ext/web-search/src/extension.rs",
+          "file": "codex-rs/app-server-protocol/src/protocol/mod.rs",
           "start_line": 11,
-          "end_line": 11,
-          "snippet": "use codex_core::config::Config;",
-          "note": "extension binding to the concrete engine config type"
+          "end_line": 12,
+          "snippet": "pub mod v1;\npub mod v2;",
+          "note": "parallel API generations"
         },
         {
-          "file": "codex-rs/ext/web-search/Cargo.toml",
-          "start_line": 17,
-          "end_line": 18,
-          "snippet": "codex-core = { workspace = true }",
-          "note": "dual dependency: core and extension-api side by side (extension-api on the next line)"
+          "file": "codex-rs/core/src/lib.rs",
+          "start_line": 30,
+          "end_line": 32,
+          "snippet": "mod compact_remote;\nmod compact_remote_history;\nmod compact_remote_v2;",
+          "note": "parallel compaction implementations"
+        },
+        {
+          "file": "codex-rs/protocol/src/lib.rs",
+          "start_line": 25,
+          "end_line": 25,
+          "snippet": "mod legacy_events;",
+          "note": "legacy decoding kept"
         }
       ],
       "tags": [
-        "extension",
-        "plugin-surface",
-        "migration-frontier"
+        "migration",
+        "versioning"
+      ],
+      "sokrates_refs": [
+        "component:app-server API",
+        "component:core engine"
+      ]
+    },
+    {
+      "id": "architecture-scan/evolution/extraction-out-of-core",
+      "group": "evolution",
+      "title": "Ongoing extraction of engine features into ext/* and dedicated crates",
+      "description": "The workspace shows an **extraction in progress**: twelve `ext/*` crates and a growing ring of single-purpose crates (`hooks`, `skills`, `plugin`, `sandboxing`, `execpolicy`, `network-proxy`, `rollout`, `state`) take responsibilities that the AGENTS.md guidance says used to accrete in `core`. The frontier is visible in the dependency graph: `ext/extension-api` is clean, but the extensions themselves still depend on `core`, and hooks, MCP execution and guardian glue still live inside `core`. The `core-api` crate (a facade used only by `thread-manager-sample`) looks like a prepared but not yet adopted narrow entry point.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "AGENTS.md",
+          "start_line": 80,
+          "end_line": 81,
+          "snippet": "- There is an existing crate other than `codex-core` that is an appropriate place for your new code to live.\n- It is time to introduce a new crate to the Cargo workspace for your new functionality. Refactor existing code as necessary to make this happen.",
+          "note": "the stated direction"
+        },
+        {
+          "file": "codex-rs/ext/extension-api/src/contributors.rs",
+          "start_line": 84,
+          "end_line": 84,
+          "snippet": "pub trait ContextContributor: Send + Sync {",
+          "note": "the destination seam"
+        }
+      ],
+      "tags": [
+        "migration",
+        "extraction"
+      ],
+      "sokrates_refs": [
+        "component:extensions (ext/*)",
+        "component:core engine",
+        "finding:architecture-scan/violations/core-god-crate"
+      ]
+    },
+    {
+      "id": "architecture-scan/security-boundaries/trust-map",
+      "group": "security-boundaries",
+      "title": "Trust map: five entry points for untrusted input, one structurally enforced boundary",
+      "description": "Untrusted data enters Codex through five doors. **Model output** (tool calls, commands, patches) arrives in `core` from the model clients. **User project files** and `AGENTS.md` are read into context by the engine. **Third-party code** enters as MCP servers, plugins, skills and hooks through the extensibility crates. **API clients** connect to `app-server` over stdio, Unix socket, WebSocket or remote control. **Remote executors** connect to `exec-server` over a relay. Of these, only model-requested commands cross a boundary that is **enforced by structure**: they are rewritten by `codex-sandboxing` into an OS-sandboxed child process, with an `execpolicy` and `AskForApproval` gate in front. Project trust (`trust_level` per project directory) selects which approval and sandbox profile applies. MCP servers, hooks and extensions run in the engine's own trust domain as ordinary child processes or in-process code: the boundary there is policy (approval, hook trust) rather than structure. `security-scan` judges what crosses each door; this finding records where the doors are.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/protocol/src/protocol.rs",
+          "start_line": 917,
+          "end_line": 918,
+          "snippet": "    /// Internal policy for projects marked untrusted. Commands require\n    /// approval unless an explicit exec policy rule allows them.",
+          "note": "approval gate in front of the command boundary"
+        },
+        {
+          "file": "codex-rs/config/src/config_toml.rs",
+          "start_line": 539,
+          "end_line": 540,
+          "snippet": "    pub fn is_trusted(&self) -> bool {\n        matches!(self.trust_level, Some(TrustLevel::Trusted))",
+          "note": "per-project trust level"
+        },
+        {
+          "file": "codex-rs/rmcp-client/src/stdio_server_launcher.rs",
+          "start_line": 613,
+          "end_line": 613,
+          "snippet": "                sandbox: None,",
+          "note": "MCP servers are launched without the command sandbox"
+        }
+      ],
+      "tags": [
+        "trust",
+        "entry-points"
+      ],
+      "sokrates_refs": [
+        "component:sandboxing & policy",
+        "component:extensibility (MCP, plugins, skills, hooks)",
+        "finding:security-scan/injection/shell-command-construction",
+        "finding:reliability-scan/isolation/child-process-containment"
+      ]
+    },
+    {
+      "id": "architecture-scan/security-boundaries/sandbox-os-layers",
+      "group": "security-boundaries",
+      "title": "Command sandbox: Seatbelt on macOS, seccomp plus Landlock or bubblewrap on Linux, restricted token on Windows, via arg0 re-exec",
+      "description": "`SandboxManager` picks one backend per host and rewrites the argv. On **macOS** the command is wrapped in `/usr/bin/sandbox-exec -p <profile>` with a generated Seatbelt policy (the path is pinned to defeat PATH tampering). On **Linux** the binary re-executes itself as `codex-linux-sandbox`, which launches bubblewrap with `--unshare-user --unshare-net` and read-only binds, or falls back to in-process `no_new_privs`, a seccomp network filter and Landlock filesystem rules, which the code now labels legacy. On **Windows** a restricted-token or elevated backend from `windows-sandbox-rs` is used when enabled. The single `codex` binary provides all helpers through `arg0` dispatch, and `process-hardening` disables ptrace and core dumps and strips `LD_PRELOAD`-style variables before `main`. The **executor path** (`exec-server`) refuses a request it cannot confine rather than running it open, which is the fail-closed half of the design.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/sandboxing/src/seatbelt.rs",
+          "start_line": 56,
+          "end_line": 56,
+          "snippet": "pub const MACOS_PATH_TO_SEATBELT_EXECUTABLE: &str = \"/usr/bin/sandbox-exec\";",
+          "note": "macOS backend"
+        },
+        {
+          "file": "codex-rs/sandboxing/src/bwrap.rs",
+          "start_line": 77,
+          "end_line": 78,
+          "snippet": "            \"--unshare-user\",\n            \"--unshare-net\",",
+          "note": "Linux bubblewrap namespaces"
+        },
+        {
+          "file": "codex-rs/exec-server/src/process_sandbox.rs",
+          "start_line": 191,
+          "end_line": 193,
+          "snippet": "    if sandbox == SandboxType::None {\n        return Err(invalid_params(\n            \"sandbox intent cannot be enforced on this executor\".to_string(),",
+          "note": "executor fails closed"
+        }
+      ],
+      "tags": [
+        "sandbox",
+        "seatbelt",
+        "seccomp",
+        "landlock",
+        "bubblewrap"
+      ],
+      "sokrates_refs": [
+        "component:sandboxing & policy",
+        "finding:tech-stack-scan/libraries/sandboxing-primitives",
+        "finding:security-scan/unsafe-code/dynamic-execution-contained"
+      ]
+    },
+    {
+      "id": "architecture-scan/security-boundaries/network-confinement",
+      "group": "security-boundaries",
+      "title": "Network confinement: OS-level cut-off by default, opt-in managed egress proxy with domain policy",
+      "description": "Network confinement has two structural layers. The **base layer** is part of the sandbox: `network_access` is `false` by default in both `ReadOnly` and `WorkspaceWrite` policies, Linux installs a seccomp network filter or unshares the network namespace, and the child is told through `CODEX_SANDBOX_NETWORK_DISABLED=1`. The **managed layer** is `network-proxy`: an HTTP and SOCKS5 proxy with allowed and denied domain lists, `Limited` (GET/HEAD only) versus `Full` modes, optional MITM hooks, a credential broker, and a policy decider that can route decisions back to the engine (and, via `exec-server-protocol`, to a remote engine). The proxy is `enabled: false` by default and its default mode is `Full`, so it only narrows traffic when a deployment turns it on and configures domains. Sandboxed commands reach the proxy through loopback, which the Seatbelt and bwrap profiles leave open for that purpose.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/linux-sandbox/src/landlock.rs",
+          "start_line": 67,
+          "end_line": 68,
+          "snippet": "    if let Some(mode) = network_seccomp_mode {\n        install_network_seccomp_filter_on_current_thread(mode)?;",
+          "note": "OS-level network cut-off"
+        },
+        {
+          "file": "codex-rs/core/src/spawn.rs",
+          "start_line": 86,
+          "end_line": 87,
+          "snippet": "    if !network_sandbox_policy.is_enabled() {\n        cmd.env(CODEX_SANDBOX_NETWORK_DISABLED_ENV_VAR, \"1\");",
+          "note": "child is told the network is off"
+        },
+        {
+          "file": "codex-rs/network-proxy/src/config.rs",
+          "start_line": 152,
+          "end_line": 153,
+          "snippet": "        Self {\n            enabled: false,",
+          "note": "managed proxy is opt-in"
+        }
+      ],
+      "tags": [
+        "network",
+        "proxy",
+        "egress"
+      ],
+      "sokrates_refs": [
+        "component:sandboxing & policy",
+        "finding:network-scan/connection-management/proxy-support",
+        "finding:network-scan/network-posture/posture"
+      ]
+    },
+    {
+      "id": "architecture-scan/security-boundaries/escape-hatches",
+      "group": "security-boundaries",
+      "title": "Escape hatches: one flag disables both gates, plus policy variants and proxy switches that widen the boundary",
+      "description": "Seven distinct switches relax the boundaries, all explicit. `--dangerously-bypass-approvals-and-sandbox` sets approval to `Never` and sandbox to `DangerFullAccess` in one move (`cli` and `exec`). `--dangerously-bypass-hook-trust` disables the hook trust gate. `SandboxPolicy::DangerFullAccess` and `SandboxPolicy::ExternalSandbox` are protocol-level ways to run open (the latter trusts a container to confine). `network_access: true` on a policy re-enables outbound traffic. `AskForApproval::Never` removes the human from the loop. In the proxy, `dangerously_allow_non_loopback_proxy` and `dangerously_allow_all_unix_sockets` widen the managed layer. Config-requirements (`config_requirements.rs`) can pin approval policies in managed deployments, which is the gating mechanism above these flags. The naming convention (`dangerously_*`) makes the hatches greppable, which is the design's main control.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cli/src/main.rs",
+          "start_line": 2217,
+          "end_line": 2218,
+          "snippet": "    let sandbox_mode = if shared.dangerously_bypass_approvals_and_sandbox {\n        Some(codex_protocol::config_types::SandboxMode::DangerFullAccess)",
+          "note": "one flag, both gates"
+        },
+        {
+          "file": "codex-rs/exec/src/cli.rs",
+          "start_line": 140,
+          "end_line": 140,
+          "snippet": "        .mut_arg(\"bypass_hook_trust\", |arg| arg.global(true))",
+          "note": "hook trust bypass"
+        },
+        {
+          "file": "codex-rs/network-proxy/src/config.rs",
+          "start_line": 159,
+          "end_line": 160,
+          "snippet": "            dangerously_allow_non_loopback_proxy: false,\n            dangerously_allow_all_unix_sockets: false,",
+          "note": "proxy-level hatches, off by default"
+        }
+      ],
+      "tags": [
+        "escape-hatch",
+        "flags"
+      ],
+      "sokrates_refs": [
+        "component:CLI & headless frontends",
+        "component:sandboxing & policy",
+        "finding:security-scan/audit-coverage/sweep-coverage"
+      ]
+    },
+    {
+      "id": "architecture-scan/security-boundaries/open-defaults",
+      "group": "security-boundaries",
+      "title": "Open defaults: Windows sandbox is disabled by default and the in-process path degrades to no sandbox",
+      "description": "`WindowsSandboxLevel` defaults to `Disabled`, and `get_platform_sandbox` then returns `None` on Windows. `SandboxManager::select_initial` maps that to `SandboxType::None` with `unwrap_or`, so on a default Windows install a command whose policy says `WorkspaceWrite` runs **without any OS confinement**, with only the approval gate in front. The degradation is silent at the manager level; the compensating control lives one layer up in `core::safety`, where `assess_patch_safety` only auto-approves when `get_platform_sandbox` returns a backend and otherwise asks the user or rejects, and the TUI adds a startup prompt to enable the Windows sandbox. The `exec-server` path refuses instead of degrading. So the open default is deliberate, the confined mode exists (restricted-token and elevated backends), and the single wall on a default Windows install is the approval prompt. The trade-off is documented in the enum rather than in the docs folder, whose `sandbox.md` is a link to an external page. Two smaller open defaults sit beside it: MCP servers are launched with `sandbox: None`, and the managed network proxy is off by default, so a plain configuration relies on the OS cut-off alone.",
+      "severity": "medium",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/protocol/src/config_types.rs",
+          "start_line": 279,
+          "end_line": 281,
+          "snippet": "pub enum WindowsSandboxLevel {\n    #[default]\n    Disabled,",
+          "note": "the default"
+        },
+        {
+          "file": "codex-rs/sandboxing/src/manager.rs",
+          "start_line": 301,
+          "end_line": 302,
+          "snippet": "            get_platform_sandbox(windows_sandbox_level != WindowsSandboxLevel::Disabled)\n                .unwrap_or(SandboxType::None)",
+          "note": "silent degradation to no sandbox"
+        },
+        {
+          "file": "codex-rs/core/src/safety.rs",
+          "start_line": 72,
+          "end_line": 73,
+          "snippet": "            match get_platform_sandbox(windows_sandbox_level != WindowsSandboxLevel::Disabled) {\n                Some(_) => SafetyCheck::AutoApprove,",
+          "note": "the compensating control: auto-approval requires a platform sandbox"
+        }
+      ],
+      "recommendation": "Make the in-process path match the executor: when the policy requires confinement and the host cannot provide it, have `select_initial` return an error or force the `UnlessTrusted` approval policy instead of `SandboxType::None`, so the guarantee is in the sandbox layer rather than in a caller-side safety check. Headless `exec` and app-server clients get no startup prompt today. Consider a manifest-level default of `RestrictedToken` once the Windows backend is considered stable.",
+      "tags": [
+        "windows",
+        "open-default"
+      ],
+      "sokrates_refs": [
+        "component:sandboxing & policy",
+        "finding:architecture-scan/security-boundaries/sandbox-os-layers"
       ]
     }
   ],
   "summary_visual": {
     "file": "visuals/architecture-scan.jpeg",
     "credit": "Illustration generated by Google Gemini (gemini-3-pro-image-preview)",
-    "generated_at": "2026-08-27T10:22:14Z",
-    "prompt": "Create a single, calm, aesthetically pleasing illustration that tells the story of the analysis summary below - a reader should grasp its one or two big ideas at a glance. Text is welcome but sparse: a few short labels or key words (roughly 3 to 8, one to three words each) that anchor the story; no sentences, no numbers, no dates, no titles, no legends, no dense diagrams or flowcharts, no dashboards or screenshots. Let shapes, metaphor, composition and colour carry most of the meaning. Style: polished flat vector illustration, crisp outlines, minimal shading, generous margins so nothing touches the edges, a disciplined palette of deep blue, teal, soft green and warm orange accents on a light background. Uncluttered - a few well-chosen elements and plenty of negative space. No photorealism, no 3D render, no clip-art collage, no people's faces.\nVisual motif for this kind of analysis (architecture-scan): a blueprint of components with clear boundaries and arrows showing how they connect.\nSubject: the software project 'Codex'.\nStory to tell (pick the essence, do not transcribe it): Codex is a 133-crate Rust workspace compiled into a single multitool binary, organized as a strictly layered dependency DAG (no cycles at the manifest level, 756 internal edges, 23 depth levels): a wide vocabulary layer (codex-protocol, depended on by 68 crates) at the bottom, an engine crate (codex-core) in the middle, a ring of first-party extensions and the app-server JSON-RPC API above it, and thin frontends (TUI, exec, cloud-tasks, CLI dispatcher) on top. The load-bearing seam is the app-server protocol: the same versioned JSON-RPC API served to IDEs over stdio/WebSocket/control-socket is also what the local TUI uses in-process, making 'UI = app-server client' the de facto style. Contracts are unusually explicit - versioned v1/v2 protocol with generated TS bindings and codified wire rules, a minimum-supported-version constant on the sandboxed exec-server boundary, a trait/contributor extension API that keeps core below its extensions."
+    "generated_at": "2026-08-27T14:56:31Z",
+    "prompt": "Create a single, calm, aesthetically pleasing illustration that tells the story of the analysis summary below - a reader should grasp its one or two big ideas at a glance. Text is welcome but sparse: a few short labels or key words (roughly 3 to 8, one to three words each) that anchor the story; no sentences, no numbers, no dates, no titles, no legends, no dense diagrams or flowcharts, no dashboards or screenshots. Let shapes, metaphor, composition and colour carry most of the meaning. Style: polished flat vector illustration, crisp outlines, minimal shading, generous margins so nothing touches the edges, a disciplined palette of deep blue, teal, soft green and warm orange accents on a light background. Uncluttered - a few well-chosen elements and plenty of negative space. No photorealism, no 3D render, no clip-art collage, no people's faces.\nVisual motif for this kind of analysis (architecture-scan): a blueprint of components with clear boundaries and arrows showing how they connect.\nSubject: the software project 'openai / codex'.\nStory to tell (pick the essence, do not transcribe it): Codex is a 133-crate Rust workspace shaped as a layered hub: a serde-typed codex-protocol vocabulary at the bottom (68 dependents), a codex-core engine that owns the session loop and pulls in 61 workspace crates, and thin frontends (tui, exec, cli) that reach the engine through an app-server JSON-RPC layer. Commands the model wants to run cross a process and OS-sandbox boundary: codex-sandboxing selects Seatbelt, seccomp plus Landlock or bubblewrap, or a Windows restricted token, while exec-server can move execution to another machine over the same protocol. The production dependency graph has no cycles; the notable structural defects are the god-crate core that the repo's own AGENTS.md warns against, a protocol crate that depends on the policy engine and network-proxy service crates it is supposed to sit beneath, and a TUI that mostly uses the app-server client but still imports the executor directly."
   }
 }

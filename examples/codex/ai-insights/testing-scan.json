@@ -1,0 +1,1164 @@
+{
+  "scanner": "testing-scan",
+  "scanner_version": "1.0",
+  "analyzed_at": "2026-08-28T08:00:00Z",
+  "target": {
+    "name": "openai / codex",
+    "src_root": "../../..",
+    "commit": ""
+  },
+  "summary": "Codex is tested through an **integration-heavy pyramid**: Sokrates' path-based test scope holds 499,465 LOC in 1,862 files (ratio 0.70 to 712,527 main LOC) and the script finds a further 140,692 LOC of inline `#[cfg(test)]` modules in 501 main files that Sokrates counts as main code - 47k of them in the TUI. The core engine's `tests/suite` (168k LOC, 116 modules) boots a real Codex against a `wiremock` model server; the app-server suite (118 modules) spawns the real binary and drives it over JSON-RPC; the TUI is snapshot-first with 683 `insta` files; the SDKs test against recorded-response proxies and optionally the real binary. Coverage is inferred from what tests reference, not measured: the core engine (ratio 2.16), app-server API (1.23), extensibility, code-mode, exec-server, auth and SDKs are well tested and all ten risk-synthesis hotspots have a direct test file; the protocol crate (0.08 path-based, 0.33 inline) and the sandboxing & policy component (0.26 + 0.25, platform-gated and self-skipping) are thin. Test quality is high where it counts - whole-object `pretty_assertions`, mocking only at the model boundary, real filesystem and SQLite - but two mechanisms weaken what a green run proves: **1,320 `skip_if_no_network!`/`skip_if_sandbox!` call sites** return early and report pass whenever Codex runs its own tests in a sandbox, and **nextest retries every test once** by default while four tests are parked as `TODO: flaky`. Two compaction regression tests are ignored because current behaviour is known-incorrect. There are no property-based or fuzz tests for the patch, shell and JSONL parsers, doc tests are disabled in 135 crates, and the one medium reliability finding (unobserved turn-task panic) has no test. Findings: 18, of which 2 medium, 6 low, 10 info.",
+  "stats": {
+    "count_rule": "test code = files under test/tests/spec/__tests__/e2e/fixtures dirs or *_test.*/*Test.*/test_*.py/*.spec.*/*.test.*, plus Rust #[cfg(test)] modules inside main files; LOC excludes blank and comment lines; shapes counted inside test code only",
+    "count_notes": "network_in_tests (1,130) omitted: URL string literals in config fixtures, no real network on the default path; flaky_markers (60) omitted: mostly `request_max_retries = 0` config lines, 4 real flaky ignores; assertions (63,307) includes Rust `.expect(` unwraps (2,809 in core+app-server tests alone); weak_assertion_candidates lead (1,226) is mostly false (bare Python `assert` statements and Rust helper-based assertions); skipped_tests (74) excludes the 1,320 skip-macro call sites; Sokrates test scope (1,862 files / 499,465 LOC) includes 737 .snap files and more extensions than the script, hence the different totals",
+    "test_files": 1146,
+    "test_loc": 554364,
+    "main_loc": 598903,
+    "inline_test_files": 501,
+    "inline_test_loc": 140692,
+    "test_functions": 16314,
+    "assertions": 63307,
+    "assertion_density": 3.88,
+    "doc_tests": 148,
+    "doc_tests_enabled": false,
+    "snapshot_files": 741,
+    "mock_sites": 2411,
+    "snapshot_assertions": 526,
+    "property_tests": 0,
+    "fuzz_targets": 0,
+    "skipped_tests": 74,
+    "skip_macro_sites": {
+      "skip_if_no_network": 1193,
+      "skip_if_sandbox": 127
+    },
+    "sleep_in_tests": 381,
+    "clock_in_tests": 608,
+    "random_in_tests": 13,
+    "frameworks": {
+      "python": [
+        "pytest",
+        "unittest"
+      ],
+      "rust": [
+        "assert_cmd",
+        "insta",
+        "predicates",
+        "pretty_assertions",
+        "serial_test",
+        "tempfile",
+        "test_case",
+        "tokio::test",
+        "wiremock"
+      ],
+      "js": [
+        "@jest/globals"
+      ]
+    },
+    "sokrates_test_loc": 499465,
+    "sokrates_test_files": 1862,
+    "sokrates_main_loc": 712527,
+    "test_ratio": {
+      "path_based": 0.7,
+      "inline": 0.2,
+      "script_path_based": 0.93,
+      "script_inline": 0.23
+    },
+    "layers": {
+      "unit": {
+        "tests": 16314,
+        "framework": "cargo test / tokio::test / pretty_assertions",
+        "runner": "cargo nextest via just test"
+      },
+      "integration": {
+        "tests": 116,
+        "framework": "core_test_support + wiremock",
+        "runner": "cargo nextest (core/tests/all.rs)",
+        "unit_is": "modules, not functions"
+      },
+      "e2e": {
+        "tests": 118,
+        "framework": "app_test_support (spawns codex) + Jest + pytest",
+        "runner": "cargo nextest (app-server/tests/all.rs); pnpm test; pytest",
+        "unit_is": "modules, not functions"
+      },
+      "snapshot": {
+        "tests": 737,
+        "framework": "insta",
+        "runner": "cargo insta"
+      },
+      "terminal": {
+        "tests": 5,
+        "framework": "VT100Backend",
+        "runner": "cargo nextest (tui/tests/all.rs)"
+      },
+      "property": {
+        "tests": 0
+      },
+      "fuzz": {
+        "tests": 0
+      },
+      "doctest": {
+        "tests": 0,
+        "note": "doctest = false in 135 crates"
+      }
+    },
+    "ratio_by_component": {
+      "core engine": 2.16,
+      "app-server API": 1.23,
+      "sdk (TypeScript & Python)": 1.05,
+      "auth & identity": 0.87,
+      "code-mode (V8 runtime)": 0.84,
+      "extensions (ext/*)": 0.83,
+      "extensibility (MCP, plugins, skills, hooks)": 0.72,
+      "exec-server (sandboxed executor)": 0.65,
+      "shared infrastructure (utils & leaf crates)": 0.62,
+      "repo tooling & CI": 0.46,
+      "persistence (rollout, state, thread-store)": 0.39,
+      "configuration": 0.38,
+      "model backends & API clients": 0.37,
+      "TUI frontend": 0.36,
+      "CLI & headless frontends": 0.35,
+      "sandboxing & policy": 0.26,
+      "protocol (shared vocabulary)": 0.08
+    },
+    "coverage_grades": {
+      "core engine": "well",
+      "app-server API": "well",
+      "extensibility (MCP, plugins, skills, hooks)": "well",
+      "code-mode (V8 runtime)": "well",
+      "exec-server (sandboxed executor)": "well",
+      "auth & identity": "well",
+      "sdk (TypeScript & Python)": "well",
+      "extensions (ext/*)": "well",
+      "persistence (rollout, state, thread-store)": "well",
+      "configuration": "well",
+      "model backends & API clients": "well",
+      "TUI frontend": "well",
+      "CLI & headless frontends": "well",
+      "shared infrastructure (utils & leaf crates)": "well",
+      "repo tooling & CI": "well",
+      "sandboxing & policy": "thin",
+      "protocol (shared vocabulary)": "thin"
+    },
+    "flaky_ignores": 4,
+    "nextest_retries": 1,
+    "run_commands": [
+      "just test -p <crate>",
+      "just test",
+      "cargo insta accept -p codex-tui",
+      "just bazel-test",
+      "just test -p codex-core --test all --run-ignored only live_cli",
+      "pnpm test (sdk/typescript)",
+      "pytest (sdk/python); RUN_REAL_CODEX_TESTS=1 pytest",
+      "just test-github-scripts"
+    ]
+  },
+  "findings": [
+    {
+      "id": "testing-scan/test-model/layers",
+      "group": "test-model",
+      "title": "Five layers: inline unit, sibling *_tests.rs, in-process integration behind a wiremock model server, subprocess JSON-RPC end-to-end, insta snapshots - no property, fuzz or doc tests",
+      "description": "**Unit tests** live in two shapes: `#[cfg(test)]` modules inside 501 main files (140,692 LOC, invisible to Sokrates' path-based test scope) and sibling `*_tests.rs` files wired in with `#[path]`, which AGENTS.md now mandates for new modules. **Integration tests** are one binary per crate (`tests/all.rs` pulling `tests/suite/*`): `core/tests/suite` has 116 modules that build an in-process Codex through `TestCodexBuilder` against a `wiremock` mock of the `/v1/responses` API, so the whole turn loop, tool execution and sandbox run for real while only the model is faked. **End-to-end tests** are the `app-server/tests/suite/v2` modules (118 files) that spawn the real `codex` binary as a subprocess and drive it over JSON-RPC stdio or websocket, plus the TypeScript SDK's Jest suite, which spawns `codex-rs/target/debug/codex`, and the Python SDK's `test_real_app_server_integration.py` gated by `RUN_REAL_CODEX_TESTS=1`. **Snapshot tests** via `insta` hold 737 `.snap` files, 683 of them in `codex-rs/tui`, and 38 in `core/tests/suite/snapshots` freezing request shapes. **Terminal rendering** has its own layer: a VT100 backend (`tui/tests/test_backend.rs`) that renders the real widget tree and asserts on screen contents. Two shapes are absent: there is **no property-based or fuzz testing** anywhere (script: 0 `proptest`/`fuzz_target` hits, no `fuzz/` crate) and **doc tests are switched off** in 135 crates with `doctest = false`, so the 148 fenced examples in doc comments never execute. Live smoke tests against the real OpenAI endpoint exist (`live_cli.rs`) but are `#[ignore]` by design. Criterion benchmarks (`utils/image/benches`) and the Bazel `e2e-benchmarks` target (tagged `manual`) are the only performance-as-test shapes.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/tests/common/test_codex.rs",
+          "start_line": 470,
+          "end_line": 470,
+          "snippet": "    pub async fn build(&mut self, server: &wiremock::MockServer) -> anyhow::Result<TestCodex> {",
+          "note": "integration layer: in-process Codex bound to a wiremock model server"
+        },
+        {
+          "file": "codex-rs/app-server/tests/common/test_app_server.rs",
+          "start_line": 236,
+          "end_line": 236,
+          "snippet": "        let mut cmd = Command::new(program);",
+          "note": "e2e layer: the real codex binary is spawned per test"
+        },
+        {
+          "file": "codex-rs/protocol/Cargo.toml",
+          "start_line": 10,
+          "end_line": 10,
+          "snippet": "doctest = false",
+          "note": "doc tests disabled (one of 135 crates)"
+        }
+      ],
+      "tags": [
+        "rust",
+        "typescript",
+        "python",
+        "insta",
+        "wiremock",
+        "nextest"
+      ],
+      "sokrates_refs": [
+        "finding:tech-stack-scan/frameworks/test-frameworks",
+        "finding:cicd-scan/testing/pr-vs-postmerge-split",
+        "metric:loc"
+      ],
+      "attributes": {
+        "unit": "inline #[cfg(test)] + sibling *_tests.rs, cargo nextest",
+        "integration": "core/tests/suite (116 modules) via core_test_support + wiremock",
+        "e2e": "app-server/tests/suite/v2 (118 modules) spawning codex; sdk/typescript Jest; sdk/python pytest (real runs gated)",
+        "snapshot": "insta, 737 .snap (tui 683, core 52, cli 1, ext 1)",
+        "terminal": "VT100Backend in tui/tests/suite",
+        "property": "none",
+        "fuzz": "none",
+        "doctest": "disabled (doctest = false in 135 crates)",
+        "benchmarks": "criterion utils/image/benches; bazel e2e-benchmarks (manual)"
+      }
+    },
+    {
+      "id": "testing-scan/test-model/ratio-by-component",
+      "group": "test-model",
+      "title": "Test-to-main LOC ratio per component: 2.2 for the core engine, 1.2 for the app-server API, 0.08 (path) for protocol and 0.26 for sandboxing",
+      "description": "Sokrates' test scope holds **499,465 LOC in 1,862 files** against 712,527 main LOC (ratio 0.70, `metric:loc`); the script adds **140,692 LOC of inline `#[cfg(test)]` modules** that Sokrates counts as main code. Per component, path-based test LOC divided by main LOC, with the inline share stated separately: **core engine 2.16 (+0.09 inline)**, app-server API 1.23 (+0.18), sdk 1.05, auth & identity 0.87, code-mode 0.84, extensions 0.83, extensibility 0.72, exec-server 0.65, shared infrastructure 0.62, repo tooling 0.46, persistence 0.39 (+0.30), configuration 0.38 (+0.19), model backends 0.37 (+0.31), TUI 0.36 (+0.28), CLI 0.35 (+0.17), **sandboxing & policy 0.26 (+0.25)**, **protocol 0.08 (+0.33)**. The two frontends and the persistence layer keep most of their tests inline, so their path-based ratios understate them; protocol and sandboxing are thin under either measure. Counts come from Sokrates' `aspect_component_primary_*` file lists and the script's per-file inventory mapped through the same component regexes.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/core/tests/all.rs",
+          "start_line": 7,
+          "end_line": 7,
+          "snippet": "mod suite;",
+          "note": "the core integration binary, 168k LOC of the core engine's 210k test LOC"
+        },
+        {
+          "file": "codex-rs/tui/src/chatwidget/tests/helpers.rs",
+          "start_line": 7,
+          "end_line": 7,
+          "snippet": "pub(super) async fn test_config() -> Config {",
+          "note": "TUI tests live under src/, mostly as inline modules and sibling files"
+        }
+      ],
+      "tags": [
+        "rust"
+      ],
+      "sokrates_refs": [
+        "metric:loc",
+        "component:core engine",
+        "component:app-server API",
+        "component:protocol (shared vocabulary)",
+        "component:sandboxing & policy",
+        "finding:architecture-scan/components/component-map"
+      ],
+      "attributes": {
+        "path_based": {
+          "core engine": 2.16,
+          "app-server API": 1.23,
+          "sdk (TypeScript & Python)": 1.05,
+          "auth & identity": 0.87,
+          "code-mode (V8 runtime)": 0.84,
+          "extensions (ext/*)": 0.83,
+          "extensibility (MCP, plugins, skills, hooks)": 0.72,
+          "exec-server (sandboxed executor)": 0.65,
+          "shared infrastructure (utils & leaf crates)": 0.62,
+          "repo tooling & CI": 0.46,
+          "persistence (rollout, state, thread-store)": 0.39,
+          "configuration": 0.38,
+          "model backends & API clients": 0.37,
+          "TUI frontend": 0.36,
+          "CLI & headless frontends": 0.35,
+          "sandboxing & policy": 0.26,
+          "protocol (shared vocabulary)": 0.08
+        },
+        "inline": {
+          "protocol (shared vocabulary)": 0.33,
+          "model backends & API clients": 0.31,
+          "persistence (rollout, state, thread-store)": 0.3,
+          "TUI frontend": 0.28,
+          "sandboxing & policy": 0.25,
+          "exec-server (sandboxed executor)": 0.23,
+          "configuration": 0.19,
+          "app-server API": 0.18,
+          "CLI & headless frontends": 0.17,
+          "extensibility (MCP, plugins, skills, hooks)": 0.16,
+          "shared infrastructure (utils & leaf crates)": 0.13,
+          "core engine": 0.09,
+          "auth & identity": 0.08,
+          "code-mode (V8 runtime)": 0.04,
+          "extensions (ext/*)": 0.03,
+          "sdk (TypeScript & Python)": 0.0,
+          "repo tooling & CI": 0.0
+        }
+      }
+    },
+    {
+      "id": "testing-scan/test-model/inline-tests",
+      "group": "test-model",
+      "title": "140k LOC of tests sit inside main files as #[cfg(test)] modules - a third of the TUI - and the convention is migrating to sibling *_tests.rs files",
+      "description": "The script finds `#[cfg(test)]` modules in **501 main files totalling 140,692 LOC**, 23% of main LOC and a quarter of all test code; Sokrates' path-based scope cannot see them, so every path-based ratio in this report understates unit coverage. The concentration is extreme: `codex-rs/tui` alone holds **47,386 inline LOC**, followed by `state` (8,786), `app-server-protocol` (6,414), `app-server` (6,059), `protocol` (6,005), `core` (5,666), `thread-store` (5,604), `cli` (5,540) and `exec-server` (5,276). AGENTS.md now requires **new test modules to be sibling files** wired with `#[path = \"..._tests.rs\"]`, which Sokrates does classify as tests, but explicitly forbids moving existing inline modules, so the split will persist. Hotspot files still carry inline suites, e.g. `config_requirements.rs` (the 383-line `TryFrom` hotspot) and `tui/src/app/background_requests.rs`.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "AGENTS.md",
+          "start_line": 170,
+          "end_line": 170,
+          "snippet": "- Use an explicit `#[path = \"..._tests.rs\"]` attribute so the test filename is descriptive and easy to locate:",
+          "note": "new-module convention"
+        },
+        {
+          "file": "codex-rs/config/src/config_requirements.rs",
+          "start_line": 1981,
+          "end_line": 1981,
+          "snippet": "#[cfg(test)]",
+          "note": "inline suite inside a risk-synthesis hotspot"
+        },
+        {
+          "file": "codex-rs/tui/src/history_cell/tests.rs",
+          "start_line": 64,
+          "end_line": 64,
+          "snippet": "    insta::assert_snapshot!(render_lines(&lines).join(\"\\n\"), @\"  first",
+          "note": "TUI inline snapshot suite"
+        }
+      ],
+      "tags": [
+        "rust"
+      ],
+      "sokrates_refs": [
+        "metric:loc",
+        "component:TUI frontend",
+        "finding:risk-synthesis-scan/hotspots/config-requirements-tryfrom"
+      ],
+      "attributes": {
+        "inline_test_files": 501,
+        "inline_test_loc": 140692,
+        "top_crates": {
+          "codex-rs/tui": 47386,
+          "codex-rs/state": 8786,
+          "codex-rs/app-server-protocol": 6414,
+          "codex-rs/app-server": 6059,
+          "codex-rs/protocol": 6005,
+          "codex-rs/core": 5666,
+          "codex-rs/thread-store": 5604,
+          "codex-rs/cli": 5540,
+          "codex-rs/exec-server": 5276
+        }
+      }
+    },
+    {
+      "id": "testing-scan/test-model/run-commands",
+      "group": "test-model",
+      "title": "just test wraps cargo nextest with a local profile; cargo test is forbidden; insta, Bazel, Jest, pytest and unittest cover the other tiers",
+      "description": "The sanctioned entry point is **`just test`** (in `codex-rs`), which runs `cargo nextest run --no-fail-fast` under `NEXTEST_PROFILE=local` with a raised `RUST_MIN_STACK`; AGENTS.md forbids calling `cargo test` directly and prescribes `just test -p <crate>` first, then the whole suite only when `common`, `core` or `protocol` changed. Snapshot updates go through `cargo insta pending-snapshots`, `show` and `accept -p codex-tui`. **Bazel** is the CI runner for PRs (`just bazel-test` = `bazel test //...`), with `core-all-test` sharded 16 ways and Windows tests executed under Wine on Linux. The live model smoke tests need `just test -p codex-core --test all --run-ignored only live_cli` plus `OPENAI_API_KEY`; the tmux resize smoke needs `--ignored` and a built binary. Other tiers: `pnpm test` (Jest) in `sdk/typescript` after `cargo build -p codex-cli`, `pytest` in `sdk/python` with `RUN_REAL_CODEX_TESTS=1` for the real-binary tests, `just test-github-scripts` for the `.github/scripts` unittest suite, and `pytest` in `scripts/mcp_conformance`. Environment switches that change what runs: `CODEX_SANDBOX_NETWORK_DISABLED` and `CODEX_SANDBOX=seatbelt` make tests self-skip (see `test-quality/skipped-tests`), `CODEX_EXEC_PATH` points the TS SDK at a binary, `NEXTEST_PROFILE=local` widens app-server parallelism from 1 to 4.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "justfile",
+          "start_line": 88,
+          "end_line": 88,
+          "snippet": "    RUST_MIN_STACK={{ rust_min_stack }} NEXTEST_PROFILE=local cargo nextest run --no-fail-fast \"$@\"",
+          "note": "the default test command"
+        },
+        {
+          "file": "AGENTS.md",
+          "start_line": 66,
+          "end_line": 66,
+          "snippet": "1. Do not run `cargo test` directly. Use `just test` so test execution follows the repo defaults.",
+          "note": "policy"
+        },
+        {
+          "file": "codex-rs/core/tests/suite/live_cli.rs",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "//! Optional smoke tests that hit the real OpenAI /v1/responses endpoint. They are `#[ignore]` by",
+          "note": "live tier"
+        }
+      ],
+      "tags": [
+        "just",
+        "nextest",
+        "bazel",
+        "jest",
+        "pytest"
+      ],
+      "sokrates_refs": [
+        "finding:cicd-scan/testing/pr-vs-postmerge-split",
+        "finding:tech-stack-scan/build-tooling/just",
+        "finding:tech-stack-scan/build-tooling/bazel"
+      ],
+      "attributes": {
+        "unit_or_crate": "just test -p <crate>",
+        "whole_suite": "just test",
+        "snapshots": "cargo insta pending-snapshots -p codex-tui; cargo insta accept -p codex-tui",
+        "ci_runner": "just bazel-test (bazel test //...)",
+        "live": "just test -p codex-core --test all --run-ignored only live_cli",
+        "ts_sdk": "pnpm test (jest)",
+        "py_sdk": "pytest; RUN_REAL_CODEX_TESTS=1 pytest",
+        "github_scripts": "just test-github-scripts",
+        "env_flags": [
+          "CODEX_SANDBOX_NETWORK_DISABLED",
+          "CODEX_SANDBOX",
+          "RUN_REAL_CODEX_TESTS",
+          "CODEX_EXEC_PATH",
+          "NEXTEST_PROFILE"
+        ]
+      }
+    },
+    {
+      "id": "testing-scan/coverage-map/well-tested",
+      "group": "coverage-map",
+      "title": "Well tested: the core engine, app-server API, extensibility, code-mode, exec-server, auth and the SDKs - every risk-synthesis hotspot has a dedicated test file",
+      "description": "Inferred from what tests reference, not from a coverage tool. The **core engine** (97k main LOC) is exercised at three depths: 5,666 LOC inline, 4,045 test functions overall, and the 168k-LOC `core/tests/suite` integration binary whose modules map one-to-one onto engine features (`approvals`, `compact`, `hooks`, `code_mode`, `multi_agent_mode`, `realtime_conversation`, `resume`, `review`, `unified_exec`, `exec_policy`, `rmcp_client`, `sqlite_state`), including error paths such as `stream_error_allows_next_turn`, `quota_exceeded`, `retry_after` and `abort_tasks`. The **app-server API** has one e2e module per JSON-RPC method family (`thread_*`, `turn_*`, `plugin_*`, `marketplace_*`, `mcp_*`, `remote_control`, `rate_limits`, `connection_handling_websocket`) driven through the real binary, plus `thread_processor_tests.rs` for the top hotspot. **Extensibility** (MCP, plugins, skills, hooks) combines `core-plugins/src/manager_tests.rs` (6,301 LOC, 114 functions), `codex-mcp/src/connection_manager_tests.rs` (4,365 LOC) and the `hooks`, `plugins`, `mcp_*` suite modules. **Code-mode** (0.84 ratio) is covered by `code_mode.rs` (5,733 LOC) although 22 of its tests are Windows-ignored. **Exec-server** has its own integration tests with a relay and version-skew harness. **Auth** is covered by `login/src/auth/auth_tests.rs` and `login/tests/suite/auth_refresh.rs`; the security-sensitive `workload-identity` exchange (a knowledge-risk finding) has `workload_identity_tests.rs`. The **SDKs** test against a recorded-response HTTP proxy and, optionally, the real binary. All ten `risk-synthesis-scan/hotspots` files have a direct test file: `thread_processor_tests.rs`, `manager_tests.rs`, `chatwidget/tests/slash_commands.rs` (123 tests), `spec_plan_tests.rs` (49), `config_tests.rs` (11,204 LOC, 314 functions), the inline suites in `background_requests.rs` and `config_requirements.rs`, and `export.rs` guard tests.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/core/tests/suite/mod.rs",
+          "start_line": 17,
+          "end_line": 17,
+          "snippet": "pub static CODEX_ALIASES_TEMP_DIR: Option<TestBinaryDispatchGuard> = {",
+          "note": "core integration binary doubles as codex, apply_patch and the linux sandbox helper"
+        },
+        {
+          "file": "codex-rs/app-server/src/request_processors/thread_processor_tests.rs",
+          "start_line": 8,
+          "end_line": 8,
+          "snippet": "    #[test]",
+          "note": "direct tests on the top hotspot"
+        },
+        {
+          "file": "codex-rs/core-plugins/src/manager_tests.rs",
+          "start_line": 77,
+          "end_line": 77,
+          "snippet": "fn unrestricted_config_layer_stack() -> ConfigLayerStack {",
+          "note": "6,301-LOC suite on the plugin manager hotspot"
+        }
+      ],
+      "tags": [
+        "coverage"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "component:app-server API",
+        "component:extensibility (MCP, plugins, skills, hooks)",
+        "component:code-mode (V8 runtime)",
+        "component:exec-server (sandboxed executor)",
+        "component:auth & identity",
+        "component:sdk (TypeScript & Python)",
+        "finding:risk-synthesis-scan/hotspots/thread-processor",
+        "finding:risk-synthesis-scan/hotspots/core-plugins-manager",
+        "finding:risk-synthesis-scan/hotspots/slash-dispatch",
+        "finding:risk-synthesis-scan/hotspots/spec-plan-tool-registry",
+        "finding:risk-synthesis-scan/hotspots/core-config-mod",
+        "finding:risk-synthesis-scan/knowledge-risk/workload-identity-exchange",
+        "finding:functionality-scan/features/interactive-agent-session",
+        "finding:functionality-scan/features/context-compaction",
+        "finding:functionality-scan/features/plugins-and-marketplaces",
+        "finding:functionality-scan/features/lifecycle-hooks",
+        "finding:functionality-scan/features/mcp-client",
+        "finding:functionality-scan/features/login-and-accounts"
+      ],
+      "attributes": {
+        "components": [
+          "core engine",
+          "app-server API",
+          "extensibility (MCP, plugins, skills, hooks)",
+          "code-mode (V8 runtime)",
+          "exec-server (sandboxed executor)",
+          "auth & identity",
+          "sdk (TypeScript & Python)"
+        ],
+        "tests": [
+          "codex-rs/core/tests/suite/*",
+          "codex-rs/core/src/session/tests.rs",
+          "codex-rs/core/src/config/config_tests.rs",
+          "codex-rs/app-server/tests/suite/v2/*",
+          "codex-rs/app-server/src/request_processors/thread_processor_tests.rs",
+          "codex-rs/core-plugins/src/manager_tests.rs",
+          "codex-rs/codex-mcp/src/connection_manager_tests.rs",
+          "codex-rs/core/tests/suite/code_mode.rs",
+          "codex-rs/exec-server/tests/*",
+          "codex-rs/login/src/auth/auth_tests.rs",
+          "codex-rs/login/tests/suite/auth_refresh.rs",
+          "codex-rs/workload-identity/src/workload_identity_tests.rs",
+          "codex-rs/tui/src/chatwidget/tests/slash_commands.rs",
+          "codex-rs/core/src/tools/spec_plan_tests.rs",
+          "sdk/typescript/tests/*.test.ts",
+          "sdk/python/tests/test_*.py"
+        ],
+        "hotspots_with_direct_tests": 10
+      }
+    },
+    {
+      "id": "testing-scan/coverage-map/thin-protocol",
+      "group": "coverage-map",
+      "title": "The protocol crate - 68 dependents - has the lowest ratio in the workspace: 1.5k LOC of sibling tests plus 6k inline for 18k LOC of vocabulary",
+      "description": "`codex-protocol` is the shared vocabulary that 68 of 133 crates depend on, and `risk-synthesis-scan` shows its `EnvironmentConfig` co-changing 100% with core validation. Its own tests are **eight small sibling files** (`error_tests`, `exec_output_tests`, `permission_profile_intersection_tests`, `request_user_input_tests`, `response_item_id_tests`, `shell_environment_tests`, `capabilities_tests`, `local_media_tests`) and inline modules concentrated in `models.rs` (68 tests), `protocol.rs` (59) and `permissions.rs` (42) - 293 test functions for 18,377 LOC, ratio **0.08 path-based, 0.33 inline**. They are serde round-trips and permission-intersection cases; the crate is otherwise tested only transitively, through every integration test that serialises an event. That is real coverage of the happy path but no direct guard on compatibility: a renamed variant fails downstream snapshot tests rather than a protocol test. The component is stable relative to its size, which keeps this at `low`.",
+      "severity": "low",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/protocol/Cargo.toml",
+          "start_line": 10,
+          "end_line": 10,
+          "snippet": "doctest = false",
+          "note": "doc examples in the vocabulary crate never run"
+        },
+        {
+          "file": "codex-rs/rollout/src/reverse_jsonl_scanner_tests.rs",
+          "start_line": 72,
+          "end_line": 72,
+          "snippet": "fn skips_records_over_the_configured_limit() -> std::io::Result<()> {",
+          "note": "representative of the sibling-file unit style used for protocol-adjacent parsing"
+        }
+      ],
+      "recommendation": "Add a compatibility fixture test to `codex-protocol` itself: serialise every `EventMsg`/`Op` variant to committed JSON and compare, so wire changes fail in the vocabulary crate rather than in downstream snapshots. Enable doc tests for this crate - its examples are the documentation clients read.",
+      "tags": [
+        "coverage",
+        "rust"
+      ],
+      "sokrates_refs": [
+        "component:protocol (shared vocabulary)",
+        "metric:loc",
+        "finding:architecture-scan/boundaries/codex-protocol-vocabulary",
+        "finding:risk-synthesis-scan/change-coupling/environment-config"
+      ],
+      "attributes": {
+        "tests": [
+          "codex-rs/protocol/src/error_tests.rs",
+          "codex-rs/protocol/src/exec_output_tests.rs",
+          "codex-rs/protocol/src/permission_profile_intersection_tests.rs",
+          "codex-rs/protocol/src/request_user_input_tests.rs",
+          "codex-rs/protocol/src/response_item_id_tests.rs",
+          "codex-rs/protocol/src/shell_environment_tests.rs",
+          "codex-rs/protocol/src/capabilities_tests.rs",
+          "codex-rs/protocol/src/local_media_tests.rs",
+          "inline: models.rs, protocol.rs, permissions.rs, openai_models.rs, config_types.rs"
+        ],
+        "test_functions": 293,
+        "ratio_path": 0.08,
+        "ratio_inline": 0.33
+      }
+    },
+    {
+      "id": "testing-scan/coverage-map/thin-sandboxing-policy",
+      "group": "coverage-map",
+      "title": "Sandboxing & policy (47k LOC, the security boundary) has a 0.26 ratio and its OS-level tests are platform-gated and self-skipping",
+      "description": "The **sandboxing & policy** component - Landlock/seccomp, Seatbelt, bubblewrap, the Windows sandbox, execpolicy and the network proxy - carries 12,095 LOC of path-based tests and 11,817 LOC inline for 47,258 main LOC (ratio **0.26 + 0.25**), 899 test functions. The tests that actually exercise an OS sandbox are few and conditional: `linux-sandbox/tests/suite/landlock.rs` is `#![cfg(target_os = \"linux\")]` with a separate `aarch64` branch, the Windows unified-exec tests are `#[ignore]`d for a ConPTY failure in CI, and the core-suite sandbox tests (`exec.rs`, `unified_exec.rs`, `windows_sandbox.rs`, `apply_patch_cli.rs`) call `skip_if_sandbox!`, which returns early when `CODEX_SANDBOX=seatbelt` is set - which is precisely when Codex runs its own tests. The policy layer (`execpolicy`, `policy_transforms_tests`, `violation_tests`, `seatbelt_tests`) is unit-tested in-process against the generated profile text, not against the kernel. CI's five-platform post-merge matrix runs these unsandboxed, which is the mitigation that keeps this `low` rather than `medium`; the gap is that a change to the sandbox is verified only after merge and never from inside a sandboxed agent.",
+      "severity": "low",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/linux-sandbox/tests/suite/landlock.rs",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "#![cfg(target_os = \"linux\")]",
+          "note": "OS sandbox tests are platform-gated"
+        },
+        {
+          "file": "codex-rs/windows-sandbox-rs/src/unified_exec/tests.rs",
+          "start_line": 1039,
+          "end_line": 1039,
+          "snippet": "#[ignore = \"TODO: legacy ConPTY cmd.exe exits with STATUS_DLL_INIT_FAILED in CI\"]",
+          "note": "Windows sandbox test disabled in CI"
+        },
+        {
+          "file": "codex-rs/core/tests/common/lib.rs",
+          "start_line": 537,
+          "end_line": 537,
+          "snippet": "macro_rules! skip_if_sandbox {",
+          "note": "sandbox tests skip themselves under Seatbelt"
+        }
+      ],
+      "recommendation": "Track which sandbox tests ran on each CI platform (nextest junit already exists) and make at least one Seatbelt and one Landlock escape test part of the PR-blocking Bazel matrix rather than post-merge only.",
+      "tags": [
+        "coverage",
+        "security",
+        "rust"
+      ],
+      "sokrates_refs": [
+        "component:sandboxing & policy",
+        "metric:loc",
+        "finding:cicd-scan/testing/pr-vs-postmerge-split",
+        "finding:tech-stack-scan/libraries/sandboxing-primitives"
+      ],
+      "attributes": {
+        "tests": [
+          "codex-rs/linux-sandbox/tests/suite/landlock.rs",
+          "codex-rs/linux-sandbox/tests/suite/bundled_bwrap.rs",
+          "codex-rs/sandboxing/src/seatbelt_tests.rs",
+          "codex-rs/sandboxing/src/landlock_tests.rs",
+          "codex-rs/sandboxing/src/policy_transforms_tests.rs",
+          "codex-rs/sandboxing/src/violation_tests.rs",
+          "codex-rs/windows-sandbox-rs/src/unified_exec/tests.rs",
+          "codex-rs/core/tests/suite/exec.rs",
+          "codex-rs/core/tests/suite/unified_exec.rs",
+          "codex-rs/core/tests/suite/windows_sandbox.rs"
+        ],
+        "test_functions": 899,
+        "ratio_path": 0.26,
+        "ratio_inline": 0.25
+      }
+    },
+    {
+      "id": "testing-scan/test-quality/assertion-strength",
+      "group": "test-quality",
+      "title": "Whole-object pretty_assertions equality is the house style; the TUI is snapshot-heavy; the script's 63k assertions and 1,226 weak-assertion leads are both inflated",
+      "description": "AGENTS.md requires `pretty_assertions::assert_eq` on **entire objects** rather than field by field, and the suites follow it: `config_tests.rs` has 914 assertion sites for 314 tests, `session/tests.rs` 868 for 191. Integration tests assert on captured model requests (`ResponseMock::single_request()`), emitted events and filesystem state, not on \"did not panic\" - the four `*_does_not_panic` tests in `exec_policy.rs` are the exception. The **TUI is snapshot-first**: 683 `.snap` files, and in `history_cell/tests.rs` 63 `insta::assert_snapshot!` sit beside 139 `assert_eq!`; that is appropriate for rendering but means a UI regression is only as visible as the reviewer's diff of the accepted snapshot. Two script numbers should not be trusted as written: its **63,307 assertions** include every Rust `.expect(\"...\")` (2,809 in `core/tests` and `app-server/tests` alone, which are unwraps, not assertions), and its **1,226 weak-assertion candidates** are mostly false - 256 are Python tests whose bare `assert x == y` statements the regex does not see, and the Rust ones are tests that assert through helpers (`wait_for_*`, `expect_*`) or through wiremock `.expect(n)` call-count expectations.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "AGENTS.md",
+          "start_line": 212,
+          "end_line": 212,
+          "snippet": "- Tests should use pretty_assertions::assert_eq for clearer diffs. Import this at the top of the test module if it isn't already.",
+          "note": "policy"
+        },
+        {
+          "file": "codex-rs/core/tests/common/responses.rs",
+          "start_line": 1100,
+          "end_line": 1100,
+          "snippet": "pub async fn mount_sse_once(server: &MockServer, body: String) -> ResponseMock {",
+          "note": "returns the captured request the test asserts on"
+        },
+        {
+          "file": "codex-rs/tui/src/history_cell/tests.rs",
+          "start_line": 64,
+          "end_line": 64,
+          "snippet": "    insta::assert_snapshot!(render_lines(&lines).join(\"\\n\"), @\"  first",
+          "note": "snapshot-first TUI style"
+        }
+      ],
+      "tags": [
+        "quality"
+      ],
+      "sokrates_refs": [
+        "component:TUI frontend",
+        "component:core engine"
+      ],
+      "attributes": {
+        "style": "pretty_assertions whole-object equality",
+        "snapshot_files": 737,
+        "snapshot_assertion_sites": 526,
+        "script_assertions_reported": 63307,
+        "expect_calls_counted_as_assertions_core_and_app_server_tests": 2809
+      }
+    },
+    {
+      "id": "testing-scan/test-quality/mocking",
+      "group": "test-quality",
+      "title": "Mocking stops at the model boundary: wiremock fakes /v1/responses and websocket streams, everything inside the process runs for real; the TS SDK's exec tests mock spawn",
+      "description": "The 2,411 mock sites the script counts are almost all one thing: **`wiremock` `MockServer`** instances (1,105 `wiremock` and 672 `MockServer` hits) standing in for the OpenAI Responses API, mounted through `core_test_support::responses` (`mount_sse_once`, `ResponseMock`, `WebSocketTestServer`, `ModelsMock`). There is no `mockall` and no trait-mocking of internal components; the session loop, tool router, sandbox, rollout writer and SQLite state run for real in a temp `CODEX_HOME`, so integration tests fail on real integration bugs. The app-server suite adds a `WebsocketDelayInterposer` to inject latency into the real transport rather than faking it. The TypeScript SDK is the one place that mocks the thing under test's neighbour: `exec.test.ts` replaces `child_process.spawn` with `jest.fn()` to assert on argv, while `run.test.ts` and `runStreamed.test.ts` spawn the real binary against `responsesProxy.ts`. Python mirrors that with a `ThreadingHTTPServer` fake of the Responses API.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/app-server/tests/common/mock_model_server.rs",
+          "start_line": 14,
+          "end_line": 14,
+          "snippet": "pub async fn create_mock_responses_server_sequence(responses: Vec<String>) -> MockServer {",
+          "note": "model boundary mock"
+        },
+        {
+          "file": "codex-rs/app-server/tests/common/rpc_delay.rs",
+          "start_line": 25,
+          "end_line": 25,
+          "snippet": "pub(crate) struct WebsocketDelayInterposer {",
+          "note": "latency injected into the real transport"
+        },
+        {
+          "file": "sdk/typescript/tests/exec.test.ts",
+          "start_line": 14,
+          "end_line": 14,
+          "snippet": "  return { ...actual, spawn: jest.fn() };",
+          "note": "the one spawn mock"
+        }
+      ],
+      "tags": [
+        "quality",
+        "wiremock"
+      ],
+      "sokrates_refs": [
+        "finding:tech-stack-scan/frameworks/test-frameworks",
+        "finding:architecture-scan/style/ui-as-app-server-client"
+      ],
+      "attributes": {
+        "mock_boundary": "OpenAI Responses API (HTTP SSE + websocket), models catalog, plugin marketplace, analytics endpoint, MCP servers",
+        "internal_mocking": "none (no mockall)",
+        "mock_sites_script": 2411
+      }
+    },
+    {
+      "id": "testing-scan/test-quality/flakiness",
+      "group": "test-quality",
+      "title": "nextest retries every test once by default; four tests are ignored as flaky with only TODO names; leak-detection races are documented rather than fixed",
+      "description": "`.config/nextest.toml` sets **`retries = 1`** in the default profile with the comment that one transient failure should not fail full-CI - a blanket retry that masks intermittent failures in every crate, with no per-test justification and no tracking. Tests known to be flaky are parked with owner TODOs instead of issues: `pending_input.rs` `injected_user_input_triggers_follow_up_request_with_deltas` (`TODO(aibrahim): flaky`), `review.rs` `review_start_exec_approval_item_id_matches_command_execution_item` (`TODO(owenlin0): flaky`), and two Windows-only `flaky on windows` ignores in `review.rs` and `code_mode.rs`. `test_app_server.rs` and `mcp_process.rs` document that child cleanup timing is nondeterministic and can trip nextest's `LEAK` detection, and `tool_parallelism.rs` calls itself a timing-based test. The harness itself retries spawning the binary on `ExecutableFileBusy`. The script's 60 `flaky_markers` are mostly the `request_max_retries = 0` config line and should not be read as 60 flaky tests. cicd-scan already notes the arm Linux Bazel target disabled as flaky.",
+      "severity": "medium",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/.config/nextest.toml",
+          "start_line": 6,
+          "end_line": 6,
+          "snippet": "retries = 1",
+          "note": "blanket retry"
+        },
+        {
+          "file": "codex-rs/core/tests/suite/pending_input.rs",
+          "start_line": 698,
+          "end_line": 698,
+          "snippet": "#[ignore = \"TODO(aibrahim): flaky\"]",
+          "note": "ignored, untracked"
+        },
+        {
+          "file": "codex-rs/app-server/tests/common/test_app_server.rs",
+          "start_line": 2123,
+          "end_line": 2123,
+          "snippet": "// child still alive at teardown and report `LEAK`, which makes the test flaky.",
+          "note": "known race"
+        }
+      ],
+      "recommendation": "Move the blanket `retries = 1` into a named override for the few timing-sensitive tests and let the rest fail on first failure; replace `TODO(name): flaky` ignores with issue links and a quarantine filter so they stay visible in CI output.",
+      "tags": [
+        "quality",
+        "nextest"
+      ],
+      "sokrates_refs": [
+        "finding:cicd-scan/testing/pr-vs-postmerge-split"
+      ],
+      "attributes": {
+        "nextest_retries": 1,
+        "ignored_as_flaky": [
+          "codex-rs/core/tests/suite/pending_input.rs:698",
+          "codex-rs/app-server/tests/suite/v2/review.rs:195",
+          "codex-rs/app-server/tests/suite/v2/review.rs:324 (windows)",
+          "codex-rs/core/tests/suite/code_mode.rs:1592 (windows)"
+        ],
+        "documented_races": [
+          "codex-rs/app-server/tests/common/test_app_server.rs:2122",
+          "codex-rs/mcp-server/tests/common/mcp_process.rs:379",
+          "codex-rs/core/tests/suite/tool_parallelism.rs:317"
+        ]
+      }
+    },
+    {
+      "id": "testing-scan/test-quality/determinism",
+      "group": "test-quality",
+      "title": "381 sleeps in tests - sleep-then-assert-absence waits, 25 ms polling loops, 54 env mutations serialised with serial_test - but no real network on the default path",
+      "description": "The script finds **381 `sleep` sites** in test code, 608 wall-clock reads and 13 randomness uses. Two patterns dominate. **Poll-with-sleep loops** (`sqlite_state.rs` loops 100 times over `try_exists` with 25 ms sleeps; `wait_for_*` helpers in the app-server suite) are bounded and rarely flaky but add up. **Fixed sleep then assert nothing happened** - `plugin_list.rs` sleeps 100 ms and then asserts a remote request count of zero - is the shape that cannot be made reliable, only slow. Process environment is mutated in **54 places** despite AGENTS.md asking tests to avoid it; the mitigations are `#[serial(...)]` groups in 25 files and explicit comments where it is unavoidable (`client.rs` 3488). Real network is not on the default path: the 1,130 `network_in_tests` hits are URL string literals in config fixtures (`https://chatgpt.com`, `https://example.test`, `https://github.com`), and the only tests that reach the internet (`live_cli.rs`, the tmux resize smoke) are `#[ignore]`. Randomness is seeded or irrelevant (UUIDs for temp names).",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/app-server/tests/suite/v2/plugin_list.rs",
+          "start_line": 2158,
+          "end_line": 2158,
+          "snippet": "    sleep(Duration::from_millis(100)).await;",
+          "note": "followed by an assert that no request arrived"
+        },
+        {
+          "file": "codex-rs/core/tests/suite/sqlite_state.rs",
+          "start_line": 81,
+          "end_line": 81,
+          "snippet": "        tokio::time::sleep(Duration::from_millis(25)).await;",
+          "note": "bounded polling loop"
+        },
+        {
+          "file": "codex-rs/core/tests/suite/client.rs",
+          "start_line": 3488,
+          "end_line": 3488,
+          "snippet": "/// We try to avoid setting env vars in tests because std::env::set_var() is",
+          "note": "env mutation acknowledged"
+        }
+      ],
+      "recommendation": "Replace sleep-then-assert-absence with a mock expectation (`wiremock` `.expect(0)` verified at drop) and give the poll helpers a shared `wait_until` with a single timeout constant so the budget is tunable in one place.",
+      "tags": [
+        "quality"
+      ],
+      "sokrates_refs": [
+        "finding:reliability-scan/isolation/child-process-containment"
+      ],
+      "attributes": {
+        "sleep_in_tests": 381,
+        "clock_in_tests": 608,
+        "random_in_tests": 13,
+        "env_set_var_sites": 54,
+        "serial_test_files": 25,
+        "real_network_default_path": false
+      }
+    },
+    {
+      "id": "testing-scan/test-quality/skipped-tests",
+      "group": "test-quality",
+      "title": "1,320 skip-macro call sites turn integration tests green when run inside a sandbox; 74 attribute skips include two compaction tests ignored because current behaviour is known-incorrect",
+      "description": "Beyond the 74 `#[ignore]`/`cfg_attr(ignore)` sites the script counts, the dominant skip mechanism is invisible to it: **`skip_if_no_network!` (1,193 call sites) and `skip_if_sandbox!` (127)** print a line and `return`, so the test is reported as **passed**, not skipped. They fire whenever `CODEX_SANDBOX_NETWORK_DISABLED` or `CODEX_SANDBOX=seatbelt` is set - which AGENTS.md says is always the case when Codex runs tests on itself - so an agent verifying its own change sees a green core suite that ran almost nothing. Of the attribute skips: 22 in `code_mode.rs` and others are honest platform gates (`no exec_command on Windows`, `covered by Linux and macOS CI`); 7 are child-process halves of subprocess tests; but two are behavioural: `compact.rs` 3601 and `compact_remote.rs` 3021 are ignored with the note that **current main behaviour around manual `/compact` failures is known-incorrect**, awaiting a follow-up PR - a shipped path (`functionality-scan/features/context-compaction`) with its regression test switched off. Four bare `#[ignore]` without a reason (`otel`, `absolute-path`, `tui_startup_tests`, `shell_snapshot`) are subprocess children or Windows-only manual runs.",
+      "severity": "medium",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/tests/common/lib.rs",
+          "start_line": 563,
+          "end_line": 563,
+          "snippet": "macro_rules! skip_if_no_network {",
+          "note": "returns from the test body, reported as pass"
+        },
+        {
+          "file": "codex-rs/core/tests/suite/compact.rs",
+          "start_line": 3601,
+          "end_line": 3601,
+          "snippet": "#[ignore = \"behavior change covered in follow-up compaction PR\"]",
+          "note": "known-incorrect behaviour on a shipped path"
+        },
+        {
+          "file": "AGENTS.md",
+          "start_line": 9,
+          "end_line": 9,
+          "snippet": "  - You operate in a sandbox where `CODEX_SANDBOX_NETWORK_DISABLED=1` will be set whenever you use the `shell` tool. Any existing code that uses `CODEX_SANDBOX_NETWORK_DISABLED_ENV_VAR` was authored with this fact in mind. It is often used to early exit out of tests that the author knew you would not be able to run given your sandbox limitations.",
+          "note": "the skip is by design for sandboxed agents"
+        }
+      ],
+      "recommendation": "Make the skip macros count: print a machine-readable `SKIPPED:` marker and have `just test` summarise how many tests early-returned, or convert them to nextest filters so skipped tests show as skipped. Track the two ignored compaction tests against the follow-up PR and re-enable them with it.",
+      "tags": [
+        "quality"
+      ],
+      "sokrates_refs": [
+        "finding:functionality-scan/features/context-compaction",
+        "finding:cicd-scan/testing/pr-vs-postmerge-split"
+      ],
+      "attributes": {
+        "attribute_skips": 74,
+        "skip_if_no_network_sites": 1193,
+        "skip_if_sandbox_sites": 127,
+        "behavioural_ignores": [
+          "codex-rs/core/tests/suite/compact.rs:3601",
+          "codex-rs/core/tests/suite/compact_remote.rs:3021"
+        ],
+        "flaky_ignores": [
+          "codex-rs/core/tests/suite/pending_input.rs:698",
+          "codex-rs/app-server/tests/suite/v2/review.rs:195"
+        ],
+        "platform_gates": "windows: code_mode.rs x22, compact_remote.rs x4, shell_snapshot.rs x4, analytics.rs x5, rate_limits.rs x3, codex_delegate.rs x2; linux: multi_agents_tests.rs x1"
+      }
+    },
+    {
+      "id": "testing-scan/test-quality/duplication",
+      "group": "test-quality",
+      "title": "Test code makes up 1,554 of Sokrates' 10,000 largest duplicate blocks; app-server e2e tests copy the same provider TOML and request scaffolding per file",
+      "description": "Sokrates' duplication report (`metric:duplication`, capped at the 10,000 largest blocks) has **1,554 blocks touching test paths**. The visible pattern is scaffolding copied per e2e module: the same `[model_providers.mock]` TOML with `request_max_retries = 0` / `stream_max_retries = 0` appears verbatim in at least 13 app-server suite files (`residency.rs`, `host_skills.rs`, `thread_start.rs`, `account.rs`, `attestation.rs`, `executor_skills.rs`, ...) although `app_test_support::config` already builds it; SSE event builders are re-declared in `mcp-server/tests` and `exec-server/tests` next to `core_test_support::responses`. AGENTS.md pushes the other way (\"check whether there are existing helpers\") and the shared builders exist, so this is drift, not absence of infrastructure.",
+      "severity": "low",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/app-server/tests/suite/v2/residency.rs",
+          "start_line": 49,
+          "end_line": 49,
+          "snippet": "request_max_retries = 0",
+          "note": "copied provider stanza"
+        },
+        {
+          "file": "codex-rs/app-server/tests/suite/v2/host_skills.rs",
+          "start_line": 76,
+          "end_line": 76,
+          "snippet": "request_max_retries = 0",
+          "note": "same stanza"
+        },
+        {
+          "file": "codex-rs/app-server/tests/common/config.rs",
+          "start_line": 148,
+          "end_line": 148,
+          "snippet": "request_max_retries = 0",
+          "note": "the shared helper that already produces it"
+        }
+      ],
+      "recommendation": "Route every app-server suite file through `app_test_support::config` for the provider stanza and delete the inline copies; a clippy-style lint is unnecessary - a grep in CI for `request_max_retries = 0` under `tests/suite` would hold the line.",
+      "tags": [
+        "quality"
+      ],
+      "sokrates_refs": [
+        "metric:duplication",
+        "component:app-server API"
+      ],
+      "attributes": {
+        "duplicate_blocks_involving_tests": 1554,
+        "duplicate_blocks_total_capped": 10000
+      }
+    },
+    {
+      "id": "testing-scan/test-infrastructure/harness",
+      "group": "test-infrastructure",
+      "title": "core_test_support and app_test_support: a builder that boots a real Codex against wiremock, a test binary that impersonates codex/apply_patch/sandbox via arg0, and a subprocess JSON-RPC client",
+      "description": "**`core_test_support`** (`core/tests/common`, 14 modules) is the centre of gravity: `TestCodexBuilder` boots a real `Codex` in a temp `CODEX_HOME` bound to a `wiremock::MockServer`, with `build_with_auto_env()` (local or remote exec environment), `build_with_streaming_server()` and `build_with_websocket_server()` variants; `responses.rs` provides the SSE/websocket event builders (`ev_function_call`, `ev_apply_patch_custom_tool_call`, `sse_completed`, ...) and `ResponseMock` for asserting on captured requests; `lib.rs` holds the eight `skip_if_*` macros. A `#[ctor]` in `suite/mod.rs` makes the test binary answer as `codex`, `apply_patch` and `codex-linux-sandbox` depending on `arg0`, so tools that spawn helpers work without a separate build. **`app_test_support`** (`app-server/tests/common`, 15 modules) spawns the real binary and wraps every JSON-RPC method in a `send_*_request` method on `TestAppServer` (about 150 of them), with a websocket delay interposer, auth fixtures, analytics and models-cache servers and rollout fixtures. The **TUI** has `chatwidget/tests/helpers.rs` (`test_config`, `render_bottom_popup`) and a VT100 backend for terminal-level tests. **SDKs**: `responsesProxy.ts` records requests and replays SSE, `setupCodexHome.ts` builds a temp home; Python `app_server_harness.py` is a `ThreadingHTTPServer` fake. A separate `app-server-test-client` crate is a manual exploration client, not an automated suite. Mock servers beyond the model: `apps_test_server.rs`, `analytics_server.rs`, `rmcp-client` `test_stdio_server`/`test_streamable_http_server` binaries for MCP, and `exec-server/tests/common/relay.rs`.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/tests/common/responses.rs",
+          "start_line": 39,
+          "end_line": 39,
+          "snippet": "pub struct ResponseMock {",
+          "note": "captured-request handle"
+        },
+        {
+          "file": "codex-rs/core/tests/suite/mod.rs",
+          "start_line": 17,
+          "end_line": 17,
+          "snippet": "pub static CODEX_ALIASES_TEMP_DIR: Option<TestBinaryDispatchGuard> = {",
+          "note": "arg0 dispatch"
+        },
+        {
+          "file": "codex-rs/app-server/tests/common/test_app_server.rs",
+          "start_line": 148,
+          "end_line": 148,
+          "snippet": "pub struct TestAppServer {",
+          "note": "subprocess JSON-RPC client"
+        }
+      ],
+      "tags": [
+        "infrastructure",
+        "wiremock"
+      ],
+      "sokrates_refs": [
+        "component:core engine",
+        "component:app-server API",
+        "finding:architecture-scan/violations/test-only-core-extension-cycles"
+      ],
+      "attributes": {
+        "crates": [
+          "core_test_support",
+          "app_test_support",
+          "codex-test-binary-support",
+          "codex-app-server-test-client (manual)"
+        ],
+        "mock_servers": [
+          "wiremock /v1/responses (SSE)",
+          "WebSocketTestServer",
+          "ModelsMock",
+          "apps_test_server",
+          "analytics_server",
+          "rmcp-client test_stdio_server / test_streamable_http_server",
+          "exec-server relay",
+          "sdk responsesProxy.ts",
+          "sdk app_server_harness.py"
+        ],
+        "skip_macros": [
+          "skip_if_sandbox",
+          "skip_if_no_network",
+          "skip_if_test_condition",
+          "skip_if_remote",
+          "skip_if_no_remote_env",
+          "skip_if_wine_exec",
+          "skip_if_target_windows",
+          "skip_if_host_windows"
+        ]
+      }
+    },
+    {
+      "id": "testing-scan/test-infrastructure/golden-files",
+      "group": "test-infrastructure",
+      "title": "737 insta snapshots reviewed through cargo insta, request-shape snapshots in the core suite, and app-server schema fixtures regenerated by an ignored test",
+      "description": "Three golden-file systems. **insta snapshots**: 737 `.snap` files, 683 under `codex-rs/tui` (126 in `tui/src/snapshots`, the rest beside their modules), 52 in `core`, one each in `cli/doctor` and `ext/skills`; AGENTS.md prescribes the review loop (`cargo insta pending-snapshots`, `show`, `accept -p codex-tui`) and asks that snapshot updates be reviewed as part of the PR \"so UI impact is easy to review\". The core suite uses 38 snapshots to freeze the **shape of model requests** after compaction and resume. **Schema fixtures**: `app-server-protocol` commits the generated TypeScript and JSON Schema; a normal test asserts the committed tree equals a fresh export, and the writer is an `#[ignore]`d test invoked by `just write-app-server-schema`, so the fixtures cannot silently drift. There is no snapshot pruning or unreferenced-snapshot check beyond what `cargo insta` offers. `scripts/mcp_conformance` keeps regression baselines (`regression-baseline-v1.json`) for the MCP compliance runner.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "AGENTS.md",
+          "start_line": 198,
+          "end_line": 198,
+          "snippet": "  - `cargo insta accept -p codex-tui`",
+          "note": "snapshot update command"
+        },
+        {
+          "file": "codex-rs/app-server-protocol/src/schema_fixtures_tests.rs",
+          "start_line": 98,
+          "end_line": 98,
+          "snippet": "#[ignore = \"invoked by `just write-app-server-schema`\"]",
+          "note": "fixture writer"
+        },
+        {
+          "file": "AGENTS.md",
+          "start_line": 186,
+          "end_line": 186,
+          "snippet": "update the existing snapshot). Review and accept snapshot updates as part of the PR so UI impact",
+          "note": "review guidance"
+        }
+      ],
+      "tags": [
+        "infrastructure",
+        "insta"
+      ],
+      "sokrates_refs": [
+        "component:TUI frontend",
+        "finding:architecture-scan/boundaries/app-server-protocol-contract"
+      ],
+      "attributes": {
+        "snapshot_files": 737,
+        "by_crate": {
+          "tui": 683,
+          "core": 52,
+          "cli": 1,
+          "ext": 1
+        },
+        "schema_fixture_command": "just write-app-server-schema",
+        "conformance_baselines": [
+          "scripts/mcp_conformance/regression-baseline-v1.json",
+          "scripts/mcp_conformance/review-regression-baseline-v1.json"
+        ]
+      }
+    },
+    {
+      "id": "testing-scan/gaps/error-paths",
+      "group": "gaps",
+      "title": "The turn-task panic path reliability-scan flagged has no test: tasks/mod_tests.rs covers telemetry, abort_tasks.rs covers interrupts, nothing panics inside a spawned turn",
+      "description": "`reliability-scan/isolation/turn-task-panic-never-observed` (medium) says a panic inside the `tokio::spawn`ed turn task is never joined, leaving the client waiting. No test exercises it: `core/src/tasks/mod_tests.rs` asserts session telemetry metrics, `core/tests/suite/abort_tasks.rs` covers `interrupt_long_running_tool_emits_turn_aborted` and the persisted abort marker, and no suite test injects a panic into a tool handler or turn future. Other reliability paths **are** tested: the rollout writer's reopen-and-retry (`writer_state_retries_write_error_before_reporting_flush_success`), malformed rollout lines (`recorder_tests.rs` asserts `parse_errors == 1`), stream errors (`stream_error_allows_next_turn.rs`), quota and retry-after handling, guardian timeouts (`guardian_review.rs`). This gap is narrow, which keeps it `low`; it is the one medium reliability finding whose fix would ship without a failing test first.",
+      "severity": "low",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/tasks/mod.rs",
+          "start_line": 382,
+          "end_line": 382,
+          "snippet": "        let handle = tokio::spawn(",
+          "note": "the unobserved task"
+        },
+        {
+          "file": "codex-rs/core/src/tasks/mod_tests.rs",
+          "start_line": 21,
+          "end_line": 21,
+          "snippet": "fn test_session_telemetry() -> SessionTelemetry {",
+          "note": "the only sibling test file: telemetry, not failure"
+        },
+        {
+          "file": "codex-rs/core/tests/suite/abort_tasks.rs",
+          "start_line": 24,
+          "end_line": 24,
+          "snippet": "async fn interrupt_long_running_tool_emits_turn_aborted() {",
+          "note": "closest existing test: interrupt, not panic"
+        }
+      ],
+      "recommendation": "Add a suite test that registers a tool handler which panics, runs a turn, and asserts the client receives a turn error within the timeout; write it before changing `tasks/mod.rs` so the reliability fix is regression-guarded.",
+      "tags": [
+        "gap",
+        "reliability"
+      ],
+      "sokrates_refs": [
+        "finding:reliability-scan/isolation/turn-task-panic-never-observed",
+        "finding:reliability-scan/resources/rollout-writer-buffer-and-retry",
+        "finding:reliability-scan/handling/rollout-resume-skips-malformed-lines",
+        "component:core engine"
+      ],
+      "attributes": {
+        "tested_error_paths": [
+          "rollout writer retry",
+          "malformed rollout line",
+          "stream error",
+          "quota exceeded",
+          "retry-after",
+          "guardian timeout",
+          "interrupt"
+        ],
+        "untested_error_paths": [
+          "panic inside turn task"
+        ]
+      }
+    },
+    {
+      "id": "testing-scan/gaps/missing-layer-property",
+      "group": "gaps",
+      "title": "No property-based or fuzz tests for the parsers that read untrusted input: apply_patch, the shell tree-sitter parser, the reverse JSONL scanner, execpolicy",
+      "description": "The script reports **0 property tests and 0 fuzz targets**; no `proptest`, `quickcheck`, `arbitrary` or `cargo-fuzz` appears in any `Cargo.toml`. The code has several hand-written parsers fed by the model or by files on disk - `apply-patch/src/parser.rs` (`parse_patch`, model output), the tree-sitter Bash/PowerShell command parsing behind exec policy, `rollout/src/reverse_jsonl_scanner.rs` (session files, partially written), the Starlark execpolicy evaluator, and the JSON-RPC decoders - each tested with hand-picked cases such as `skips_records_over_the_configured_limit`. For a system whose sandbox decisions depend on parsing a command line correctly, example-based tests alone leave the edge space unexplored. This is a missing layer on a stable, well unit-tested surface, so `low`.",
+      "severity": "low",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/apply-patch/src/parser.rs",
+          "start_line": 145,
+          "end_line": 145,
+          "snippet": "pub fn parse_patch(patch: &str) -> Result<ApplyPatchArgs, ParseError> {",
+          "note": "model-output parser without fuzzing"
+        },
+        {
+          "file": "codex-rs/rollout/src/reverse_jsonl_scanner_tests.rs",
+          "start_line": 72,
+          "end_line": 72,
+          "snippet": "fn skips_records_over_the_configured_limit() -> std::io::Result<()> {",
+          "note": "example-based tests only"
+        }
+      ],
+      "recommendation": "Add `proptest` round-trip and no-panic properties for `parse_patch`, the reverse JSONL scanner and the shell command parser, and a `cargo-fuzz` target for `parse_patch` run on a schedule (the repo already has scheduled workflows).",
+      "tags": [
+        "gap",
+        "property-testing"
+      ],
+      "sokrates_refs": [
+        "finding:tech-stack-scan/libraries/tree-sitter",
+        "finding:tech-stack-scan/libraries/starlark",
+        "finding:cicd-scan/triggers/scheduled-models-refresh"
+      ],
+      "attributes": {
+        "property_tests": 0,
+        "fuzz_targets": 0,
+        "candidate_parsers": [
+          "codex-rs/apply-patch/src/parser.rs",
+          "codex-rs/rollout/src/reverse_jsonl_scanner.rs",
+          "shell command parsing (tree-sitter bash/powershell)",
+          "execpolicy (starlark)"
+        ]
+      }
+    },
+    {
+      "id": "testing-scan/testing-posture/posture",
+      "group": "testing-posture",
+      "title": "Posture: an integration-heavy pyramid whose green run proves the engine and API behave against a faked model on the platform it ran on - but not that every test actually ran",
+      "description": "The pyramid is **top-heavy by design**: AGENTS.md prefers integration tests for agent changes, and the result is 168k LOC in `core/tests/suite` and 86k in `app-server/tests` versus 141k LOC of inline units spread over 501 files. A green `just test` proves that the turn loop, tools, hooks, MCP, plugins, compaction, resume and the JSON-RPC surface behave as specified against a faked OpenAI API on **this** platform, with real filesystem, SQLite and child processes; it does not prove sandbox behaviour when run inside a sandbox (the `skip_if_*` macros return early and report pass), does not prove anything on the other four platforms until post-merge (`cicd-scan/testing/pr-vs-postmerge-split`), and tolerates one retry per test. **Most trusted**: the core suite and app-server v2 suite - whole-object assertions on captured requests and events, real internals, shared builders. **Least trusted**: the TUI's 683 snapshots (correct only as far as reviewers read accepted diffs), the sandboxing tests (platform-gated, self-skipping, two disabled in CI), and any suite run from a sandboxed agent. Coverage inferred from references, not measured. The three highest-leverage changes: make the skip macros visible (`finding:testing-scan/test-quality/skipped-tests`), replace the blanket nextest retry with targeted overrides (`finding:testing-scan/test-quality/flakiness`), and put one real sandbox-escape test per OS into the PR-blocking matrix (`finding:testing-scan/coverage-map/thin-sandboxing-policy`).",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "AGENTS.md",
+          "start_line": 114,
+          "end_line": 114,
+          "snippet": "For agent changes prefer integration tests over unit tests. Integration tests are under `core/suite` and use `test_codex` to set up a test instance of codex.",
+          "note": "the stated strategy"
+        },
+        {
+          "file": "codex-rs/.config/nextest.toml",
+          "start_line": 5,
+          "end_line": 5,
+          "snippet": "slow-timeout = { period = \"30s\", terminate-after = 2 }",
+          "note": "runner configuration"
+        },
+        {
+          "file": "codex-rs/core/tests/common/lib.rs",
+          "start_line": 563,
+          "end_line": 563,
+          "snippet": "macro_rules! skip_if_no_network {",
+          "note": "what a green run does not prove"
+        }
+      ],
+      "tags": [
+        "posture"
+      ],
+      "sokrates_refs": [
+        "finding:testing-scan/test-quality/skipped-tests",
+        "finding:testing-scan/test-quality/flakiness",
+        "finding:testing-scan/coverage-map/thin-sandboxing-policy",
+        "finding:cicd-scan/testing/pr-vs-postmerge-split",
+        "finding:cicd-scan/release/no-test-gate-on-tag",
+        "finding:reliability-scan/reliability-posture/synthesis"
+      ],
+      "attributes": {
+        "pyramid": "integration-heavy: core suite 168k LOC, app-server e2e 86k, inline units 141k, snapshots 737",
+        "most_trusted": [
+          "core/tests/suite",
+          "app-server/tests/suite/v2"
+        ],
+        "least_trusted": [
+          "tui snapshots",
+          "sandboxing tests",
+          "any run under CODEX_SANDBOX"
+        ]
+      }
+    }
+  ],
+  "summary_visual": {
+    "file": "visuals/testing-scan.jpeg",
+    "credit": "Illustration generated by Google Gemini (gemini-3-pro-image-preview)",
+    "generated_at": "2026-08-27T14:56:59Z",
+    "prompt": "Create a single, calm, aesthetically pleasing illustration that tells the story of the analysis summary below - a reader should grasp its one or two big ideas at a glance. Text is welcome but sparse: a few short labels or key words (roughly 3 to 8, one to three words each) that anchor the story; no sentences, no numbers, no dates, no titles, no legends, no dense diagrams or flowcharts, no dashboards or screenshots. Let shapes, metaphor, composition and colour carry most of the meaning. Style: polished flat vector illustration, crisp outlines, minimal shading, generous margins so nothing touches the edges, a disciplined palette of deep blue, teal, soft green and warm orange accents on a light background. Uncluttered - a few well-chosen elements and plenty of negative space. No photorealism, no 3D render, no clip-art collage, no people's faces.\nVisual motif for this kind of analysis (testing-scan): a pyramid of safety nets under a structure, some nets tight, one with a hole, a checkmark and a question mark.\nSubject: the software project 'openai / codex'.\nStory to tell (pick the essence, do not transcribe it): Codex is tested through an integration-heavy pyramid: Sokrates' path-based test scope holds 499,465 LOC in 1,862 files (ratio 0.70 to 712,527 main LOC) and the script finds a further 140,692 LOC of inline #[cfg(test)] modules in 501 main files that Sokrates counts as main code - 47k of them in the TUI. The core engine's tests/suite (168k LOC, 116 modules) boots a real Codex against a wiremock model server; the app-server suite (118 modules) spawns the real binary and drives it over JSON-RPC; the TUI is snapshot-first with 683 insta files; the SDKs test against recorded-response proxies and optionally the real binary."
+  }
+}

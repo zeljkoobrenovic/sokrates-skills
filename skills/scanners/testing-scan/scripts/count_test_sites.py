@@ -44,24 +44,34 @@ SNAPSHOT_DIR = re.compile(r"^(__snapshots__|snapshots|golden|goldens|testdata|fi
 
 TEST_FN = {
     "rust": re.compile(r"^\s*#\[(tokio::)?test\b|^\s*#\[test_case|^\s*#\[rstest\]|^\s*#\[proptest|^\s*#\[quickcheck\]|^\s*#\[should_panic"),
-    "java": re.compile(r"^\s*@(Test|ParameterizedTest|RepeatedTest|Property|TestFactory)\b|^\s*fun `|^\s*public void test\w+\("),
+    "java": re.compile(r"^\s*@(Test|ParameterizedTest|RepeatedTest|Property|TestFactory)\b|^\s*fun `"),
     "csharp": re.compile(r"^\s*\[(Fact|Theory|Test|TestMethod|TestCase)\b"),
     "js": re.compile(r"^\s*(it|test|it\.each|test\.each)\s*\(|^\s*(it|test)\.(only|skip|todo|concurrent)\s*\("),
     "python": re.compile(r"^\s*(async\s+)?def test_\w+\(|^\s*@given\(|^\s*@hypothesis"),
     "go": re.compile(r"^func (Test|Example|Fuzz|Benchmark)\w*\("),
 }
-ASSERT = re.compile(r"\bassert(_eq|_ne|_matches|Eq|Equals|True|False|That|Throws|Null|NotNull|Same|Contains|Snapshot|MatchSnapshot|_debug)?!?\s*[\(\[]|\bexpect\s*\(|\.should\b|\bassertThat\b|\bverify\s*\(|\bpretty_assertions|\bassert_snapshot|\binsta::|\bexpect_that|\bt\.(Error|Fatal|Errorf|Fatalf)\(|\bif .* != .* \{\s*t\.|require\.(Equal|NoError|True)|\.toBe|\.toEqual|\.toMatch|\.toThrow|\.toHaveBeen|self\.assert\w*\(")
+ASSERT_COMMON = r"\bassert[A-Za-z_]*!?\s*[\(\[]|\bfail\s*\(|@Test\s*\(\s*expected|assertThrows|assertRaises|pytest\.raises|#\[should_panic|\bassertThat\b|\bverify\s*\(|\bassert_snapshot|\binsta::|\bexpect_that\b|\.should\b"
+ASSERT = {
+    "rust": re.compile(ASSERT_COMMON + r"|\bpretty_assertions|\bexpect_test::|\bassert_matches!"),
+    "java": re.compile(ASSERT_COMMON + r"|\bassertj|\bMatcherAssert"),
+    "csharp": re.compile(ASSERT_COMMON + r"|\bAssert\.|\.Should\(\)"),
+    "js": re.compile(ASSERT_COMMON + r"|\bexpect\s*\(|\.toBe|\.toEqual|\.toMatch|\.toThrow|\.toHaveBeen|\.rejects\.|expectThrows|\bassert\.\w+\("),
+    "python": re.compile(ASSERT_COMMON + r"|^\s*assert\b|self\.assert\w*\(|\bassert_that\("),
+    "go": re.compile(ASSERT_COMMON + r"|\bt\.(Error|Fatal|Errorf|Fatalf)\(|\bif .* != .* \{\s*t\.|require\.\w+\(|assert\.\w+\("),
+}
 MOCK = re.compile(r"\bmock(ito|k|all)?\b|Mockito\.|@Mock\b|\bMock<|\bmock!\(|\bautomock\b|\bunittest\.mock|\bmonkeypatch|\bjest\.(fn|mock|spyOn)\(|\bsinon\.|\bvi\.(fn|mock|spyOn)\(|\bwiremock|\bMockServer|\bhttpmock|\bmockito::|\bnock\(|\bresponses\.(add|activate)|\bFake\w+\(|\bStub\w+\(|\bspy\(")
-SNAPSHOT_ASSERT = re.compile(r"assert_snapshot!|assert_debug_snapshot!|insta::|toMatchSnapshot\(|toMatchInlineSnapshot\(|expect_file!|\.approved|Approvals\.verify|assertSnapshot|snapshot\.assert")
+SNAPSHOT_ASSERT = re.compile(r"assert_snapshot!|assert_debug_snapshot!|insta::|toMatchSnapshot\(|toMatchInlineSnapshot\(|expect_file!|\.approved|Approvals\.verify|assertSnapshot|snapshot\.assert|assertGolden|readGolden|golden\(|expectedFile|\.expected\b")
 PROPERTY = re.compile(r"proptest!|#\[proptest|quickcheck|@given\(|hypothesis|fast-check|fc\.assert|jqwik|@Property\b|testing/quick|rapid\.Check")
 FUZZ = re.compile(r"fuzz_target!|cargo-fuzz|libfuzzer|^func Fuzz\w+\(|@FuzzTest|atheris")
-SKIP = re.compile(r"#\[ignore\b|@Ignore\b|@Disabled\b|@pytest\.mark\.skip|@unittest\.skip|pytest\.skip\(|\b(it|test|describe)\.skip\(|\bxit\(|\bxtest\(|\bxdescribe\(|@pytest\.mark\.xfail|t\.Skip\(|\[Ignore\b|\.todo\(|SKIP:|TODO: enable|#\[cfg_attr\([^)]*ignore")
-FLAKY = re.compile(r"\bflaky\b|\bflakey\b|@pytest\.mark\.flaky|@RetryingTest|@Retry\b|retries?\s*[:=]\s*\d|\bretry\(|jest\.retryTimes|test\.retry|nondeterministic|intermittent", re.I)
+SKIP = re.compile(r"#\[ignore\b|\bskip_if_\w+!\(|\bskip_unless_\w+!\(|@Ignore\b|@Disabled\b|assumeTrue\(|assumeFalse\(|Assume\.|Assumptions\.|@EnabledIf|@DisabledIf|@EnabledOnOs|@pytest\.mark\.skip|@unittest\.skip|pytest\.skip\(|\b(it|test|describe)\.skip\(|\bxit\(|\bxtest\(|\bxdescribe\(|@pytest\.mark\.xfail|t\.Skip\(|\[Ignore\b|\.todo\(|SKIP:|TODO: enable|#\[cfg_attr\([^)]*ignore")
+FLAKY = re.compile(r"\bflaky\b|\bflakey\b|@pytest\.mark\.flaky|@RetryingTest|@Retry\b|jest\.retryTimes|test\.retry\(|nondeterministic|intermittent|#\[ignore = \"[^\"]*(flak|timing|race)", re.I)
 SLEEP = re.compile(r"\bsleep\(|\bthread::sleep|Thread\.sleep\(|time\.sleep\(|asyncio\.sleep\(|tokio::time::sleep\(|setTimeout\(|await new Promise\(r|\bdelay\(|time\.Sleep\(")
 CLOCK = re.compile(r"\bInstant::now\(|SystemTime::now\(|\bDate\.now\(|new Date\(\)|\bLocalDate(Time)?\.now\(|System\.currentTimeMillis\(|datetime\.now\(|time\.time\(\)|time\.Now\(\)|Utc::now\(|Local::now\(")
 RANDOM = re.compile(r"\brand::|thread_rng\(|Math\.random\(|new Random\(\)|random\.(random|randint|choice)\(|rand\.Int|faker|Faker\(|uuid::Uuid::new_v4|UUID\.randomUUID|crypto\.randomUUID")
-NETWORK = re.compile(r"https?://(?!localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|example\.com|test\.local)[a-zA-Z0-9.-]+\.[a-z]{2,}|reqwest::(get|Client)|requests\.(get|post)\(|\bfetch\(\s*['\"]https?://(?!localhost|127)|HttpClient\.new|TcpStream::connect\(\s*\"(?!127|localhost)")
+NETWORK = re.compile(r"reqwest::(get|Client)|requests\.(get|post)\(|\bfetch\(\s*['\"]https?://(?!localhost|127)|HttpClient\.new|HttpURLConnection|\.openConnection\(\)|new URL\([^)]*https?://(?!localhost|127)|TcpStream::connect\(\s*\"(?!127|localhost)|urllib\.request\.urlopen|httpx\.(get|Client)|axios\.(get|post)\(\s*['\"]https?://(?!localhost|127)")
+URL_LITERAL = re.compile(r"https?://(?!localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|example\.com|test\.local|www\.w3\.org)[a-zA-Z0-9.-]+\.[a-z]{2,}")
 DOC_TEST = re.compile(r"^\s*///\s*```|>>> ")
+TIER = re.compile(r"@Tag\(|@Category\(|#\[ignore = \"slow|@pytest\.mark\.(slow|integration|e2e)|describe\.(slow|integration)|\[Trait\(|\[Category\(")
 SHARED_STATE = re.compile(r"\bstatic mut\b|lazy_static!|LazyLock|OnceLock|\bglobal\s+\w+|^\s*static\s+\w+.*=\s*new|std::env::set_var\(|os\.environ\[|process\.env\.\w+\s*=|System\.setProperty\(|set_current_dir\(|os\.chdir\(|process\.chdir\(")
 FRAMEWORK = {
     "rust": re.compile(r"\b(tokio::test|rstest|proptest|quickcheck|insta|wiremock|mockall|assert_cmd|predicates|criterion|test_case|serial_test|tempfile|pretty_assertions)\b"),
@@ -144,7 +154,7 @@ def scan(root: Path, excludes):
             continue
         lines = text.splitlines()
         relp = rel.as_posix()
-        folder = rel.parts[0] if len(rel.parts) > 1 else "."
+        folder = next((p for p in rel.parts[:-1] if p not in ("src", "lib", "main", "test", "tests", "java", "kotlin", "python", "app")), ".")
         is_test = is_test_path(rel)
         inline_ranges = rust_inline_test_ranges(lines) if (lang == "rust" and not is_test) else []
         in_inline = set()
@@ -181,12 +191,12 @@ def scan(root: Path, excludes):
                     weak.append(current_fn_line)
                 current_fn_line, fn_has_assert = i, False
                 test_fns += 1
-            if ASSERT.search(line):
+            if ASSERT[lang].search(line):
                 asserts += 1; fn_has_assert = True
             for key, rx in (("mock_sites", MOCK), ("snapshot_assertions", SNAPSHOT_ASSERT), ("property_tests", PROPERTY),
                             ("fuzz_targets", FUZZ), ("skipped_tests", SKIP), ("flaky_markers", FLAKY), ("sleep_in_tests", SLEEP),
                             ("clock_in_tests", CLOCK), ("random_in_tests", RANDOM), ("network_in_tests", NETWORK),
-                            ("shared_state_candidates", SHARED_STATE)):
+                            ("url_literal_candidates", URL_LITERAL), ("tier_markers", TIER), ("shared_state_candidates", SHARED_STATE)):
                 if rx.search(line):
                     hits[key].append((relp, i, line.strip()[:160]))
         if current_fn_line and not fn_has_assert:
@@ -210,6 +220,9 @@ def main(argv=None) -> int:
     ap.add_argument("--json")
     ap.add_argument("--top", type=int, default=12)
     ap.add_argument("--exclude", action="append", default=[], metavar="DIR")
+    ap.add_argument("--components-dir", help="unzipped Sokrates data dir: maps every test file and inline test module to the component whose main-file directories it lives under (text/aspect_component_<decomposition>_*.txt) and prints test/main LOC per component")
+    ap.add_argument("--decomposition", default="primary", help="which logical decomposition's aspect files to use (default: primary)")
+    ap.add_argument("--refs-file", help="text file with one main-source path per line (e.g. hotspot files from risk-synthesis evidence, or an aspect_component_*.txt); emits how many test files/inline test modules reference each file's type/module name")
     args = ap.parse_args(argv)
     root = Path(args.src_root).resolve()
     if not root.is_dir():
@@ -219,7 +232,7 @@ def main(argv=None) -> int:
     facts = {k: totals.get(k, 0) for k in ("test_files", "test_loc", "main_loc", "inline_test_files", "inline_test_loc",
                                             "test_functions", "assertions", "doc_tests", "snapshot_files")}
     for k in ("mock_sites", "snapshot_assertions", "property_tests", "fuzz_targets", "skipped_tests", "flaky_markers",
-              "sleep_in_tests", "clock_in_tests", "random_in_tests", "network_in_tests"):
+              "sleep_in_tests", "clock_in_tests", "random_in_tests", "network_in_tests", "tier_markers"):
         facts[k] = len(hits.get(k, []))
     facts["assertion_density"] = round(facts["assertions"] / facts["test_functions"], 2) if facts["test_functions"] else 0
     total_test = facts["test_loc"] + facts["inline_test_loc"]
@@ -227,7 +240,7 @@ def main(argv=None) -> int:
                            "inline": round(facts["inline_test_loc"] / facts["main_loc"], 2) if facts["main_loc"] else 0,
                            "total": round(total_test / facts["main_loc"], 2) if facts["main_loc"] else 0}
     facts["frameworks"] = {l: sorted(v) for l, v in frameworks.items()}
-    leads = {k: len(hits.get(k, [])) for k in ("weak_assertion_candidates", "shared_state_candidates")}
+    leads = {k: len(hits.get(k, [])) for k in ("weak_assertion_candidates", "shared_state_candidates", "url_literal_candidates")}
     folders = sorted(set(tl) | set(ml), key=lambda f: -(tl.get(f, 0) + ml.get(f, 0)))
     ratio_by_folder = {f: {"test_loc": tl.get(f, 0), "main_loc": ml.get(f, 0),
                            "ratio": round(tl.get(f, 0) / ml[f], 2) if ml.get(f) else None} for f in folders}
@@ -248,9 +261,13 @@ def main(argv=None) -> int:
         print("\ninline test LOC by crate (Rust #[cfg(test)]):")
         for c, n in sorted(inline.items(), key=lambda kv: -kv[1])[: args.top]:
             print(f"  {n:7d}  {c}")
-    print("\nlargest test files:")
-    for r in sorted(per_file, key=lambda r: -r["loc"])[: args.top]:
-        print(f"  {r['loc']:6d} LOC  {r['test_functions']:4d} fns  {r['assertions']:5d} asserts  {r['file']}")
+    print("\nlargest test files (with test functions; fixture/helper files without tests are listed in the JSON):")
+    for r in sorted([r for r in per_file if r["test_functions"] > 0], key=lambda r: -r["loc"])[: args.top]:
+        print(f"  {r['loc']:6d} LOC  {r['test_functions']:4d} fns  {r['assertions']:5d} asserts  [{r['kind']}]  {r['file']}")
+    doctest_off = sum(1 for c in root.rglob("Cargo.toml") if not any(d in c.parts for d in SKIP_DIRS) and re.search(r"doctest\s*=\s*false", c.read_text(errors="replace")))
+    if doctest_off:
+        facts["crates_with_doctest_disabled"] = doctest_off
+        print(f"\n{doctest_off} Cargo.toml files set doctest = false — doc_tests above are fenced examples, not executed tests")
     for key, rows in sorted(hits.items()):
         if not rows:
             continue
@@ -260,10 +277,72 @@ def main(argv=None) -> int:
         print(f"\n{key} — top files:")
         for f, n in sorted(pf.items(), key=lambda kv: -kv[1])[: args.top]:
             print(f"  {n:5d}  {f}")
+    by_component = {}
+    if args.components_dir:
+        comp_dirs, comp_main_loc, comp_files = {}, {}, {}
+        for f in sorted(Path(args.components_dir).glob(f"text/aspect_component_{args.decomposition}_*.txt")):
+            name = f.stem[len(f"aspect_component_{args.decomposition}_"):]
+            files, total = [], 0
+            for line in f.read_text(errors="replace").splitlines()[1:]:
+                parts = line.split("\t")
+                if not parts[0].strip():
+                    continue
+                files.append(parts[0].strip())
+                try:
+                    total += int(parts[1])
+                except (IndexError, ValueError):
+                    pass
+            comp_files[name] = set(files)
+            comp_main_loc[name] = total
+            comp_dirs[name] = {str(Path(x).parent) for x in files}
+        def component_of(path):
+            if any(path in fs for fs in comp_files.values()):
+                return next(n for n, fs in comp_files.items() if path in fs)
+            parts = Path(path).parent.parts
+            best, best_len = None, -1
+            for name, dirs in comp_dirs.items():
+                for k in range(len(parts), 0, -1):
+                    if "/".join(parts[:k]) in dirs and k > best_len:
+                        best, best_len = name, k
+                        break
+            return best or "(unmapped)"
+        for r in per_file:
+            c = component_of(r["file"])
+            e = by_component.setdefault(c, {"main_loc": comp_main_loc.get(c, 0), "test_loc": 0, "inline_test_loc": 0, "test_functions": 0, "test_files": 0})
+            e["test_loc" if r["kind"] == "test-file" else "inline_test_loc"] += r["loc"]
+            e["test_functions"] += r["test_functions"]
+            e["test_files"] += 1
+        for c, e in by_component.items():
+            e["ratio_path_based"] = round(e["test_loc"] / e["main_loc"], 2) if e["main_loc"] else None
+            e["ratio_total"] = round((e["test_loc"] + e["inline_test_loc"]) / e["main_loc"], 2) if e["main_loc"] else None
+        print(f"\ntest LOC by Sokrates component ({args.decomposition}; main LOC from the aspect lists, test files mapped by directory):")
+        for c, e in sorted(by_component.items(), key=lambda kv: -(kv[1]["main_loc"] or 0)):
+            print(f"  {c:40s} main {e['main_loc']:7d}  test {e['test_loc']:7d}  inline {e['inline_test_loc']:6d}  fns {e['test_functions']:5d}  ratio {e['ratio_total']}")
+    refs = {}
+    if args.refs_file:
+        targets = [l.split("\t")[0].strip() for l in Path(args.refs_file).read_text().splitlines() if l.strip() and not l.lower().startswith("path")]
+        test_texts = []
+        for r in per_file:
+            try:
+                test_texts.append((r["file"], (root / r["file"]).read_text(encoding="utf-8", errors="replace")))
+            except OSError:
+                pass
+        print("\ntest references per main file (test files or inline modules mentioning the type/module name):")
+        for t in targets:
+            stem = Path(t).stem
+            if stem in ("mod", "lib", "main", "index", "__init__"):
+                stem = Path(t).parent.name
+            rx = re.compile(r"\b" + re.escape(stem) + r"\b")
+            hits_for = [f for f, txt in test_texts if f != t and rx.search(txt)]
+            refs[t] = {"name": stem, "test_files_referencing": len(hits_for), "examples": hits_for[:3]}
+            print(f"  {len(hits_for):4d}  {t}")
     if args.json:
         Path(args.json).write_text(json.dumps({
+            "test_references": refs, "by_component": by_component,
             "src_root": str(root),
-            "count_rule": "test code = files under test/tests/spec/__tests__/e2e/fixtures dirs or *_test.*/*Test.*/test_*.py/*.spec.*/*.test.*, plus Rust #[cfg(test)] modules inside main files; LOC excludes blank and comment lines; shapes counted inside test code only",
+            "count_rule": "test code = files under test/tests/spec/__tests__/e2e/fixtures dirs or *_test.*/*Test.*/test_*.py/*.spec.*/*.test.*"
+                          + ("; plus Rust #[cfg(test)] modules inside main files" if inline else "")
+                          + "; LOC excludes blank and comment lines; shapes counted inside test code only; test functions = annotated/declared test cases",
             "stats": facts, "leads": leads, "ratio_by_folder": ratio_by_folder,
             "inline_test_loc_by_crate": dict(inline), "files": per_file,
             "hits": {k: [{"file": f, "line": l, "snippet": s} for f, l, s in v] for k, v in hits.items()},

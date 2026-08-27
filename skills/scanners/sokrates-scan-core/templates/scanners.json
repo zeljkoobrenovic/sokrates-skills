@@ -104,6 +104,36 @@
       }
     },
     {
+      "id": "reliability-scan",
+      "name": "Reliability",
+      "emoji": "🛡️",
+      "description": "Maps how the system behaves when things go wrong: the error model, how failures are handled on the paths that matter, how they are isolated so one broken part does not take the rest down, how the system recovers and degrades, whether resources are released and shutdown is orderly — and the blast radius of the main failure modes.",
+      "groups": {
+        "error-model": "How errors are represented and classified: exception or Result conventions, central error types and their taxonomy, retryable vs. fatal distinctions, user-facing vs. internal mapping, and where the model is bypassed.",
+        "handling": "What call sites do with failures on load-bearing paths: swallowed or silently defaulted errors, catch-all handlers, panics and unwraps on runtime input, errors rethrown with or without context, inconsistent conventions between subsystems.",
+        "isolation": "Failure containment: process, task and thread boundaries and what they contain, plugin/tool/model-call containment, per-request isolation, supervisors and restart policies, shared state a failure can poison — and the blast radius where a boundary is missing.",
+        "recovery": "Retries and backoff, timeouts and their values, circuit breakers and rate limiting, reconnection, idempotency of retried work, resume after crash.",
+        "degradation": "Fallbacks and alternates, offline or reduced-function modes, partial results, feature-gated failure, what the user sees when a dependency is down.",
+        "resources": "Cleanup on failure paths, leak-prone shapes, cancellation propagation, signal handling, shutdown order, crash safety of persisted state.",
+        "reliability-posture": "The synthesis: behaviour and blast radius per failure source, the most fragile paths, the strongest mechanisms, and the highest-leverage hardening changes."
+      }
+    },
+    {
+      "id": "performance-scan",
+      "name": "Performance",
+      "emoji": "⚡",
+      "description": "Static performance and efficiency review: the workload model (what the cost scales with), algorithmic and data-structure choices on the hot paths, I/O and memory behaviour, parallelism and contention, caching and recomputation, the limits that keep one big input from dominating — and a ranked list of likely bottlenecks and highest-leverage optimizations.",
+      "groups": {
+        "workload-model": "What the system does under load: inputs and their sizes, the main loop and what runs per item vs. once, the scaling factors, the performance currency (latency, throughput, memory, startup).",
+        "algorithms-and-data": "Complexity and data-structure choices on hot paths: nested scans, quadratic matching, linear lookups in loops, regex compiled per item, repeated work — and the well-chosen structures.",
+        "io-and-memory": "I/O and memory behaviour: whole-file reads, unbuffered streams, per-item opens, N+1 calls; everything-in-memory models, unbounded collections, allocation churn, large embedded payloads, peak memory.",
+        "concurrency": "Parallelism present and absent on the main loop, pool sizing, serialization points, contention on hot locks, blocking in async, single-threaded stages between parallel ones.",
+        "caching-and-reuse": "Caches and memoization, their bounds and invalidation, recomputation a cache would remove, static caches that leak across runs.",
+        "limits-and-safeguards": "Caps, sampling, skip-if-over-N switches, configurable expensive stages, streaming vs. build-then-write — and where a limit is missing so one big input dominates.",
+        "performance-posture": "The synthesis: ranked likely bottlenecks with their scaling factors, what grows without bound, where parallelism would pay, the highest-leverage changes."
+      }
+    },
+    {
       "id": "security-design-scan",
       "name": "Security Design",
       "emoji": "🛡️",

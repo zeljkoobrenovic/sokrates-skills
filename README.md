@@ -27,6 +27,8 @@ skills/
 | `tech-stack-scan` | languages, frameworks, libraries, build tooling, CI/CD, infrastructure, external services |
 | `cicd-scan` | the CI/CD process as a narrative: triggers, build, tests, gates, release, deployment, hygiene |
 | `observability-scan` | logging, metrics, tracing, error reporting, health surfaces, telemetry pipeline, blind spots |
+| `reliability-scan` | error model, failure handling on load-bearing paths, isolation and blast radius, retries/timeouts, degradation, resource cleanup and shutdown |
+| `performance-scan` | workload model and scaling factors, hot-path algorithms and data structures, I/O and memory, parallelism, caching, cost limits, ranked bottlenecks |
 | `security-design-scan` | trust boundaries, sandboxing, identity and access, secrets handling, third-party trust, posture |
 | `security-scan` | code-level audit: secrets, injection, crypto, unsafe code, input handling, coverage statement |
 | `risk-synthesis-scan` | Sokrates hotspots explained: what each risky file does, knowledge risk, change coupling |

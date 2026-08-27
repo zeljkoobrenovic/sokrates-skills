@@ -16,7 +16,7 @@ This scanner's failure mode is crying wolf. A grep hit is a *candidate*, never a
 ## Scope boundaries with sibling scanners
 
 - Architecture-level topics (trust boundaries, sandbox design, auth flows, permission models, deliberate insecure defaults) belong to `security-design-scan`; cite its findings for context instead of re-litigating them.
-- Pipeline security (action pinning, publish credentials) is `cicd-scan`'s; telemetry privacy is `observability-scan`'s.
+- Pipeline security (action pinning, publish credentials) is `cicd-scan`'s; telemetry privacy is `observability-scan`'s; panics/unwraps and error handling as a robustness matter are `reliability-scan`'s — here they count only where they are a security-relevant denial-of-service or memory-safety concern.
 - Dependency CVE auditing requires a vulnerability database this scanner doesn't have: do not guess CVE status. Report the *mechanisms* (is `cargo-deny`/`npm audit`/Dependabot configured?) and leave concrete advisories alone unless one is explicitly documented in-repo.
 - You may reference prior-scan findings in descriptions, but every evidence citation must be minted from files you read in this run.
 

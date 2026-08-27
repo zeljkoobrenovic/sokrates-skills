@@ -25,7 +25,7 @@ A codebase's telemetry code is a statement about what its authors expect to go w
 | `logging` | Frameworks and conventions: structured vs. freeform, level discipline, log destinations, rotation; hygiene findings (sensitive data in logs, redaction mechanisms, noisy or missing levels) |
 | `metrics` | What is measured and how: counters/gauges/histograms and their subjects, naming conventions, cardinality risks, emission paths |
 | `tracing` | Spans and context propagation: instrumentation coverage, cross-process/async propagation, sampling |
-| `error-reporting` | Crash and error capture: panic/exception hooks, error-reporting services, user-facing vs. operator-facing error paths — including their absence: swallowed-error and silent-failure findings from step 4 belong here |
+| `error-reporting` | Crash and error capture: panic/exception hooks, error-reporting services, user-facing vs. operator-facing error paths — including their absence: swallowed-error and silent-failure findings from step 4 belong here *as reporting gaps* (what the operator cannot see); what the code does with the error — handling, containment, recovery — is `reliability-scan`'s, cross-reference by id rather than duplicate |
 | `health-diagnostics` | Health/readiness surfaces, self-diagnostics commands, debug endpoints or views, feedback/diagnostic bundles users can send |
 | `telemetry-pipeline` | Where the data goes: exporters, backends, enabling env vars/config, defaults (on/off), sampling and batching, privacy/opt-out posture |
 | `monitoring-posture` | The synthesis: what alerting/dashboards the emitted signals can support, per subsystem; and the blind spots — components or failure modes that emit nothing |

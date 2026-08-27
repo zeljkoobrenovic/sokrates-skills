@@ -29,7 +29,8 @@ Useful entries, roughly in order of value to scanners:
 | `text/mainFilesWithHistory.txt` | Same plus first/last change dates — age and activity per file |
 | `text/aspect_component_primary_<name>.txt` | Files per component — scope a scan to one component |
 | `files.json` | Per-file records (path, lines of code, extension, component) |
-| `units.json` / `text/units.txt` | All units (functions/methods) with size and McCabe complexity — the complexity hotspot source |
+| `units.json` / `text/units.txt` | Units (functions/methods) with size and McCabe complexity — the complexity hotspot source. Records use `relativeFileName`, `shortName`, `linesOfCode`, `mcCabeIndex`. **Capped at the top 10,000 units** on large codebases — it is the largest/most complex slice, not the full inventory |
+| `executionTimes.txt` / `executionTimes.json` | Sokrates' own stage stopwatch for this analysis (per stage, ms) — the only measured timing a scanner gets; look for analogous self-timing artifacts in the target itself (benchmarks, profiler output, CI timing logs) |
 | `duplicates.json` | Duplicated blocks with file/line ranges |
 | `contributors.json` / `text/contributors.txt` | Commit counts and dates per contributor email — knowledge-risk input |
 | `text/temporal_dependencies_different_folders*.txt` | Folder pairs that change in the same commits — hidden coupling |

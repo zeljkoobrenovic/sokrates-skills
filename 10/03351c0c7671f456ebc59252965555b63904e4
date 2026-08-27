@@ -1,0 +1,31 @@
+README.md
+  s_3fb22a5f8abdd4::t_f41d935cff40ad 36
+skills/scanners/sokrates-scan-core/templates/scanners.json
+  s_3fb22a5f8abdd4::t_f41d935cff40ad 206-219
+skills/scanners/README.md
+  s_3fb22a5f8abdd4::t_f41d935cff40ad 20,34
+skills/illustrators/generate_summary_visuals.py
+  s_3fb22a5f8abdd4::t_f41d935cff40ad 85
+skills/scanners/full-scan/SKILL.md
+  s_3fb22a5f8abdd4::t_f41d935cff40ad 3,23,29,47
+skills/scanners/maintainability-scan/SKILL.md
+  s_3fb22a5f8abdd4::t_66e5005b628545 1-94
+skills/scanners/maintainability-scan/scripts/compute_maintainability.py
+  s_3fb22a5f8abdd4::t_53ee7fd5d193a3 1-392
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "1003351c0c7671f456ebc59252965555b63904e4",
+  "prompts": {},
+  "sessions": {
+    "s_3fb22a5f8abdd4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6675bcd7-0e88-4469-8a48-6960b480b641",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

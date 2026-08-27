@@ -1,0 +1,70 @@
+skills/scanners/sokrates-scan-core/scripts/render_findings.py
+  s_3fb22a5f8abdd4::t_162ae23954b06b 48,54-65
+  s_3fb22a5f8abdd4::t_aaf925ccbbd4d9 66-67
+examples/codex/ai-insights/functionality-scan.json
+  s_3fb22a5f8abdd4::t_c282e876461295 1946-1949,1952
+  s_3fb22a5f8abdd4::t_3fe152cf8923a2 1950-1951
+examples/codex/ai-insights/index.html
+  s_3fb22a5f8abdd4::t_c282e876461295 144-146,771,882-887
+  s_3fb22a5f8abdd4::t_1e8476a2b69468 710
+  s_3fb22a5f8abdd4::t_3fe152cf8923a2 10,13,372-373
+  s_3fb22a5f8abdd4::t_2461ff2c407f75 888-889
+examples/codex/ai-insights/domain-language-scan.json
+  s_3fb22a5f8abdd4::t_3fe152cf8923a2 808-809
+  s_3fb22a5f8abdd4::t_c282e876461295 804-807,810
+skills/illustrators/generate_summary_visuals.py
+  s_3fb22a5f8abdd4::t_3fe152cf8923a2 43-45,88-92,95,145,156-157
+  s_3fb22a5f8abdd4::t_a2ecaceec9656d 93-94,96
+  s_3fb22a5f8abdd4::t_4856f756b127c4 1-42,46-82,84-87,97-144,146-155,158-309
+  s_3fb22a5f8abdd4::t_22e7864dcc8c1f 83
+examples/codex/ai-insights/cicd-scan.json
+  s_3fb22a5f8abdd4::t_3fe152cf8923a2 604-605
+  s_3fb22a5f8abdd4::t_c282e876461295 600-603,606
+skills/illustrators/README.md
+  s_3fb22a5f8abdd4::t_dd52f52e25943e 1-15,17-23
+  s_3fb22a5f8abdd4::t_3fe152cf8923a2 16
+skills/scanners/sokrates-scan-core/schema/findings.schema.json
+  s_3fb22a5f8abdd4::t_162ae23954b06b 41-52
+examples/codex/ai-insights/observability-scan.json
+  s_3fb22a5f8abdd4::t_3fe152cf8923a2 526-527
+  s_3fb22a5f8abdd4::t_c282e876461295 522-525,528
+skills/README.md
+  s_3fb22a5f8abdd4::t_dd52f52e25943e 9
+examples/codex/ai-insights/tech-stack-scan.json
+  s_3fb22a5f8abdd4::t_3fe152cf8923a2 1469-1470
+  s_3fb22a5f8abdd4::t_c282e876461295 1465-1468,1471
+examples/codex/ai-insights/security-scan.json
+  s_3fb22a5f8abdd4::t_3fe152cf8923a2 461-462
+  s_3fb22a5f8abdd4::t_c282e876461295 457-460,463
+examples/codex/ai-insights/security-design-scan.json
+  s_3fb22a5f8abdd4::t_3fe152cf8923a2 685-686
+  s_3fb22a5f8abdd4::t_c282e876461295 681-684,687
+examples/codex/ai-insights/architecture-scan.json
+  s_3fb22a5f8abdd4::t_c282e876461295 699-702,705
+  s_3fb22a5f8abdd4::t_3fe152cf8923a2 703-704
+skills/scanners/sokrates-scan-core/templates/insights-explorer.html
+  s_3fb22a5f8abdd4::t_162ae23954b06b 144-146,710,771,882-887
+  s_3fb22a5f8abdd4::t_6e0df6725cbe81 888-889
+examples/codex/ai-insights/evolution-scan.json
+  s_3fb22a5f8abdd4::t_c282e876461295 1340-1343,1346
+  s_3fb22a5f8abdd4::t_3fe152cf8923a2 1344-1345
+examples/codex/ai-insights/risk-synthesis-scan.json
+  s_3fb22a5f8abdd4::t_3fe152cf8923a2 617-618
+  s_3fb22a5f8abdd4::t_c282e876461295 613-616,619
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "a1ce196a09c7adf69eb9733c0d449fca645c3961",
+  "prompts": {},
+  "sessions": {
+    "s_3fb22a5f8abdd4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6675bcd7-0e88-4469-8a48-6960b480b641",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

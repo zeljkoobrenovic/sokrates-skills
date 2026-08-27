@@ -1,0 +1,25 @@
+README.md
+  s_3fb22a5f8abdd4::t_74ae20668cbafb 61
+examples/codex/ai-insights/combined-report.json
+  s_3fb22a5f8abdd4::t_8749eb2d7b8772 4,9,37-41,89-91,5485-6215
+examples/codex/ai-insights/index.html
+  s_3fb22a5f8abdd4::t_b92f987ac1cc15 10-13,372-373,375,377
+examples/codex/ai-insights/maintainability-scan.json
+  s_3fb22a5f8abdd4::t_f495c33e99d9e1 1-1682
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "050638d5c1d7b95ea961e801e6972178886d6bc7",
+  "prompts": {},
+  "sessions": {
+    "s_3fb22a5f8abdd4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6675bcd7-0e88-4469-8a48-6960b480b641",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

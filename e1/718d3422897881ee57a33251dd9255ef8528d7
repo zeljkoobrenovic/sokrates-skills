@@ -1,0 +1,19 @@
+run-claude.sh
+  s_5fa5a4bc1a237a::t_b255ff905090a0 1-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "e1718d3422897881ee57a33251dd9255ef8528d7",
+  "prompts": {},
+  "sessions": {
+    "s_5fa5a4bc1a237a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c437c90a-bb6f-460a-accc-abca7fd7bf38",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

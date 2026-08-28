@@ -1,0 +1,14 @@
+skills/scanners/sokrates-scan-core/templates/insights-explorer.html
+  h_32d60cd4daf66e 9-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "8f8f385badedccd2f33ea9a0b0abc86215c91f24",
+  "prompts": {},
+  "humans": {
+    "h_32d60cd4daf66e": {
+      "author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

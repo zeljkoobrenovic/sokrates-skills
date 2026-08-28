@@ -6,11 +6,12 @@
     <title>AI Insights Explorer</title>
     <!--
       Sokrates AI Insights Explorer template.
-      Placeholders substituted by render_findings.py:
-        ${data}        - JSON array of scanner findings documents
-        ${icons}       - JSON object: scanner id -> PNG data URI (from templates/icons/)
-        ${scanners}    - JSON array of scanner display metadata (from templates/scanners.json)
-        ${generatedAt} - ISO timestamp of generation
+      Placeholders substituted by render_findings.py (each is a dollar sign followed by the
+      name in braces; not spelled out here so the comment itself is never substituted):
+        data        - JSON array of scanner findings documents
+        icons       - JSON object: scanner id -> PNG data URI (from templates/icons/)
+        scanners    - JSON array of scanner display metadata (from templates/scanners.json)
+        generatedAt - ISO timestamp of generation
       Everything else is self-contained (no external scripts).
     -->
     <!-- Same font setup as the generated Sokrates HTML reports: only Ubuntu is loaded (bold weights added). -->

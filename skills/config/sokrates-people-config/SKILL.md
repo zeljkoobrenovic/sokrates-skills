@@ -45,3 +45,5 @@ Reference for the file format and the identity pipeline: `../sokrates-landscape-
 - Repository-level files are the safest input for a landscape: merge identities where the history is, then let the landscape import them.
 - Sokrates rewrites `config-people.json` on every run (normalised, comments dropped) — keep the reviewed version under version control and diff after runs; the review file is never read by Sokrates and can stay next to it.
 - The `--all` flag writes every contributor, not only merged ones — only useful when you want display names/links for people with a single address.
+
+Co-authors (Sokrates 2026-08-27+): commit trailers such as `Co-authored-by:` become co-author identities through the same pipeline as authors, so a person's `emailPatterns` entry in `config-people.json` also merges their co-authored commits; AI agents (`fileHistoryAnalysis.coAuthors.aiAgents`) are attributed by name and never become people — do not add `noreply@anthropic.com`-style addresses to a person's patterns.

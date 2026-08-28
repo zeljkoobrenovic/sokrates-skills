@@ -33,7 +33,8 @@ from pathlib import Path
 
 KNOWN_TOP_KEYS = {"metadata", "summary", "srcRoot", "extensions", "ignore", "main", "test", "generated",
                   "buildAndDeployment", "other", "logicalDecompositions", "concernGroups", "concerns",
-                  "goalsAndControls", "fileHistoryAnalysis", "analysis", "tagRules"}
+                  "goalsAndControls", "fileHistoryAnalysis", "analysis", "tagRules", "customTabs"}
+KNOWN_COAUTHOR_KEYS = {"enabled", "trailerKeys", "aiAgents"}
 SCOPES = ["main", "test", "generated", "buildAndDeployment", "other"]
 TESTLIKE_RE = re.compile(r"(^|/)(tests?|__tests__|spec|specs|e2e|mocks?|fixtures?|testdata)/|(_test|_tests|\.test|\.spec)\.|(^|/)test_|\.snap$", re.I)
 GENLIKE_RE = re.compile(r"(^|/)(generated|__generated__|gen|build|dist|out|target|node_modules|vendor)/|\.generated\.|\.pb\.|\.min\.(js|css)$|package-lock\.json$|\.designer\.(cs|vb)$", re.I)
@@ -438,6 +439,24 @@ def main():
 
     # ---- history import
     fha = config.get("fileHistoryAnalysis") or {}
+    co = fha.get("coAuthors")
+    if isinstance(co, dict):
+        for k in co:
+            if k not in KNOWN_COAUTHOR_KEYS:
+                warnings.append(f"fileHistoryAnalysis.coAuthors: unknown key `{k}` (known: enabled, trailerKeys, aiAgents)")
+        if "aiAgents" in co and len(co.get("aiAgents") or []) < 5:
+            warnings.append("fileHistoryAnalysis.coAuthors.aiAgents replaces the built-in list (Claude Code, Copilot, Cursor, Codex, Aider, Gemini, Devin, Jules) — a short list drops the defaults")
+        for a in co.get("aiAgents") or []:
+            if not isinstance(a, dict) or not a.get("name") or not a.get("patterns"):
+                warnings.append("fileHistoryAnalysis.coAuthors.aiAgents entries need `name` and `patterns`")
+    for i, tab in enumerate(config.get("customTabs") or []):
+        if not isinstance(tab, dict) or not str(tab.get("label", "")).strip() or not str(tab.get("iframeLink", "")).strip():
+            warnings.append(f"customTabs[{i}]: label and iframeLink are both required — Sokrates skips blank entries")
+        elif str(tab.get("iframeLink")).startswith("../../findings/"):
+            warnings.append(f"customTabs[{i}]: iframeLink points at the old findings/ location — AI insights now live in reports/ai-insights (use ../ai-insights/index.html)")
+    labels = [str(t.get("label", "")).strip().lower() for t in (config.get("customTabs") or []) if isinstance(t, dict)]
+    if len(labels) != len(set(labels)):
+        warnings.append("customTabs: duplicate labels (compared trimmed, case-insensitively) — addCustomTab would overwrite, a hand edit leaves both")
     import_path = fha.get("importPath", "../git-history.txt")
     history_file = (config_path.parent / import_path)
     history = {"importPath": import_path, "exists": history_file.is_file(),

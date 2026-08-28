@@ -1,0 +1,26 @@
+skills/config/sokrates-repo-config/scripts/preview_config.py
+  s_3fb22a5f8abdd4::t_a2e53f813d9a78 36-37,442-459
+skills/config/sokrates-people-config/SKILL.md
+  s_3fb22a5f8abdd4::t_a2e53f813d9a78 48-49
+skills/config/sokrates-repo-config/SKILL.md
+  s_3fb22a5f8abdd4::t_a2e53f813d9a78 27-28
+  s_3fb22a5f8abdd4::t_abd810bef97d7f 29-30
+skills/config/sokrates-repo-config/references/config-reference.md
+  s_3fb22a5f8abdd4::t_a2e53f813d9a78 21,86,92-103,152-153
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "cf39924d9dc8bd0b235ae7bf6f0d613eb9cd7875",
+  "prompts": {},
+  "sessions": {
+    "s_3fb22a5f8abdd4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6675bcd7-0e88-4469-8a48-6960b480b641",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

@@ -55,6 +55,6 @@ When unsure whether two names are drift or a deliberate context translation, pre
 
 ## Output
 
-Follow the core workflow: write `_sokrates/findings/ai-insights/domain-language-scan.json`, validate until OK, render the explorer, report leading with the vocabulary in one paragraph (the system's ten nouns and how they relate) and any drift findings.
+Follow the core workflow: write `_sokrates/reports/ai-insights/domain-language-scan.json`, validate until OK, render the explorer, report leading with the vocabulary in one paragraph (the system's ten nouns and how they relate) and any drift findings.
 
 Use these `stats` keys where they apply (canonical, counting things in the domain, never findings — example numbers fictional): `concepts_defined` (distinct concepts, counted inside clustered entries too), `contexts_mapped`, `capability_families_mapped` (families, i.e. `capabilities` findings' subjects — not CLI subcommands), `drift_pairs_found`, e.g. `{"concepts_defined": 99, "contexts_mapped": 9, "capability_families_mapped": 9, "drift_pairs_found": 9}`. Add extras freely alongside.

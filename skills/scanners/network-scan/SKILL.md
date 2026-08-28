@@ -22,7 +22,7 @@ Every network call is a dependency on something the program does not control. Th
 - **`security-scan`** owns TLS verification disabled, hardcoded credentials in URLs; note and cross-reference, do not audit.
 - **`performance-scan`** owns N+1 calls and connection cost.
 
-**Cross-referencing.** List existing ids first (`grep -h '"id"' _sokrates/findings/ai-insights/*.json --exclude=combined-report.json`) and reference siblings as `sokrates_refs: ["finding:<scanner>/<group>/<slug>"]` — only ids you saw. Never copy another scanner's evidence blocks.
+**Cross-referencing.** List existing ids first (`grep -h '"id"' _sokrates/reports/ai-insights/*.json --exclude=combined-report.json`) and reference siblings as `sokrates_refs: ["finding:<scanner>/<group>/<slug>"]` — only ids you saw. Never copy another scanner's evidence blocks.
 
 ## Workflow
 
@@ -87,7 +87,7 @@ Expect 10–16 findings for a networked client/server or agent runtime; 3–6 fo
 
 ## Output
 
-Follow the core workflow: write `_sokrates/findings/ai-insights/network-scan.json`, validate until OK, render the explorer, re-merge if a combined report exists, report leading with the posture summary (what the software connects to by default and what happens when it cannot, in two sentences) and any above-info findings.
+Follow the core workflow: write `_sokrates/reports/ai-insights/network-scan.json`, validate until OK, render the explorer, re-merge if a combined report exists, report leading with the posture summary (what the software connects to by default and what happens when it cannot, in two sentences) and any above-info findings.
 
 `stats` — copy the script's **facts** under its own keys (omit keys whose shape does not exist in the ecosystem; a fact key you verified to be entirely false positives is omitted and named in `count_notes`), add `count_rule`, and on top:
 

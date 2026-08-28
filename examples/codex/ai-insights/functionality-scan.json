@@ -296,8 +296,7 @@
       ],
       "sokrates_refs": [
         "component:app-server API",
-        "file:codex-rs/app-server-protocol/src/protocol/common.rs",
-        "finding:architecture-scan/boundaries/app-server-protocol-contract"
+        "file:codex-rs/app-server-protocol/src/protocol/common.rs"
       ],
       "attributes": {
         "surfaces": [
@@ -723,8 +722,7 @@
       ],
       "sokrates_refs": [
         "component:extensibility (MCP, plugins, skills, hooks)",
-        "finding:domain-language-scan/capabilities/extensibility-mcp-plugins-skills",
-        "finding:security-design-scan/third-party-trust/mcp-annotation-trust"
+        "finding:domain-language-scan/capabilities/extensibility-mcp-plugins-skills"
       ],
       "attributes": {
         "entry_points": [
@@ -1061,8 +1059,7 @@
         "auth"
       ],
       "sokrates_refs": [
-        "component:auth & identity",
-        "finding:security-design-scan/secrets-data-protection/secret-storage-redaction"
+        "component:auth & identity"
       ],
       "attributes": {
         "entry_points": [
@@ -1455,8 +1452,7 @@
       ],
       "sokrates_refs": [
         "component:persistence (rollout, state, thread-store)",
-        "finding:domain-language-scan/glossary/rollout",
-        "finding:architecture-scan/evolution/rollout-jsonl-to-sqlite-state"
+        "finding:domain-language-scan/glossary/rollout"
       ],
       "attributes": {
         "stores": [

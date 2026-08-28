@@ -21,7 +21,7 @@ This is a **static** review: it infers performance from the shape of the code �
 - **`architecture-scan`** owns the component map and communication style. Use its component names in `sokrates_refs` (or crate/module names when the decomposition is coarser); describe only cost.
 - **`tech-stack-scan`** already names the runtime, async model, DB drivers and caches — read it first rather than rediscovering.
 
-**Cross-referencing.** List existing ids first (`grep -h '"id"' _sokrates/findings/ai-insights/*.json --exclude=combined-report.json`) and reference siblings as `sokrates_refs: ["finding:<scanner>/<group>/<slug>"]` — only ids you saw. Never copy another scanner's evidence blocks.
+**Cross-referencing.** List existing ids first (`grep -h '"id"' _sokrates/reports/ai-insights/*.json --exclude=combined-report.json`) and reference siblings as `sokrates_refs: ["finding:<scanner>/<group>/<slug>"]` — only ids you saw. Never copy another scanner's evidence blocks.
 
 ## Workflow
 
@@ -89,7 +89,7 @@ One finding per mechanism or stage. Cluster by pipeline stage when practices dif
 
 ## Output
 
-Follow the core workflow: write `_sokrates/findings/ai-insights/performance-scan.json`, validate until OK, render the explorer, re-merge if a combined report exists, report leading with the posture summary (what the cost scales with and where it most plausibly goes, in two sentences) and any above-info findings.
+Follow the core workflow: write `_sokrates/reports/ai-insights/performance-scan.json`, validate until OK, render the explorer, re-merge if a combined report exists, report leading with the posture summary (what the cost scales with and where it most plausibly goes, in two sentences) and any above-info findings.
 
 `stats` — copy the script's **facts** under its own keys (never its leads; omit keys whose shape does not exist in the ecosystem; keep a `0` when the shape exists and none was found; omit a count you have verified is wrong for this codebase and say why in `count_notes`) and add `count_rule` from its JSON. The script's `regex_compile_in_loop_sites` and `per_call_allocation_sites` count the whole tree — say in the summary how many of them sit on the hot path. Judgment stats on top:
 

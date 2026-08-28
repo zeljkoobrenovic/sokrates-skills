@@ -11,7 +11,7 @@ A codebase's telemetry code is a statement about what its authors expect to go w
 
 ## Workflow
 
-1. Orient per the core skill; use the tech-stack findings (`_sokrates/findings/ai-insights/tech-stack-scan.json`, if present) to learn the telemetry SDKs already identified rather than rediscovering them.
+1. Orient per the core skill; use the tech-stack findings (`_sokrates/reports/ai-insights/tech-stack-scan.json`, if present) to learn the telemetry SDKs already identified rather than rediscovering them.
 2. **Inventory the emission surface by grep, then read the hits that matter.** Search for the ecosystem's signal vocabulary — for Rust: `tracing::`/`info!`/`warn!`/`error!`, `metrics`/`counter`/`histogram`/`Gauge`, `#[instrument]`, `sentry`, `otel`/`opentelemetry`, `panic::set_hook`; for JS/TS: `console.`, `pino`, `winston`, `debug(`, `Sentry.`, `@opentelemetry`; for Python: `logging.`, `structlog`, `sentry_sdk`, `opentelemetry`, `prometheus_client`. Record rough counts (they go in `stats`), then read the *initialization and export* code closely — where the subscriber/provider/exporter is configured is where most of the truth lives.
 3. **Follow the data out.** For each signal type, find where it leaves the process: exporter endpoints, backend SDKs, env vars that enable/point telemetry, file sinks, "no-op unless configured" defaults. Note sampling, batching, and buffering decisions. This is where privacy questions live too: what user content, paths, or identifiers ride along, and what redaction exists.
 4. **Probe the dark spots.** Pick a handful of load-bearing paths (from Sokrates hotspots or the architecture) and check what they emit on failure. Grep for error-swallowing shapes (`let _ =`, empty `catch`, `.ok()` on fallible calls, logged-then-dropped errors) in those paths specifically — a repo-wide count is noise, a swallowed error on the payment path is a finding.
@@ -46,6 +46,6 @@ One finding per practice or posture, not per call site: "HTTP client retries are
 
 ## Output
 
-Follow the core workflow: write `_sokrates/findings/ai-insights/observability-scan.json`, validate until OK, render the explorer, report leading with the posture summary (what this system can see about itself, in two sentences) and any above-info findings.
+Follow the core workflow: write `_sokrates/reports/ai-insights/observability-scan.json`, validate until OK, render the explorer, report leading with the posture summary (what this system can see about itself, in two sentences) and any above-info findings.
 
 Use these `stats` keys where they apply (canonical, so re-runs and dashboards can compare): `log_call_sites`, `metric_call_sites`, `instrumented_fns`, `exporters` (list), and `telemetry_default` — an object per signal when defaults differ, e.g. `{"logs": "off", "traces": "off", "metrics": "statsig"}`. Add scanner-specific extras freely alongside.

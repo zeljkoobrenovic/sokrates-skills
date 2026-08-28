@@ -26,7 +26,7 @@ This scanner's failure mode is crying wolf. A grep hit is a *candidate*, never a
 - **`network-scan`** and **`storage-scan`** may already cite the sandbox egress proxy, auth headers or secret files; reference their ids and keep the security judgment.
 - Dependency CVE auditing needs a vulnerability database this scanner lacks: do not guess CVE status. Report the *mechanisms* (`cargo-deny`, `npm audit`, Dependabot, lockfile policy) under `third-party-trust`.
 
-**Cross-referencing.** List existing ids first (`grep -h '"id"' _sokrates/findings/ai-insights/*.json --exclude=combined-report.json`) and reference siblings as `sokrates_refs: ["finding:<scanner>/<group>/<slug>"]` — only ids you saw. Never copy another scanner's evidence blocks; every citation is minted from files you read in this run.
+**Cross-referencing.** List existing ids first (`grep -h '"id"' _sokrates/reports/ai-insights/*.json --exclude=combined-report.json`) and reference siblings as `sokrates_refs: ["finding:<scanner>/<group>/<slug>"]` — only ids you saw. Never copy another scanner's evidence blocks; every citation is minted from files you read in this run.
 
 ## Workflow
 
@@ -90,6 +90,6 @@ Strengths are findings: a well-built approval flow documented as `info` is what 
 
 ## Output
 
-Follow the core workflow: write `_sokrates/findings/ai-insights/security-scan.json`, validate until OK, render the explorer, re-merge if a combined report exists, report leading with the verdict sentence (worst confirmed finding, or the clean bill) and the design narrative in three sentences.
+Follow the core workflow: write `_sokrates/reports/ai-insights/security-scan.json`, validate until OK, render the explorer, re-merge if a combined report exists, report leading with the verdict sentence (worst confirmed finding, or the clean bill) and the design narrative in three sentences.
 
 `stats` keys (canonical; counting things checked or designed, never findings): `mechanisms_traced` (enforcement points read, one per mechanism), `escape_hatches` (the union of architecture's list and the switches found here), `unchecked_crossings` (entry points from `trust-map` whose data reaches a sink with no validation or encoding on the way — count crossings, not entry points), `secret_candidates_reviewed`, `categories_swept` and `sweeps_clean`, `unsafe_blocks_total` (occurrences of `unsafe {`, non-test; `unsafe fn`/`unsafe impl` under `unsafe_items`), `unsafe_files` (files with at least one block), `unsafe_blocks_read`, `safety_comments`, `not_covered` (categories this run could not sweep and why — tooling missing, offline; structurally inapplicable categories go in `not_applicable`). The posture finding may reference this scanner's own ids. Add extras freely alongside.

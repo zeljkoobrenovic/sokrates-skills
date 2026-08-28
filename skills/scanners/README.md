@@ -6,7 +6,7 @@ Skills that let AI coding tools (Claude Code and similar) produce additional sem
 
 All scanners share one contract, defined in **`sokrates-scan-core`**:
 
-- **Uniform output** — every scanner writes `_sokrates/findings/ai-insights/<scanner>.json`: grouped findings, each with severity, confidence, and evidence (file + line range + verbatim fragment). Schema: `sokrates-scan-core/schema/findings.schema.json`.
+- **Uniform output** — every scanner writes `_sokrates/reports/ai-insights/<scanner>.json`: grouped findings, each with severity, confidence, and evidence (file + line range + verbatim fragment). Schema: `sokrates-scan-core/schema/findings.schema.json`.
 - **Verifiable evidence** — `scripts/validate_findings.py` mechanically checks each cited snippet against the actual file. A scan is not done until validation passes; this is the guard against hallucinated findings.
 - **Sokrates-aware** — scanners read the existing `_sokrates` data first (components, hotspots, file inventories) and spend AI effort where the numbers point, citing back via `sokrates_refs`.
 - **Uniform reports** — `scripts/render_findings.py` builds the **AI Insights Explorer** (`ai-insights/index.html`, from `templates/insights-explorer.html`): one self-contained interactive HTML page embedding all scanners' findings — overview, per-scanner pages, cross-scanner attention list, filters, search, evidence citations, deep links. No markdown reports.
@@ -36,7 +36,7 @@ All scanners share one contract, defined in **`sokrates-scan-core`**:
 
 ## Usage
 
-Point an AI tool with these skills at a project containing a `_sokrates` analysis and ask, e.g., "run a tech stack scan". Output lands in `<project>/_sokrates/findings/ai-insights/` — open `index.html` there to browse.
+Point an AI tool with these skills at a project containing a `_sokrates` analysis and ask, e.g., "run a tech stack scan". Output lands in `<project>/_sokrates/reports/ai-insights/` — open `index.html` there to browse.
 
 To make the skills available in Claude Code, link or copy them into a skills location, e.g.:
 

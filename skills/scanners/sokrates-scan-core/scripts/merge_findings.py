@@ -17,7 +17,7 @@ Usage:
   python3 merge_findings.py <ai-insights-dir>          [-o combined-report.json]
   python3 merge_findings.py a.json b.json [c.json...]  [-o combined-report.json]
 
-Given `_sokrates/findings/`, the script descends into `ai-insights/`.
+Given `_sokrates/reports/`, the script descends into `ai-insights/`.
 Without -o, writes combined-report.json into that directory (or the first
 file's directory).
 """

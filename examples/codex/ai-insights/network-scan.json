@@ -118,7 +118,6 @@
         "finding:tech-stack-scan/external-services/local-llm-runtimes",
         "finding:functionality-scan/integrations/model-providers",
         "finding:observability-scan/telemetry-pipeline/statsig-metrics-default-on",
-        "finding:security-design-scan/identity-access/auth-credential-flows",
         "component:codex_rs"
       ],
       "attributes": {
@@ -267,11 +266,6 @@
         "listeners",
         "loopback"
       ],
-      "sokrates_refs": [
-        "finding:security-design-scan/identity-access/auth-credential-flows",
-        "finding:security-design-scan/trust-boundaries/network-egress",
-        "finding:architecture-scan/communication/json-rpc-many-transports"
-      ],
       "attributes": {
         "listeners": [
           "stdio (default)",
@@ -358,8 +352,7 @@
         "websocket"
       ],
       "sokrates_refs": [
-        "finding:reliability-scan/recovery/outgoing-retry-policies",
-        "finding:architecture-scan/communication/json-rpc-many-transports"
+        "finding:reliability-scan/recovery/outgoing-retry-policies"
       ]
     },
     {
@@ -390,8 +383,7 @@
       "sokrates_refs": [
         "finding:reliability-scan/isolation/mcp-server-timeouts",
         "finding:tech-stack-scan/protocols-formats/mcp",
-        "finding:functionality-scan/features/mcp-client",
-        "finding:security-design-scan/third-party-trust/mcp-annotation-trust"
+        "finding:functionality-scan/features/mcp-client"
       ]
     },
     {
@@ -505,7 +497,6 @@
       ],
       "sokrates_refs": [
         "finding:tech-stack-scan/libraries/rustls-aws-lc",
-        "finding:security-scan/crypto/randomness-and-tls",
         "finding:observability-scan/telemetry-pipeline/configurable-otlp-export"
       ],
       "attributes": {
@@ -552,7 +543,6 @@
         "env-vars"
       ],
       "sokrates_refs": [
-        "finding:security-design-scan/trust-boundaries/network-egress",
         "finding:observability-scan/health-diagnostics/codex-doctor"
       ],
       "attributes": {
@@ -635,8 +625,7 @@
         "base-url"
       ],
       "sokrates_refs": [
-        "finding:functionality-scan/entry-points/configuration-and-instruction-files",
-        "finding:security-design-scan/identity-access/managed-requirements"
+        "finding:functionality-scan/entry-points/configuration-and-instruction-files"
       ],
       "attributes": {
         "precedence_model_api": "model_providers.<id>.base_url > auth-mode default (chatgpt.com/backend-api/codex | api.openai.com/v1)",
@@ -804,8 +793,6 @@
       ],
       "sokrates_refs": [
         "finding:functionality-scan/data/what-leaves-the-machine",
-        "finding:security-design-scan/trust-boundaries/boundary-map",
-        "finding:security-design-scan/secrets-data-protection/secret-storage-redaction",
         "finding:observability-scan/telemetry-pipeline/analytics-events-backend",
         "finding:observability-scan/error-reporting/sentry-consent-based-feedback"
       ]
@@ -841,7 +828,6 @@
         "finding:network-scan/connection-management/proxy-support",
         "finding:network-scan/connection-management/timeouts",
         "finding:network-scan/topology/endpoints",
-        "finding:security-design-scan/trust-boundaries/network-egress",
         "finding:reliability-scan/reliability-posture/synthesis"
       ]
     }

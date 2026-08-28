@@ -8,7 +8,7 @@ Generates one calm, mostly text-free illustration per scanner summary with Googl
 
 ```bash
 export GEMINI_API_KEY=...          # GOOGLE_API_KEY also accepted
-python3 skills/illustrators/generate_summary_visuals.py path/to/_sokrates/findings/ai-insights
+python3 skills/illustrators/generate_summary_visuals.py path/to/_sokrates/reports/ai-insights
 ```
 
 For every `<scanner>.json` with a `summary` it:

@@ -761,7 +761,6 @@
       "sokrates_refs": [
         "component:sandboxing & policy",
         "component:extensibility (MCP, plugins, skills, hooks)",
-        "finding:security-scan/injection/shell-command-construction",
         "finding:reliability-scan/isolation/child-process-containment"
       ]
     },
@@ -804,8 +803,7 @@
       ],
       "sokrates_refs": [
         "component:sandboxing & policy",
-        "finding:tech-stack-scan/libraries/sandboxing-primitives",
-        "finding:security-scan/unsafe-code/dynamic-execution-contained"
+        "finding:tech-stack-scan/libraries/sandboxing-primitives"
       ]
     },
     {
@@ -885,8 +883,7 @@
       ],
       "sokrates_refs": [
         "component:CLI & headless frontends",
-        "component:sandboxing & policy",
-        "finding:security-scan/audit-coverage/sweep-coverage"
+        "component:sandboxing & policy"
       ]
     },
     {

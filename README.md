@@ -37,7 +37,7 @@ skills/
 | `risk-synthesis-scan` | Sokrates hotspots explained: what each risky file does, knowledge risk, change coupling |
 | `evolution-scan` | the history as a story: eras, growth, focus shift, people, module lifecycle, trajectory |
 
-Every finding carries file + line + verbatim snippet evidence that a script verifies against the tree — a scan is not finished until validation passes. Results land in `<project>/_sokrates/findings/ai-insights/` as JSON plus `index.html`, the **AI Insights Explorer**: overview, per-scanner pages, cross-scanner attention list, filters, search, evidence citations, deep links.
+Every finding carries file + line + verbatim snippet evidence that a script verifies against the tree — a scan is not finished until validation passes. Results land in `<project>/_sokrates/reports/ai-insights/` as JSON plus `index.html`, the **AI Insights Explorer**: overview, per-scanner pages, cross-scanner attention list, filters, search, evidence citations, deep links.
 
 ### Configuration skills (`skills/config/`)
 
@@ -86,12 +86,12 @@ Typical sequence in a project:
 
 1. `sokrates init`, `sokrates extractGitHistory`, `sokrates generateReports`
 2. refine the configuration with the config skills ("check the Sokrates configuration", "define meaningful components", "which features of interest should Sokrates track?", "merge duplicate contributors"), then `sokrates generateReports` again
-3. run the scanners ("run a full scan") — results in `_sokrates/findings/ai-insights/index.html`
-4. optionally illustrate the summaries: `GEMINI_API_KEY=... python3 skills/illustrators/generate_summary_visuals.py <project>/_sokrates/findings/ai-insights`
+3. run the scanners ("run a full scan") — results in `_sokrates/reports/ai-insights/index.html`
+4. optionally illustrate the summaries: `GEMINI_API_KEY=... python3 skills/illustrators/generate_summary_visuals.py <project>/_sokrates/reports/ai-insights`
 5. embed the explorer in the main Sokrates report, once, then regenerate to see the new tab:
 
 ```bash
-java -jar sokrates.jar addCustomTab -label "AI Insights*" -iframeLink "../../findings/ai-insights/index.html"
+java -jar sokrates.jar addCustomTab -label "AI Insights*" -iframeLink "../ai-insights/index.html"
 java -jar sokrates.jar generateReports
 ```
 

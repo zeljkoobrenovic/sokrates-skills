@@ -103,7 +103,7 @@ Verdicts are `info` regardless of grade — the grade *is* the message and the a
 
 ## Output
 
-Follow the core workflow: write `_sokrates/findings/ai-insights/maintainability-scan.json`, validate until OK, render the explorer, re-merge if a combined report exists, report leading with the five grades in one line and the costliest component.
+Follow the core workflow: write `_sokrates/reports/ai-insights/maintainability-scan.json`, validate until OK, render the explorer, re-merge if a combined report exists, report leading with the five grades in one line and the costliest component.
 
 `stats` — copy the script's `stats.system`, `provenance` and `data_gaps` verbatim, and for each *major* component the fields you graded from (not the whole table — it stays in the scratch JSON); add:
 

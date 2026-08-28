@@ -264,7 +264,7 @@ def render(insights_dir: Path) -> bool:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0],
                                  formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
-    ap.add_argument("target", help="_sokrates/findings or _sokrates/findings/ai-insights folder")
+    ap.add_argument("target", help="_sokrates/reports or _sokrates/reports/ai-insights folder")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--force", action="store_true", help="regenerate existing images")
     ap.add_argument("--only", action="append", default=[], metavar="SCANNER")

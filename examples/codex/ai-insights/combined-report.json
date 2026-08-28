@@ -833,7 +833,6 @@
       "sokrates_refs": [
         "component:sandboxing & policy",
         "component:extensibility (MCP, plugins, skills, hooks)",
-        "finding:security-scan/injection/shell-command-construction",
         "finding:reliability-scan/isolation/child-process-containment"
       ]
     },
@@ -876,8 +875,7 @@
       ],
       "sokrates_refs": [
         "component:sandboxing & policy",
-        "finding:tech-stack-scan/libraries/sandboxing-primitives",
-        "finding:security-scan/unsafe-code/dynamic-execution-contained"
+        "finding:tech-stack-scan/libraries/sandboxing-primitives"
       ]
     },
     {
@@ -957,8 +955,7 @@
       ],
       "sokrates_refs": [
         "component:CLI & headless frontends",
-        "component:sandboxing & policy",
-        "finding:security-scan/audit-coverage/sweep-coverage"
+        "component:sandboxing & policy"
       ]
     },
     {
@@ -3834,8 +3831,7 @@
       ],
       "sokrates_refs": [
         "component:app-server API",
-        "file:codex-rs/app-server-protocol/src/protocol/common.rs",
-        "finding:architecture-scan/boundaries/app-server-protocol-contract"
+        "file:codex-rs/app-server-protocol/src/protocol/common.rs"
       ],
       "attributes": {
         "surfaces": [
@@ -4261,8 +4257,7 @@
       ],
       "sokrates_refs": [
         "component:extensibility (MCP, plugins, skills, hooks)",
-        "finding:domain-language-scan/capabilities/extensibility-mcp-plugins-skills",
-        "finding:security-design-scan/third-party-trust/mcp-annotation-trust"
+        "finding:domain-language-scan/capabilities/extensibility-mcp-plugins-skills"
       ],
       "attributes": {
         "entry_points": [
@@ -4599,8 +4594,7 @@
         "auth"
       ],
       "sokrates_refs": [
-        "component:auth & identity",
-        "finding:security-design-scan/secrets-data-protection/secret-storage-redaction"
+        "component:auth & identity"
       ],
       "attributes": {
         "entry_points": [
@@ -4993,8 +4987,7 @@
       ],
       "sokrates_refs": [
         "component:persistence (rollout, state, thread-store)",
-        "finding:domain-language-scan/glossary/rollout",
-        "finding:architecture-scan/evolution/rollout-jsonl-to-sqlite-state"
+        "finding:domain-language-scan/glossary/rollout"
       ],
       "attributes": {
         "stores": [
@@ -6252,7 +6245,6 @@
         "finding:tech-stack-scan/external-services/local-llm-runtimes",
         "finding:functionality-scan/integrations/model-providers",
         "finding:observability-scan/telemetry-pipeline/statsig-metrics-default-on",
-        "finding:security-design-scan/identity-access/auth-credential-flows",
         "component:codex_rs"
       ],
       "attributes": {
@@ -6401,11 +6393,6 @@
         "listeners",
         "loopback"
       ],
-      "sokrates_refs": [
-        "finding:security-design-scan/identity-access/auth-credential-flows",
-        "finding:security-design-scan/trust-boundaries/network-egress",
-        "finding:architecture-scan/communication/json-rpc-many-transports"
-      ],
       "attributes": {
         "listeners": [
           "stdio (default)",
@@ -6492,8 +6479,7 @@
         "websocket"
       ],
       "sokrates_refs": [
-        "finding:reliability-scan/recovery/outgoing-retry-policies",
-        "finding:architecture-scan/communication/json-rpc-many-transports"
+        "finding:reliability-scan/recovery/outgoing-retry-policies"
       ]
     },
     {
@@ -6524,8 +6510,7 @@
       "sokrates_refs": [
         "finding:reliability-scan/isolation/mcp-server-timeouts",
         "finding:tech-stack-scan/protocols-formats/mcp",
-        "finding:functionality-scan/features/mcp-client",
-        "finding:security-design-scan/third-party-trust/mcp-annotation-trust"
+        "finding:functionality-scan/features/mcp-client"
       ]
     },
     {
@@ -6639,7 +6624,6 @@
       ],
       "sokrates_refs": [
         "finding:tech-stack-scan/libraries/rustls-aws-lc",
-        "finding:security-scan/crypto/randomness-and-tls",
         "finding:observability-scan/telemetry-pipeline/configurable-otlp-export"
       ],
       "attributes": {
@@ -6686,7 +6670,6 @@
         "env-vars"
       ],
       "sokrates_refs": [
-        "finding:security-design-scan/trust-boundaries/network-egress",
         "finding:observability-scan/health-diagnostics/codex-doctor"
       ],
       "attributes": {
@@ -6769,8 +6752,7 @@
         "base-url"
       ],
       "sokrates_refs": [
-        "finding:functionality-scan/entry-points/configuration-and-instruction-files",
-        "finding:security-design-scan/identity-access/managed-requirements"
+        "finding:functionality-scan/entry-points/configuration-and-instruction-files"
       ],
       "attributes": {
         "precedence_model_api": "model_providers.<id>.base_url > auth-mode default (chatgpt.com/backend-api/codex | api.openai.com/v1)",
@@ -6938,8 +6920,6 @@
       ],
       "sokrates_refs": [
         "finding:functionality-scan/data/what-leaves-the-machine",
-        "finding:security-design-scan/trust-boundaries/boundary-map",
-        "finding:security-design-scan/secrets-data-protection/secret-storage-redaction",
         "finding:observability-scan/telemetry-pipeline/analytics-events-backend",
         "finding:observability-scan/error-reporting/sentry-consent-based-feedback"
       ]
@@ -6975,7 +6955,6 @@
         "finding:network-scan/connection-management/proxy-support",
         "finding:network-scan/connection-management/timeouts",
         "finding:network-scan/topology/endpoints",
-        "finding:security-design-scan/trust-boundaries/network-egress",
         "finding:reliability-scan/reliability-posture/synthesis"
       ]
     },
@@ -7506,8 +7485,7 @@
       ],
       "sokrates_refs": [
         "component:core engine",
-        "finding:functionality-scan/purpose/what-codex-is",
-        "finding:architecture-scan/communication/sq-eq-queue-pair"
+        "finding:functionality-scan/purpose/what-codex-is"
       ],
       "attributes": {
         "system_kind": "interactive agent runtime",
@@ -8489,8 +8467,7 @@
       ],
       "sokrates_refs": [
         "component:exec",
-        "component:tui",
-        "finding:architecture-scan/boundaries/sdk-exec-jsonl-contract"
+        "component:tui"
       ]
     },
     {
@@ -8617,8 +8594,7 @@
         "timeout"
       ],
       "sokrates_refs": [
-        "component:core",
-        "finding:security-design-scan/sandboxing-isolation/os-sandbox-layers"
+        "component:core"
       ]
     },
     {
@@ -8654,8 +8630,7 @@
         "plugins"
       ],
       "sokrates_refs": [
-        "component:codex-mcp",
-        "finding:security-design-scan/third-party-trust/mcp-annotation-trust"
+        "component:codex-mcp"
       ]
     },
     {
@@ -8691,8 +8666,7 @@
         "isolation"
       ],
       "sokrates_refs": [
-        "component:core",
-        "finding:architecture-scan/communication/sq-eq-queue-pair"
+        "component:core"
       ]
     },
     {
@@ -8825,8 +8799,7 @@
         "guardian"
       ],
       "sokrates_refs": [
-        "component:core",
-        "finding:security-design-scan/identity-access/approval-model"
+        "component:core"
       ]
     },
     {
@@ -8871,7 +8844,6 @@
       "sokrates_refs": [
         "component:rollout",
         "component:core",
-        "finding:architecture-scan/evolution/rollout-jsonl-to-sqlite-state",
         "finding:tech-stack-scan/databases-storage/sqlite-sqlx"
       ]
     },
@@ -9043,7 +9015,6 @@
         "finding:reliability-scan/isolation/turn-task-panic-never-observed",
         "finding:reliability-scan/handling/rollout-resume-skips-malformed-lines",
         "finding:reliability-scan/handling/unwrap-residue-tui-onboarding",
-        "finding:security-design-scan/security-posture/synthesis",
         "finding:observability-scan/monitoring-posture/operator-visibility"
       ]
     },
@@ -10999,7 +10970,6 @@
       ],
       "sokrates_refs": [
         "finding:domain-language-scan/glossary/rollout",
-        "finding:architecture-scan/evolution/rollout-jsonl-to-sqlite-state",
         "finding:reliability-scan/resources/rollout-writer-buffer-and-retry",
         "finding:performance-scan/io-and-memory/output-writing",
         "component:codex_rs"
@@ -11093,8 +11063,7 @@
         "transactions"
       ],
       "sokrates_refs": [
-        "finding:tech-stack-scan/databases-storage/sqlite-sqlx",
-        "finding:architecture-scan/components/component-map"
+        "finding:tech-stack-scan/databases-storage/sqlite-sqlx"
       ]
     },
     {
@@ -11335,7 +11304,6 @@
         "in-place-write"
       ],
       "sokrates_refs": [
-        "finding:security-design-scan/secrets-data-protection/secret-storage-redaction",
         "finding:reliability-scan/resources/atomic-writes-and-sqlite-durability"
       ]
     },
@@ -11517,8 +11485,7 @@
         "finding:storage-scan/schema-and-format/format-versioning",
         "finding:storage-scan/integrity/auth-json-overwrite",
         "finding:storage-scan/lifecycle/retention-session-rollouts",
-        "finding:reliability-scan/reliability-posture/synthesis",
-        "finding:architecture-scan/evolution/rollout-jsonl-to-sqlite-state"
+        "finding:reliability-scan/reliability-posture/synthesis"
       ]
     },
     {
@@ -13045,8 +13012,7 @@
         "component:core engine",
         "component:app-server API",
         "component:protocol (shared vocabulary)",
-        "component:sandboxing & policy",
-        "finding:architecture-scan/components/component-map"
+        "component:sandboxing & policy"
       ],
       "attributes": {
         "path_based": {
@@ -13319,7 +13285,6 @@
       "sokrates_refs": [
         "component:protocol (shared vocabulary)",
         "metric:loc",
-        "finding:architecture-scan/boundaries/codex-protocol-vocabulary",
         "finding:risk-synthesis-scan/change-coupling/environment-config"
       ],
       "attributes": {
@@ -13479,8 +13444,7 @@
         "wiremock"
       ],
       "sokrates_refs": [
-        "finding:tech-stack-scan/frameworks/test-frameworks",
-        "finding:architecture-scan/style/ui-as-app-server-client"
+        "finding:tech-stack-scan/frameworks/test-frameworks"
       ],
       "attributes": {
         "mock_boundary": "OpenAI Responses API (HTTP SSE + websocket), models catalog, plugin marketplace, analytics endpoint, MCP servers",
@@ -13719,8 +13683,7 @@
       ],
       "sokrates_refs": [
         "component:core engine",
-        "component:app-server API",
-        "finding:architecture-scan/violations/test-only-core-extension-cycles"
+        "component:app-server API"
       ],
       "attributes": {
         "crates": [
@@ -13787,8 +13750,7 @@
         "insta"
       ],
       "sokrates_refs": [
-        "component:TUI frontend",
-        "finding:architecture-scan/boundaries/app-server-protocol-contract"
+        "component:TUI frontend"
       ],
       "attributes": {
         "snapshot_files": 737,

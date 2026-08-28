@@ -287,8 +287,7 @@
       ],
       "sokrates_refs": [
         "component:exec",
-        "component:tui",
-        "finding:architecture-scan/boundaries/sdk-exec-jsonl-contract"
+        "component:tui"
       ]
     },
     {
@@ -415,8 +414,7 @@
         "timeout"
       ],
       "sokrates_refs": [
-        "component:core",
-        "finding:security-design-scan/sandboxing-isolation/os-sandbox-layers"
+        "component:core"
       ]
     },
     {
@@ -452,8 +450,7 @@
         "plugins"
       ],
       "sokrates_refs": [
-        "component:codex-mcp",
-        "finding:security-design-scan/third-party-trust/mcp-annotation-trust"
+        "component:codex-mcp"
       ]
     },
     {
@@ -489,8 +486,7 @@
         "isolation"
       ],
       "sokrates_refs": [
-        "component:core",
-        "finding:architecture-scan/communication/sq-eq-queue-pair"
+        "component:core"
       ]
     },
     {
@@ -623,8 +619,7 @@
         "guardian"
       ],
       "sokrates_refs": [
-        "component:core",
-        "finding:security-design-scan/identity-access/approval-model"
+        "component:core"
       ]
     },
     {
@@ -669,7 +664,6 @@
       "sokrates_refs": [
         "component:rollout",
         "component:core",
-        "finding:architecture-scan/evolution/rollout-jsonl-to-sqlite-state",
         "finding:tech-stack-scan/databases-storage/sqlite-sqlx"
       ]
     },
@@ -841,7 +835,6 @@
         "finding:reliability-scan/isolation/turn-task-panic-never-observed",
         "finding:reliability-scan/handling/rollout-resume-skips-malformed-lines",
         "finding:reliability-scan/handling/unwrap-residue-tui-onboarding",
-        "finding:security-design-scan/security-posture/synthesis",
         "finding:observability-scan/monitoring-posture/operator-visibility"
       ]
     }

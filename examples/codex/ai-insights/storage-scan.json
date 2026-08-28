@@ -258,7 +258,6 @@
       ],
       "sokrates_refs": [
         "finding:domain-language-scan/glossary/rollout",
-        "finding:architecture-scan/evolution/rollout-jsonl-to-sqlite-state",
         "finding:reliability-scan/resources/rollout-writer-buffer-and-retry",
         "finding:performance-scan/io-and-memory/output-writing",
         "component:codex_rs"
@@ -352,8 +351,7 @@
         "transactions"
       ],
       "sokrates_refs": [
-        "finding:tech-stack-scan/databases-storage/sqlite-sqlx",
-        "finding:architecture-scan/components/component-map"
+        "finding:tech-stack-scan/databases-storage/sqlite-sqlx"
       ]
     },
     {
@@ -594,7 +592,6 @@
         "in-place-write"
       ],
       "sokrates_refs": [
-        "finding:security-design-scan/secrets-data-protection/secret-storage-redaction",
         "finding:reliability-scan/resources/atomic-writes-and-sqlite-durability"
       ]
     },
@@ -776,8 +773,7 @@
         "finding:storage-scan/schema-and-format/format-versioning",
         "finding:storage-scan/integrity/auth-json-overwrite",
         "finding:storage-scan/lifecycle/retention-session-rollouts",
-        "finding:reliability-scan/reliability-posture/synthesis",
-        "finding:architecture-scan/evolution/rollout-jsonl-to-sqlite-state"
+        "finding:reliability-scan/reliability-posture/synthesis"
       ]
     }
   ],

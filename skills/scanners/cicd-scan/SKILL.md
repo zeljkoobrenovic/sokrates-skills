@@ -52,6 +52,6 @@ State absences at the severity of their consequence, but only when the absence i
 
 ## Output
 
-Follow the core workflow: write `_sokrates/findings/ai-insights/cicd-scan.json`, validate until OK, render the explorer, report leading with the one-paragraph lifecycle narrative and any above-info findings.
+Follow the core workflow: write `_sokrates/reports/ai-insights/cicd-scan.json`, validate until OK, render the explorer, report leading with the one-paragraph lifecycle narrative and any above-info findings.
 
 Use these `stats` keys where they apply (canonical, so re-runs compare): `workflows`, `scheduled`, `tag_trigger_families`, `publish_targets` (list), e.g. `{"workflows": 27, "scheduled": 2, "tag_trigger_families": 4, "publish_targets": ["npm", "R2", "WinGet"]}`. Do not count jobs — matrix expansion makes the number ill-defined and expensive; add other extras freely alongside.

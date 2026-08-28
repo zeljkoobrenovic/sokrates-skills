@@ -22,7 +22,7 @@ Tests are the executable statement of what a team promised itself would keep wor
 - **`architecture-scan`** names the components; use its names and the Sokrates `aspect_component_*` file lists for the per-component ratio.
 - **`tech-stack-scan`** names the test frameworks; do not re-inventory, describe how they are used.
 
-**Cross-referencing.** List existing ids first (`grep -h '"id"' _sokrates/findings/ai-insights/*.json --exclude=combined-report.json`) and reference siblings as `sokrates_refs: ["finding:<scanner>/<group>/<slug>"]` — only ids you saw. Never copy another scanner's evidence blocks.
+**Cross-referencing.** List existing ids first (`grep -h '"id"' _sokrates/reports/ai-insights/*.json --exclude=combined-report.json`) and reference siblings as `sokrates_refs: ["finding:<scanner>/<group>/<slug>"]` — only ids you saw. Never copy another scanner's evidence blocks.
 
 ## Workflow
 
@@ -84,7 +84,7 @@ One finding per layer, component, mechanism or gap — not per test file. Expect
 
 ## Output
 
-Follow the core workflow: write `_sokrates/findings/ai-insights/testing-scan.json`, validate until OK, render the explorer, re-merge if a combined report exists, report leading with the posture summary (what a green run proves and the biggest gap, in two sentences) and any above-info findings.
+Follow the core workflow: write `_sokrates/reports/ai-insights/testing-scan.json`, validate until OK, render the explorer, re-merge if a combined report exists, report leading with the posture summary (what a green run proves and the biggest gap, in two sentences) and any above-info findings.
 
 `stats` — copy the script's **facts** under its own keys (zeros included; omit keys whose shape does not exist in the ecosystem; a fact key you verified as false positives is omitted and named in `count_notes`), add `count_rule`, and on top:
 

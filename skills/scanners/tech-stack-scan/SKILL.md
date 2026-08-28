@@ -1,6 +1,6 @@
 ---
 name: tech-stack-scan
-description: Deep technology-stack scan of a codebase with (or without) a Sokrates analysis - identifies languages, frameworks, libraries, build tooling, CI/CD, infrastructure, databases, external services and protocols, each backed by file/line evidence, and writes a validated findings report into _sokrates/findings/ai-insights/. Use whenever the user asks what technologies/libraries/frameworks/infra a codebase uses, asks for a tech inventory, tech radar input, dependency overview, or a "deep tech scan", or when another analysis needs a reliable picture of the stack first.
+description: Deep technology-stack scan of a codebase with (or without) a Sokrates analysis - identifies languages, frameworks, libraries, build tooling, CI/CD, infrastructure, databases, external services and protocols, each backed by file/line evidence, and writes a validated findings report into _sokrates/reports/ai-insights/. Use whenever the user asks what technologies/libraries/frameworks/infra a codebase uses, asks for a tech inventory, tech radar input, dependency overview, or a "deep tech scan", or when another analysis needs a reliable picture of the stack first.
 ---
 
 # Tech stack deep scan
@@ -62,6 +62,6 @@ Most findings are `severity: info`. Raise severity (and add a `recommendation`) 
 
 ## Output
 
-Follow the core workflow: write `_sokrates/findings/ai-insights/tech-stack-scan.json` (`scanner: "tech-stack-scan"`, `scanner_version: "1.0"`), validate until OK, render the explorer, then report to the user leading with a stack summary (the two-sentence "what is this built with") and the attention items.
+Follow the core workflow: write `_sokrates/reports/ai-insights/tech-stack-scan.json` (`scanner: "tech-stack-scan"`, `scanner_version: "1.0"`), validate until OK, render the explorer, then report to the user leading with a stack summary (the two-sentence "what is this built with") and the attention items.
 
 Put ecosystem totals into `stats`, e.g. `{"direct_dependencies": {"cargo": 143, "npm": 27}, "manifest_files": 12}`.

@@ -27,20 +27,20 @@ Scanners within a wave are independent — run them in parallel (as subagents) w
 ## Procedure
 
 1. **Shared setup, once.** Read `_sokrates/config.json`; unzip `reports/data/data.zip` to the scratch directory once and pass that path to every scanner run. Fix the shared parameters up front so all fifteen findings files agree: `target.name`, `target.src_root`, `analyzed_at` (one value for the whole suite), `target.commit` if a git checkout.
-2. **Re-scan detection.** If `_sokrates/findings/ai-insights/<scanner>.json` files already exist with an older `analyzed_at`, copy them to the scratch directory *before* overwriting — they are the diff baseline.
+2. **Re-scan detection.** If `_sokrates/reports/ai-insights/<scanner>.json` files already exist with an older `analyzed_at`, copy them to the scratch directory *before* overwriting — they are the diff baseline.
 3. **Run the waves.** For each scanner: execute its SKILL.md, validate until OK, render the explorer. A scanner that cannot pass validation ships with its unverifiable findings dropped or downgraded per the core rules — never ship a failing file.
 4. **Merge:**
    ```bash
-   python3 <core-skill-path>/scripts/merge_findings.py _sokrates/findings/ai-insights/
-   python3 <core-skill-path>/scripts/render_findings.py _sokrates/findings/ai-insights/
+   python3 <core-skill-path>/scripts/merge_findings.py _sokrates/reports/ai-insights/
+   python3 <core-skill-path>/scripts/render_findings.py _sokrates/reports/ai-insights/
    ```
    and validate the produced `combined-report.json` (it should re-verify in full). The render call is the final one — it rebuilds the explorer with every scanner's file present.
 5. **Diff on re-runs.** For each baseline saved in step 2:
    ```bash
-   python3 <core-skill-path>/scripts/diff_findings.py <scratch>/<scanner>.json _sokrates/findings/ai-insights/<scanner>.json
+   python3 <core-skill-path>/scripts/diff_findings.py <scratch>/<scanner>.json _sokrates/reports/ai-insights/<scanner>.json
    ```
    Collect the new / resolved / changed items across scanners — on a re-scan these, not the full inventory, are the headline.
-6. **Report.** Lead with the combined attention table (severity above info, all scanners), then per-scanner one-liners with validation results ("N/N verified"), then (re-runs) the cross-scanner diff summary. Point at `_sokrates/findings/ai-insights/index.html` (the explorer) and `combined-report.json` as the artifacts of record.
+6. **Report.** Lead with the combined attention table (severity above info, all scanners), then per-scanner one-liners with validation results ("N/N verified"), then (re-runs) the cross-scanner diff summary. Point at `_sokrates/reports/ai-insights/index.html` (the explorer) and `combined-report.json` as the artifacts of record.
 
 ## Budget guidance
 

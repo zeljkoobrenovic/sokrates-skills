@@ -21,7 +21,7 @@ Every codebase encodes a theory of failure: which errors its authors expected, w
 - **`architecture-scan`** owns the component map and runtime communication. Use its component names in `sokrates_refs` — or crate/module names when the Sokrates decomposition is coarser than the code. Describe only failure behaviour.
 - Crash safety of persisted state (atomic writes, fsync, half-written files, cleanup after failed writes) is **owned here** under `resources` — it is routinely the most actionable finding. Limits that bound *cost* rather than protect correctness belong to a performance scanner.
 
-**Cross-referencing.** Before writing, list the ids already present (`grep -h '"id"' _sokrates/findings/ai-insights/*.json --exclude=combined-report.json`) and reference a sibling finding as `sokrates_refs: ["finding:<scanner>/<group>/<slug>"]` — only ids you saw, never guessed. Prior scanners' evidence blocks are never copied; every citation is minted from files you read in this run.
+**Cross-referencing.** Before writing, list the ids already present (`grep -h '"id"' _sokrates/reports/ai-insights/*.json --exclude=combined-report.json`) and reference a sibling finding as `sokrates_refs: ["finding:<scanner>/<group>/<slug>"]` — only ids you saw, never guessed. Prior scanners' evidence blocks are never copied; every citation is minted from files you read in this run.
 
 ## Workflow
 
@@ -87,7 +87,7 @@ One finding per practice, mechanism, or boundary — not per call site. Cluster 
 
 ## Output
 
-Follow the core workflow: write `_sokrates/findings/ai-insights/reliability-scan.json`, validate until OK, render the explorer, re-merge if a combined report exists, report leading with the posture summary (how this system behaves when its main dependencies fail, and how far one failure spreads, in two sentences) and any above-info findings.
+Follow the core workflow: write `_sokrates/reports/ai-insights/reliability-scan.json`, validate until OK, render the explorer, re-merge if a combined report exists, report leading with the posture summary (how this system behaves when its main dependencies fail, and how far one failure spreads, in two sentences) and any above-info findings.
 
 `stats` — copy the script's **facts** under its own keys (never its leads; omit keys that do not apply to the ecosystem; no zeros or nulls for "not applicable") and add `count_rule` from its JSON. Judgment stats on top:
 

@@ -11,7 +11,7 @@ Usage:
   python3 render_findings.py <findings-or-ai-insights-dir> [-o index.html] [--template path]
   python3 render_findings.py <scanner.json> [...]                  (explicit files)
 
-Given `_sokrates/findings/`, the script descends into its `ai-insights/`
+Given `_sokrates/reports/`, the script descends into its `ai-insights/`
 subfolder (creating the explorer there); given the `ai-insights/` folder
 itself, it uses it directly. A previous combined-report.json is skipped —
 the explorer builds its own cross-scanner views.

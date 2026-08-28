@@ -38,4 +38,4 @@ When the same rules apply to a whole organisation, do not hand-edit each config:
 - Prefer classifying over ignoring: ignored files disappear from every report; a `generated` or `other` file still counts in the inventory and can be reasoned about.
 - Do not touch `srcRoot` unless the config lives outside the repository; the default `..` is right for `<repo>/_sokrates/config.json`.
 - Keys not in the reference do nothing. In particular `trendAnalysis`, `compareResultsWith`, `excludeFiles`, `maxFileSize` are documentation ghosts.
-- After changing the config, existing `_sokrates/findings/ai-insights/*.json` from AI scanners may cite components that no longer exist — re-run the scanners after the next `generateReports` when component names changed.
+- After changing the config, existing `_sokrates/reports/ai-insights/*.json` from AI scanners may cite components that no longer exist — re-run the scanners after the next `generateReports` when component names changed.

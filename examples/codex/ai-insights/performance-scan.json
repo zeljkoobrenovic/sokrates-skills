@@ -91,8 +91,7 @@
       ],
       "sokrates_refs": [
         "component:core engine",
-        "finding:functionality-scan/purpose/what-codex-is",
-        "finding:architecture-scan/communication/sq-eq-queue-pair"
+        "finding:functionality-scan/purpose/what-codex-is"
       ],
       "attributes": {
         "system_kind": "interactive agent runtime",

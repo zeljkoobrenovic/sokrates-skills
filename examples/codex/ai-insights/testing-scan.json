@@ -240,8 +240,7 @@
         "component:core engine",
         "component:app-server API",
         "component:protocol (shared vocabulary)",
-        "component:sandboxing & policy",
-        "finding:architecture-scan/components/component-map"
+        "component:sandboxing & policy"
       ],
       "attributes": {
         "path_based": {
@@ -514,7 +513,6 @@
       "sokrates_refs": [
         "component:protocol (shared vocabulary)",
         "metric:loc",
-        "finding:architecture-scan/boundaries/codex-protocol-vocabulary",
         "finding:risk-synthesis-scan/change-coupling/environment-config"
       ],
       "attributes": {
@@ -674,8 +672,7 @@
         "wiremock"
       ],
       "sokrates_refs": [
-        "finding:tech-stack-scan/frameworks/test-frameworks",
-        "finding:architecture-scan/style/ui-as-app-server-client"
+        "finding:tech-stack-scan/frameworks/test-frameworks"
       ],
       "attributes": {
         "mock_boundary": "OpenAI Responses API (HTTP SSE + websocket), models catalog, plugin marketplace, analytics endpoint, MCP servers",
@@ -914,8 +911,7 @@
       ],
       "sokrates_refs": [
         "component:core engine",
-        "component:app-server API",
-        "finding:architecture-scan/violations/test-only-core-extension-cycles"
+        "component:app-server API"
       ],
       "attributes": {
         "crates": [
@@ -982,8 +978,7 @@
         "insta"
       ],
       "sokrates_refs": [
-        "component:TUI frontend",
-        "finding:architecture-scan/boundaries/app-server-protocol-contract"
+        "component:TUI frontend"
       ],
       "attributes": {
         "snapshot_files": 737,

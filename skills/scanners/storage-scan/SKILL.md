@@ -23,7 +23,7 @@ A program's persistent data outlives every process that touched it, so the code 
 - **`performance-scan`** owns the cost of I/O (whole-file reads, N+1 queries) and `caching-and-reuse`. `access-patterns/file-access` states streaming vs whole-file and append vs rewrite *per data class* as a durability/compatibility fact; when performance already describes the same writer, reference it and keep only the storage consequence.
 - **`domain-language-scan`** owns concept definitions; use its names for data classes.
 
-**Cross-referencing.** List existing ids first (`grep -h '"id"' _sokrates/findings/ai-insights/*.json --exclude=combined-report.json`) and reference siblings as `sokrates_refs: ["finding:<scanner>/<group>/<slug>"]` — only ids you saw. Never copy another scanner's evidence blocks.
+**Cross-referencing.** List existing ids first (`grep -h '"id"' _sokrates/reports/ai-insights/*.json --exclude=combined-report.json`) and reference siblings as `sokrates_refs: ["finding:<scanner>/<group>/<slug>"]` — only ids you saw. Never copy another scanner's evidence blocks.
 
 ## Workflow
 
@@ -85,7 +85,7 @@ Expect 10–16 findings for a service or a desktop/CLI app with a home directory
 
 ## Output
 
-Follow the core workflow: write `_sokrates/findings/ai-insights/storage-scan.json`, validate until OK, render the explorer, re-merge if a combined report exists, report leading with the posture summary (what is stored where and which data class is most at risk, in two sentences) and any above-info findings.
+Follow the core workflow: write `_sokrates/reports/ai-insights/storage-scan.json`, validate until OK, render the explorer, re-merge if a combined report exists, report leading with the posture summary (what is stored where and which data class is most at risk, in two sentences) and any above-info findings.
 
 `stats` — copy the script's **facts** under its own keys (zeros included — 0 fsync, 0 locks, 0 version markers are facts; omit only keys whose shape does not exist in the ecosystem; a fact key you verified as entirely false positives is omitted and named in `count_notes`), add `count_rule`, and on top:
 

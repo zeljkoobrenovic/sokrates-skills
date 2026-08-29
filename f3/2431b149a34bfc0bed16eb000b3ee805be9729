@@ -1,0 +1,121 @@
+skills/scanners/full-scan/SKILL.md
+  s_63ef9ec6aa091f::t_3ed5b76610c054 49-50,55,67,71
+  s_63ef9ec6aa091f::t_e08ac1c185119d 3,8-30
+  s_63ef9ec6aa091f::t_91e092adc585c0 42-43,53
+skills/scanners/sokrates-scan-core/templates/insights-explorer.html
+  s_63ef9ec6aa091f::t_071ee814cf05c4 653-667
+examples/codex/ai-insights/index.html
+  s_63ef9ec6aa091f::t_c040a77ba348be 372-373
+  s_63ef9ec6aa091f::t_dc685284d76471 9-14,375,377,653-667
+skills/scanners/evolution-scan/SKILL.md
+  s_63ef9ec6aa091f::t_16e50bb3ffd615 37,54-63,65-68
+  s_63ef9ec6aa091f::t_aab27bde483253 64,69-71
+  s_63ef9ec6aa091f::t_b2eb30aeed5c5b 72
+skills/illustrators/generate_summary_visuals.py
+  s_63ef9ec6aa091f::t_81d3425f21581d 90
+  s_63ef9ec6aa091f::t_fea9157ff3474d 91
+skills/scanners/sokrates-scan-core/templates/scanners.json
+  s_63ef9ec6aa091f::t_e4653b7224244b 2,8,24,37,53,68,86,102-103,118-119,164-165,181-182,197-198,231-232,249,265
+  s_63ef9ec6aa091f::t_ee15e11f3f6db2 131-159,210-226,246-248,250-251,253-258,262-264,266-267,269-275
+skills/scanners/tech-stack-scan/SKILL.md
+  s_63ef9ec6aa091f::t_e6e6df0be5e624 31
+skills/scanners/iac-scan/scripts/count_iac_sites.py
+  s_63ef9ec6aa091f::t_be7bab8307010e 51
+  s_63ef9ec6aa091f::t_4f95913d04bbf1 161
+  s_63ef9ec6aa091f::t_8dcba63f464931 200-201
+  s_63ef9ec6aa091f::t_1e0a6f4f4e79cc 92-95
+  s_63ef9ec6aa091f::t_1e13384eef08a8 100-105,109
+  s_63ef9ec6aa091f::t_7ab2bd5a65141b 36-39
+  s_63ef9ec6aa091f::t_83af1b517d78fe 128-134
+  s_63ef9ec6aa091f::t_98768a658da8cb 123-126
+  s_63ef9ec6aa091f::t_8beff073337b4a 106-108
+  s_63ef9ec6aa091f::t_42a5fc48ab9b48 220-279
+  s_63ef9ec6aa091f::t_b417c7c0ac7ebd 295-296,335-354,390-391
+  s_63ef9ec6aa091f::t_e7f68bdb8845d5 215-216
+  s_63ef9ec6aa091f::t_9ec279d88601ff 311
+  s_63ef9ec6aa091f::t_240102a72d5974 395
+  s_63ef9ec6aa091f::t_8cc08b85765715 1-35,40-42,46-50,52-91,97-99,110-122,127,135-160,162-183,187,194-199,202-214,217-219,280-294,297-310,312-334,355-389,392-394,396-400
+  s_63ef9ec6aa091f::t_3f978d5bcc749d 184-186,188-193
+  s_63ef9ec6aa091f::t_4d20f8a4b13d21 96
+  s_63ef9ec6aa091f::t_14cb64ad8746a4 43-45
+skills/scanners/README.md
+  s_63ef9ec6aa091f::t_f9ad9deef23d19 38-39
+  s_63ef9ec6aa091f::t_40442f27bee396 15-27,33
+skills/scanners/cicd-scan/SKILL.md
+  s_63ef9ec6aa091f::t_57fa2c78a1ebd1 34-35
+README.md
+  s_63ef9ec6aa091f::t_40442f27bee396 23
+  s_63ef9ec6aa091f::t_f9ad9deef23d19 29-30,63
+skills/scanners/configuration-scan/SKILL.md
+  s_63ef9ec6aa091f::t_7d006aefcb8cc5 1-15,18-37,42-67,69,71-81,83,85-89,91-98,100-102,104-112
+  s_63ef9ec6aa091f::t_e86c6b48dc6185 16-17,39
+  s_63ef9ec6aa091f::t_b6b977a26c3a26 90,113
+  s_63ef9ec6aa091f::t_5d732379383aa6 82
+  s_63ef9ec6aa091f::t_6b0f825ea418e0 41,84
+  s_63ef9ec6aa091f::t_e82e82494a726f 38,99
+  s_63ef9ec6aa091f::t_b0e83e9ade3e5c 70
+  s_63ef9ec6aa091f::t_2a7478c54447fd 40,68,103
+examples/codex/ai-insights/configuration-scan.json
+  s_63ef9ec6aa091f::t_c040a77ba348be 10,77,130,166,209,259,299,343,386,422,477,525,578,581,647,697,740,789,835,871,922,925,968,971,1018,1059,1100,1103,1148,1192,1244,1290,1293,1346,1390,1427-1434
+  s_63ef9ec6aa091f::t_770484109f5df1 1-9,11-76,78-129,131-165,167-208,210-258,260-298,300-342,344-385,387-421,423-476,478-524,526-577,579-580,582-646,648-696,698-739,741-788,790-834,836-870,872-921,923-924,926-967,969-970,972-1017,1019-1058,1060-1099,1101-1102,1104-1147,1149-1191,1193-1243,1245-1289,1291-1292,1294-1345,1347-1389,1391-1426
+skills/scanners/iac-scan/SKILL.md
+  s_63ef9ec6aa091f::t_3cb56c6e079398 19,69
+  s_63ef9ec6aa091f::t_3820496cb3e41d 38,70,82
+  s_63ef9ec6aa091f::t_173d91377a25da 39-41
+  s_63ef9ec6aa091f::t_12c434b8172c32 1-18,20-35,37,42-46,48-53,55-68,72,74-81,83-88,90,92-98,100-109
+  s_63ef9ec6aa091f::t_759a797a603cb9 54,71,73,89
+  s_63ef9ec6aa091f::t_3279963173fc35 99
+  s_63ef9ec6aa091f::t_da161aec4b57f3 36
+  s_63ef9ec6aa091f::t_5228fe7e4732e8 47,91
+examples/codex/ai-insights/combined-report.json
+  s_63ef9ec6aa091f::t_dc685284d76471 4,9,22-26,42-46,99-101,1563-2897,2899-2914,6833-7333
+examples/codex/ai-insights/iac-scan.json
+  s_63ef9ec6aa091f::t_c040a77ba348be 9,69,116,170,226,280,283,328,331,389,392,436,439,485,534,566-573
+  s_63ef9ec6aa091f::t_770484109f5df1 1-8,10-68,70-115,117-169,171-225,227-279,281-282,284-327,329-330,332-388,390-391,393-435,437-438,440-484,486-533,535-565
+skills/scanners/configuration-scan/scripts/count_config_sites.py
+  s_63ef9ec6aa091f::t_9a0dfa50b59ac7 59-64
+  s_63ef9ec6aa091f::t_df7065e56af530 243-246,248-249,254-256
+  s_63ef9ec6aa091f::t_6c57b0eb6de536 105-107,109-110,113-114
+  s_63ef9ec6aa091f::t_de33f92591179a 123-124,130-133
+  s_63ef9ec6aa091f::t_a82d44bb1fbe82 328-333,362-363,365
+  s_63ef9ec6aa091f::t_6d5c4658f0af2d 77-80
+  s_63ef9ec6aa091f::t_c55a273b422cb8 125-129
+  s_63ef9ec6aa091f::t_ec475d964c57f7 326-327,334-336,361
+  s_63ef9ec6aa091f::t_1c9ee4b7effbc8 97-99
+  s_63ef9ec6aa091f::t_3279963173fc35 316-320
+  s_63ef9ec6aa091f::t_5bf770a435c249 315
+  s_63ef9ec6aa091f::t_70e34722ecc95e 258,274
+  s_63ef9ec6aa091f::t_71dad38ad52265 36-37,115-116,118-119
+  s_63ef9ec6aa091f::t_233b1b57113a0c 65-67
+  s_63ef9ec6aa091f::t_12a552ca9d97b3 86-96
+  s_63ef9ec6aa091f::t_4f50e1122ade74 117,120
+  s_63ef9ec6aa091f::t_126fe31031d0db 101-104,108,111
+  s_63ef9ec6aa091f::t_7e3d3bf87cc650 276-278
+  s_63ef9ec6aa091f::t_3a777c0a62c255 293-295
+  s_63ef9ec6aa091f::t_2d4377d5a68358 50-58
+  s_63ef9ec6aa091f::t_92875d184c7f3f 69-71
+  s_63ef9ec6aa091f::t_240102a72d5974 369
+  s_63ef9ec6aa091f::t_0169bf48565f41 238,240,242,247,253,257,312,323
+  s_63ef9ec6aa091f::t_e731dc342f1f1d 224-226
+  s_63ef9ec6aa091f::t_b21e383b0ebc62 1-35,38-49,68,72-76,81-85,100,121-122,134-135,137-177,204-223,227-237,239,241,250-252,259-273,275,279-292,296-311,313-314,321-322,324-325,337-360,364,366-368,370-374
+  s_63ef9ec6aa091f::t_30df7854140d38 197-202
+  s_63ef9ec6aa091f::t_0123f41c2fae68 112
+  s_63ef9ec6aa091f::t_a282794d95b36e 136
+  s_63ef9ec6aa091f::t_fb9363a1c11325 178-196,203
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "f32431b149a34bfc0bed16eb000b3ee805be9729",
+  "prompts": {},
+  "sessions": {
+    "s_63ef9ec6aa091f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "83b34fb4-e308-4221-b811-158196f5fd9c",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

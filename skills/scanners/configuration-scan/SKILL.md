@@ -43,7 +43,7 @@ Configuration is the part of a program that its users write. It has a schema nob
 7. **Read validation and failure behaviour.** Is there a schema (types, required fields, enums, ranges)? Is an unknown key rejected, warned about, or silently ignored? Does a malformed file abort startup or fall back to defaults? Is a required-but-missing value caught at startup or at first use, thousands of lines later? Startup-time validation with a clear message is a strength worth an `info` finding.
 8. **Read flags and dynamic behaviour.** Feature flags and experiments: where defined, who evaluates them, whether they are static constants, config keys or a remote service; dead flags whose branches are unreachable. Then runtime change: reload on SIGHUP, file watching, hot-reload of some keys but not others, values cached at startup — and whether the code documents which settings need a restart.
 9. **Synthesize the posture.** One `configuration-posture/posture` finding, `severity: info`, `confidence: likely`: the configuration model in three sentences (sources, precedence, where defaults live), how an operator finds out what they can set, the riskiest default, the behaviour on bad input, and the three highest-leverage changes as `finding:` refs. Evidence cites the loader or the defaults definition.
-10. Write findings, validate, render; re-run the merge script if a `combined-report.json` exists. Report per the core workflow. Scanner id: `configuration-scan`, version `1.0`.
+10. Write findings, validate, render; re-run the merge script if a `combined-report.json` exists. Report per the core workflow. Scanner id: `configuration-scan`, version `1.1`.
 
 ## Group taxonomy
 

@@ -1,0 +1,21 @@
+skills/scanners/iac-scan/SKILL.md
+  s_63ef9ec6aa091f::t_6eac27b01e8515 48
+skills/scanners/configuration-scan/SKILL.md
+  s_63ef9ec6aa091f::t_6eac27b01e8515 46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "c5c818f5c7587cab2b458d84a814c8b899050f6f",
+  "prompts": {},
+  "sessions": {
+    "s_63ef9ec6aa091f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "83b34fb4-e308-4221-b811-158196f5fd9c",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

@@ -28,7 +28,7 @@ Use exactly these groups (skip empty ones):
 | `libraries` | Significant libraries that don't shape the architecture; group minor ones per ecosystem |
 | `build-tooling` | Build systems, package managers, monorepo/workspace tooling, linters/formatters, codegen |
 | `ci-cd` | CI providers and pipelines, release automation, artifact publishing |
-| `infrastructure` | Containers, orchestration, IaC, cloud providers, dev environments (devcontainer, nix) |
+| `infrastructure` | Containers, orchestration, IaC, cloud providers, dev environments (devcontainer, nix) — the technologies only; what the definitions declare and how they are hardened is `iac-scan`'s |
 | `databases-storage` | Databases, caches, queues/brokers, file/blob storage — declared drivers *and* connection/config evidence |
 | `external-services` | Third-party APIs and SaaS the code calls (payment, auth, LLM APIs, telemetry backends) |
 | `protocols-formats` | Wire protocols and interchange formats that shape interfaces: gRPC/protobuf, GraphQL, WebSocket, JSON-RPC, OpenAPI |

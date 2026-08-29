@@ -12,16 +12,31 @@ All scanners share one contract, defined in **`sokrates-scan-core`**:
 - **Uniform reports** — `scripts/render_findings.py` builds the **AI Insights Explorer** (`ai-insights/index.html`, from `templates/insights-explorer.html`): one self-contained interactive HTML page embedding all scanners' findings — overview, per-scanner pages, cross-scanner attention list, filters, search, evidence citations, deep links. No markdown reports.
 - **Composable & diffable** — `scripts/merge_findings.py` rolls all scanners of a project into one machine-readable `combined-report.json` (a schema-conformant findings document the validator and differ accept); `scripts/diff_findings.py` compares two runs of a scanner via the stable-id contract (new / resolved / persisting, CI-friendly exit code).
 
+## Two tiers
+
+**Basic** scanners *describe* the codebase — what it does, what it is built from, how it is shaped and how it got here. They are what a newcomer needs, and a basic scan is six scanner-runs. **Deep dives** *evaluate* one dimension each and answer "how good is it at X"; they read the basic findings to orient. The tier is recorded per scanner in `sokrates-scan-core/templates/scanners.json`, and the explorer groups its sidebar by it.
+
+| tier | family | scanners |
+|---|---|---|
+| basic | — | functionality, domain-language, architecture, evolution, tech-stack, cicd |
+| deep dive | `quality` | testing, reliability, maintainability, risk-synthesis |
+| deep dive | `runtime` | performance, storage, network, observability |
+| deep dive | `security` | security, iac, configuration |
+
+Ask for what you need: "run a basic scan" (orientation), "run a security deep dive" (one family), "run a full scan" (everything).
+
 ## Scanners
 
 | skill | status | what it finds |
 |---|---|---|
 | `sokrates-scan-core` | ✅ | (shared foundation, not a scanner) |
-| `full-scan` | ✅ | Orchestrator: runs all fifteen scanners in dependency order (waves), merges into the combined report, diffs against previous results on re-runs |
+| `full-scan` | ✅ | Orchestrator: runs a **basic scan** (the six descriptive scanners), a **deep dive** (all evaluative scanners or one family: quality, runtime, security), or a **full scan** (all seventeen) in dependency order (waves), merges into the combined report, diffs against previous results on re-runs |
 | `functionality-scan` | ✅ | What the software does, from the code: purpose and audience, feature inventory with entry points and behaviour, surfaces (CLI/API/UI/config/hooks), end-to-end workflows, data managed, integrations, hidden/dormant functionality and doc-vs-code gaps |
 | `tech-stack-scan` | ✅ | Languages, frameworks, libraries, build tooling, CI/CD, infrastructure, databases, external services, protocols |
 | `risk-synthesis-scan` | ✅ | Narrative explanation of Sokrates hotspots: what each risky file does and why it's risky, knowledge risk (bus factor, single-owner areas), change coupling explained |
 | `cicd-scan` | ✅ | The CI/CD process as a narrative: triggers, build, test gates, quality gates, release and publishing, deployment/install channels, pipeline hygiene risks |
+| `iac-scan` | ✅ | Infrastructure as code: the IaC inventory and coverage, container and dev-environment definitions read as content, declared resources and topology, environment variants, state and the apply path, and the hardening posture of the declaration (image pinning, root, privileges, exposure, limits) — honest when a project has no provisioning IaC |
+| `configuration-scan` | ✅ | How the software is configured: sources (files, env vars, flags, profiles) and their precedence, the settings surface and its defaults, secrets plumbing (sources, flow, redaction), validation and behaviour on bad values, feature flags and runtime reload |
 | `testing-scan` | ✅ | The tests as a system: layers as implemented, coverage map inferred from what tests reference, test quality (assertions, mocking, determinism, flakiness, skips), test infrastructure, gaps on load-bearing paths |
 | `observability-scan` | ✅ | How the code observes itself: logging, metrics, tracing, error reporting, health surfaces, where telemetry flows, and what monitoring the emitted signals can (and cannot) support |
 | `reliability-scan` | ✅ | How the code behaves when things go wrong: error model, handling on load-bearing paths (swallowed, catch-all, panics), failure isolation and blast radius, retries/timeouts/circuit breakers, degradation and fallbacks, resource cleanup and shutdown, posture per failure source |

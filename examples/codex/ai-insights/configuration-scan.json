@@ -1,0 +1,1434 @@
+{
+  "scanner": "configuration-scan",
+  "scanner_version": "1.0",
+  "analyzed_at": "2026-08-29",
+  "target": {
+    "name": "openai / codex",
+    "src_root": "../../..",
+    "commit": "312b62ac95335e1762b70ceb8910374965bd2785"
+  },
+  "summary": "Codex is configured by **nine explicitly ranked TOML layers** — a compiled-in `defaults.toml`, macOS MDM preferences, `/etc/codex/config.toml`, an enterprise cloud bundle, `$CODEX_HOME/config.toml`, an optional profile file, project `.codex/config.toml`, `-c key=value` session flags, and two legacy managed layers — folded by a recursive per-key merge that records which layer set each key. The operator surface is **93 keys** in a generated JSON Schema, alongside **36 admin constraint keys** in `requirements.toml` and **117 feature flags** with declared lifecycle stages. The system's mechanics are strong: precedence is a numeric total order rather than an argument sequence, project-local config is denied **twelve credential- and execution-sensitive keys** so a checked-in file cannot redirect where credentials go, and a malformed file aborts with a rustc-style caret diagnostic. Two gaps stand out. **The configuration reference has left the repository** — `docs/config.md` is a link, nine other doc files are redirect stubs, and 92 of 93 keys have no in-repo documentation, including every sandbox, auth and telemetry key, so drift against the published reference is invisible to CI. And **an unrecognised key is discarded in silence** unless the operator passes `--strict-config`, which is a CLI flag with no config or environment equivalent. The riskiest default is `mcp_oauth_credentials_store = \"auto\"`, which ships a keyring-to-plaintext-file fallback that engages on a `warn!` log alone.",
+  "stats": {
+    "config_sources": [
+      "packaged defaults (defaults.toml)",
+      "MDM managed preferences (macOS)",
+      "/etc/codex/config.toml",
+      "enterprise cloud config bundle",
+      "$CODEX_HOME/config.toml",
+      "$CODEX_HOME/<name>.config.toml profile",
+      "project .codex/config.toml",
+      "-c/--config session flags",
+      "managed_config.toml (legacy, file then MDM)"
+    ],
+    "config_files": {
+      "$CODEX_HOME/config.toml": "TOML",
+      "$CODEX_HOME/<name>.config.toml": "TOML",
+      "<project>/.codex/config.toml": "TOML",
+      "/etc/codex/config.toml": "TOML",
+      "/etc/codex/requirements.toml": "TOML",
+      "codex-rs/config/defaults.toml": "TOML (compiled in)"
+    },
+    "settings_count": 93,
+    "admin_settings_count": 36,
+    "feature_flags_count": 117,
+    "settings_areas": [
+      "model-and-provider",
+      "sandbox-and-permissions",
+      "auth-and-endpoints",
+      "extensions",
+      "ui",
+      "telemetry",
+      "experimental"
+    ],
+    "env_var_prefixes": [
+      "CODEX_",
+      "OPENAI_",
+      "AWS_"
+    ],
+    "precedence": "documented",
+    "defaults_location": "mixed",
+    "validation": "partial",
+    "on_invalid_config": "mixed",
+    "secret_sources": [
+      "CODEX_API_KEY env var",
+      "CODEX_ACCESS_TOKEN env var",
+      "auth.json key file",
+      "OS keyring (Codex Auth)",
+      "age-encrypted local secrets file",
+      "interactive PKCE login",
+      "AWS default credential chain / workload identity token file"
+    ],
+    "reload": "restart-required",
+    "undocumented_settings": 92,
+    "stale_settings": 0,
+    "absent_mechanisms": [
+      "dotenv / .env files",
+      "remote feature-flag service",
+      "config file watching",
+      "SIGHUP reload"
+    ],
+    "distinct_env_vars_read": 110,
+    "cli_flags_total": 491,
+    "config_setting_flags": 11,
+    "config_write_sites": 45,
+    "redaction_sites": 155,
+    "strictness_disabled_sites": 40,
+    "count_rule": "A setting is one key of the primary operator-facing schema (ConfigToml, as rendered into codex-rs/core/config.schema.json): 93 top-level keys, counted once regardless of how many layers can set it. Nested table properties (~490 across 155 type definitions) are not counted again. The separate requirements.toml admin constraint schema is counted under admin_settings_count (36); [features] keys under feature_flags_count (117); profile keys are a subset of the primary schema and not recounted. Documentation coverage was measured by grepping each of the 93 keys against docs/ and codex-rs/core/src/config/schema.md, with any mention counting as documented and coincidental prose collisions (e.g. 'notify' in CLA.md) manually discarded; exactly one key (log_dir) survived. A CLI flag counts as configuration-setting only if it sets a config value rather than selecting a command: 11 of 491. All Codex settings are tuning keys; there are no specification keys in the sense of an input document.",
+    "count_notes": "Script facts adopted after inspection: config_write_sites, redaction_sites, strictness_disabled_sites, distinct_env_vars_read (110), cli_flags_total (491). CORRECTED, do not reuse the script number: (1) precedence_sites reported 35 but roughly 15 are `.join(file_name)` path joins in unrelated crates (tui/pets/asset_pack.rs, windows-sandbox-rs/helper_materialization.rs, git-utils/baseline.rs, rollout/recorder.rs) and most of the rest are functions merely named `*_with_overrides`; the actual merge primitive `merge_toml_values` is not matched at all, and its true non-test call-site count is 9. (2) reload_sites reported 57 but the great majority are tokio::sync::Notify constructions and SIGHUP entries in signal-mask arrays, neither of which is config reload; the genuine count is 0 config reload mechanisms — the only real hit is the network-proxy ConfigReloader trait, whose sole implementations are static and refuse to reload. (3) default_value_sites reported 5128, which is every serde/Rust default shape in the workspace and unusable as a configuration figure; the meaningful numbers are 14 packaged defaults in defaults.toml, 29 serde default attributes on ConfigToml, and ~90 unwrap_or sites in core/src/config/mod.rs. (4) validation_sites reported 59 and this one held up well after the tightening — nearly all are genuine config validation, with only a few strays (rollout-trace validate_tool_turn, a sample python script); I did not adopt the raw number because it mixes load-time and first-use validation, which the validation-timing finding separates. (5) profile_candidates (205, a lead) is dominated by permission profiles and macOS device profiles; real named-configuration profiles exist but are a much smaller set. (6) config_files_in_tree (14) is repository tooling (.bazelrc, .npmrc, pyproject.toml) rather than the product's configuration surface, exactly as the skill warns; the real surface is the schema types. (7) env_var_names lists 110 names of which only ~35 are CODEX_* settings; HOME, PATH, TMPDIR, TERM, TMUX, WT_SESSION, CARGO_* and the terminal-detection probes are environment queries, not configuration, and 11 are CODEX_TEST_* hooks. The env_name_constants resolution (67 names reached only via a const) and env_name_constants_not_read (34) were both accurate and materially useful.",
+    "script_notes": "env_name_constants_not_read flagged 34 constants declaring an env var that no getenv reads in the same crate. Spot-checking showed these are mostly real and mostly credential-adjacent (CODEX_API_KEY, CODEX_ACCESS_TOKEN, AWS_*, OPENAI_BASE_URL, CODEX_EXEC_SERVER_NOISE_AUTH_TOKEN, MCP_CONFORMANCE_CLIENT_SECRET), but the cause is cross-crate re-export rather than a dead constant: the constants live in codex_protocol::shell_environment and are read from other crates. Useful as a credential-surface pointer, misleading if read as 'unread'. indirect_env_read_candidates (38) found the genuinely important case that no literal-based scan could: model-provider-info reads env vars whose names come from the operator's own config (env_key, env_http_headers), making the environment surface user-extensible."
+  },
+  "findings": [
+    {
+      "id": "configuration-scan/sources/config-sources",
+      "group": "sources",
+      "title": "Nine configuration layers, from packaged defaults to MDM",
+      "description": "Codex composes configuration from **nine ordered layers**, each with an explicit numeric precedence in `ConfigLayerSource::precedence()`. From lowest to highest: packaged defaults (`-10`, the `defaults.toml` compiled into the binary), MDM managed preferences (`0`, macOS only), system config `/etc/codex/config.toml` (`10`), enterprise cloud-managed bundle (`15`), user `$CODEX_HOME/config.toml` (`20`), a selected user profile `$CODEX_HOME/<name>.config.toml` (`21`), project `.codex/config.toml` (`25`), session flags from `-c key=value` (`30`), and two legacy managed-config layers (`40` and `50`). The format is **TOML throughout**; there is no JSON, YAML or dotenv config source, and no `.env` file anywhere in the tree. Environment variables are a **parallel** channel rather than a layer: they are read directly at their point of use (`CODEX_HOME`, `CODEX_API_KEY`, `OPENAI_BASE_URL`) and never merged into the TOML stack. A separate `requirements.toml` stack carries **36 admin constraint keys** that clamp what the config layers may express.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/config/src/config_layer_source.rs",
+          "start_line": 35,
+          "end_line": 35,
+          "snippet": "            ConfigLayerSource::PackagedDefaults { .. } => -10,",
+          "note": "lowest-precedence layer"
+        },
+        {
+          "file": "codex-rs/config/src/loader/mod.rs",
+          "start_line": 112,
+          "end_line": 112,
+          "snippet": "/// - user      `${CODEX_HOME}/config.toml`",
+          "note": "the loader's own documented layer list"
+        },
+        {
+          "file": "codex-rs/config/src/loader/mod.rs",
+          "start_line": 117,
+          "end_line": 117,
+          "snippet": "/// - runtime   e.g., --config flags, model selector in UI",
+          "note": "highest ordinary layer"
+        }
+      ],
+      "tags": [
+        "toml",
+        "layers",
+        "rust"
+      ],
+      "sokrates_refs": [
+        "component:codex_rs",
+        "finding:functionality-scan/entry-points/configuration-and-instruction-files"
+      ],
+      "attributes": {
+        "layer_count": 9,
+        "format": "TOML",
+        "dotenv": "absent"
+      }
+    },
+    {
+      "id": "configuration-scan/sources/precedence",
+      "group": "sources",
+      "title": "Precedence is a numeric total order with per-key deep merge",
+      "description": "Precedence is **not implicit**: every layer carries an integer rank and `PartialOrd` is derived from it, so 'which source wins' is a single comparison rather than an argument order. Layers are folded lowest-to-highest by `merge_toml_values`, a **recursive per-key merge**: a scalar in a higher layer replaces the lower value, but a table is merged key by key, so setting `[tui] theme = \"dark\"` in a project config does not erase `[tui]` keys set in the user config. The stack also records **per-key origins**, so the effective value of any key can be attributed to the layer that set it. Two surprises are worth knowing. First, the **legacy managed-config layers outrank session flags** (`40`/`50` vs `30`), so a `-c` override on the command line cannot beat `managed_config.toml` — deliberate, but the opposite of the usual 'CLI wins' intuition. Second, a **selected profile sits at `21`, just above the base user config at `20`**, and therefore *below* project config at `25`: a project can override a setting the operator deliberately selected with `--profile`.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/config/src/config_layer_source.rs",
+          "start_line": 46,
+          "end_line": 47,
+          "snippet": "            ConfigLayerSource::Project { .. } => 25,\n            ConfigLayerSource::SessionFlags => 30,",
+          "note": "project ranks below session flags, both below legacy managed"
+        },
+        {
+          "file": "codex-rs/config/src/merge.rs",
+          "start_line": 57,
+          "end_line": 57,
+          "snippet": "pub fn merge_toml_values(base: &mut TomlValue, overlay: &TomlValue) {",
+          "note": "the recursive per-key merge used to fold every layer"
+        }
+      ],
+      "tags": [
+        "precedence",
+        "merge"
+      ],
+      "sokrates_refs": [
+        "component:codex_rs"
+      ],
+      "attributes": {
+        "model": "numeric total order",
+        "merge": "recursive per-key",
+        "origins_tracked": true
+      }
+    },
+    {
+      "id": "configuration-scan/sources/file-discovery",
+      "group": "sources",
+      "title": "CODEX_HOME anchors user config; project config is found by walking up",
+      "description": "The user layer lives under `$CODEX_HOME`, which defaults to `~/.codex` and is overridable by the `CODEX_HOME` environment variable — and that override is **strictly validated**: a path that does not exist, or exists but is not a directory, is a **fatal startup error** rather than a silent fall back to the default. That is the right choice, and it is one of the few configuration inputs in the system that fails fast. Project configuration is discovered by **walking up from the working directory** looking for `.codex/config.toml`, plus the repository root found via git, plus `$PWD/config.toml`. Which directories count as roots is itself configurable through `project_root_markers`, defaulting to `[\".git\"]`; setting it to an empty array disables root detection entirely. Discovered project layers are loaded but **disabled when the directory is untrusted**, so the file is visible in the layer listing for the UI while contributing nothing to the effective config.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/utils/home-dir/src/lib.rs",
+          "start_line": 14,
+          "end_line": 14,
+          "snippet": "    let codex_home_env = std::env::var(\"CODEX_HOME\")",
+          "note": "the CODEX_HOME override, validated to exist and be a directory"
+        },
+        {
+          "file": "codex-rs/config/src/loader/mod.rs",
+          "start_line": 114,
+          "end_line": 114,
+          "snippet": "/// - cwd       `${PWD}/config.toml` (loaded but disabled when the directory is untrusted)",
+          "note": "walk-up discovery with trust gating"
+        },
+        {
+          "file": "codex-rs/config/defaults.toml",
+          "start_line": 14,
+          "end_line": 14,
+          "snippet": "project_root_markers = [\".git\"]",
+          "note": "the default root marker"
+        }
+      ],
+      "tags": [
+        "discovery",
+        "project-config"
+      ],
+      "sokrates_refs": [
+        "finding:functionality-scan/data/codex-home"
+      ],
+      "attributes": {
+        "user_config": "$CODEX_HOME/config.toml",
+        "default_home": "~/.codex",
+        "project_config": ".codex/config.toml"
+      }
+    },
+    {
+      "id": "configuration-scan/sources/source-restrictions",
+      "group": "sources",
+      "title": "Project config may not set twelve credential- and execution-sensitive keys",
+      "description": "Project-local `.codex/config.toml` comes from repository contents, so it is treated as a **lower-trust source** and is denied twelve keys outright plus one nested key. The denylist covers exactly the settings that would let a checked-in file redirect where credentials go or what runs locally: `openai_base_url`, `chatgpt_base_url`, `model_provider`, `model_providers`, `notify` (which executes a command), `profile`, `profiles`, `otel`, `responses_api_metadata`, `apps_mcp_product_sku`, the two experimental realtime base URLs, and `features.respect_system_proxy`. The keys are **stripped before the layer is merged**, and the operator gets a startup warning naming each ignored key and telling them to set it in their user config instead. This is a well-designed control and one of the strongest parts of the configuration system: the same keys remain settable from user, system, managed and runtime layers, so the restriction is about *provenance*, not capability. Note the restriction is a **strip, not a rejection** — a project config full of denied keys still loads, it just loses them.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/config/src/loader/mod.rs",
+          "start_line": 71,
+          "end_line": 72,
+          "snippet": "const PROJECT_LOCAL_CONFIG_DENYLIST: &[&str] = &[\n    \"openai_base_url\",",
+          "note": "the denylist for project-local config"
+        },
+        {
+          "file": "codex-rs/config/src/loader/mod.rs",
+          "start_line": 1120,
+          "end_line": 1120,
+          "snippet": "    for key in PROJECT_LOCAL_CONFIG_DENYLIST {",
+          "note": "keys removed from the project layer before merge"
+        }
+      ],
+      "tags": [
+        "trust",
+        "denylist"
+      ],
+      "sokrates_refs": [
+        "finding:architecture-scan/security-boundaries/trust-map",
+        "finding:security-scan/identity-access/managed-overrides"
+      ],
+      "attributes": {
+        "denied_keys": [
+          "openai_base_url",
+          "chatgpt_base_url",
+          "apps_mcp_product_sku",
+          "responses_api_metadata",
+          "model_provider",
+          "model_providers",
+          "notify",
+          "profile",
+          "profiles",
+          "experimental_realtime_webrtc_call_base_url",
+          "experimental_realtime_ws_base_url",
+          "otel",
+          "features.respect_system_proxy"
+        ],
+        "enforcement": "strip with startup warning"
+      }
+    },
+    {
+      "id": "configuration-scan/sources/env-vars",
+      "group": "sources",
+      "title": "Environment variables are a side channel, not a config layer",
+      "description": "Codex reads **110 distinct environment variable names**, but they never enter the TOML layer stack — each is read at its point of use with `std::env::var`. Of those 110, roughly **35 are actual configuration** under the `CODEX_*` prefix (`CODEX_HOME`, `CODEX_API_KEY`, `CODEX_SANDBOX`, `CODEX_EXEC_SERVER_URL`, the `CODEX_APP_SERVER_*` overrides); the rest are **environment queries rather than settings** — `HOME`, `PATH`, `TMPDIR`, `USERPROFILE`, terminal-detection probes (`TERM`, `TMUX`, `ZELLIJ`, `WEZTERM_*`, `WT_SESSION`), Cargo and Bazel build variables, and proxy conventions (`HTTP_PROXY`, `NO_COLOR`). A further **eleven names are test-only hooks** (`CODEX_TEST_*`, `CODEX_APP_SERVER_TEST_USER_CONFIG_FILE`) that nonetheless ship in the release binary. The counting script resolves names held in `const` string constants, which is what makes this list usable: 67 of the names are reached only through a constant such as `CODEX_SANDBOX_ENV_VAR`, and a plain grep for string literals would have missed them.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/utils/home-dir/src/lib.rs",
+          "start_line": 14,
+          "end_line": 14,
+          "snippet": "    let codex_home_env = std::env::var(\"CODEX_HOME\")",
+          "note": "a direct env read, outside the layer stack"
+        },
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 102,
+          "end_line": 102,
+          "snippet": "    pub env_key: Option<String>,",
+          "note": "config that names an env var to read"
+        }
+      ],
+      "tags": [
+        "environment"
+      ],
+      "sokrates_refs": [
+        "finding:security-scan/secrets/exec-env-inheritance"
+      ],
+      "attributes": {
+        "distinct_names_read": 110,
+        "codex_prefixed": 35,
+        "test_only_hooks": 11,
+        "prefixes": [
+          "CODEX_",
+          "OPENAI_",
+          "AWS_"
+        ]
+      }
+    },
+    {
+      "id": "configuration-scan/sources/cli-flags",
+      "group": "sources",
+      "title": "491 CLI options, but only about eleven set configuration",
+      "description": "The workspace declares **491 distinct CLI options** across all binaries and subcommands, and almost all of them select an action or supply an argument rather than set a configuration value. The **configuration-setting subset is about eleven**: the generic `-c/--config key=value`, plus `--model/-m`, `--profile/-p`, `--sandbox/-s`, `--oss`, `--local-provider`, `--cd/-C`, `--add-dir`, `--approve-for-me`, `--dangerously-bypass-approvals-and-sandbox`, and `--dangerously-bypass-hook-trust`. The generic `-c` is the interesting one: it takes a **dotted path** (`-c shell_environment_policy.inherit=all`), parses the right-hand side as TOML, and lands as the `SessionFlags` layer. Two named flags are **sugar that expands into config overrides** rather than separate settings — `--approve-for-me` pushes three `-c`-equivalent overrides (`approvals_reviewer`, `approval_policy`, `sandbox_mode`) into the same layer, which keeps the surface honest: there is one place a value can come from, not two.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/utils/cli/src/config_override.rs",
+          "start_line": 32,
+          "end_line": 32,
+          "snippet": "        value_name = \"key=value\",",
+          "note": "the generic dotted-path config override"
+        },
+        {
+          "file": "codex-rs/utils/cli/src/shared_options.rs",
+          "start_line": 40,
+          "end_line": 40,
+          "snippet": "    #[arg(long = \"sandbox\", short = 's')]",
+          "note": "a named flag that sets a config value"
+        },
+        {
+          "file": "codex-rs/utils/cli/src/shared_options.rs",
+          "start_line": 86,
+          "end_line": 86,
+          "snippet": "                .push(r#\"sandbox_mode=\"workspace-write\"\"#.to_string());",
+          "note": "--approve-for-me expands into config overrides"
+        }
+      ],
+      "tags": [
+        "cli",
+        "clap"
+      ],
+      "sokrates_refs": [
+        "finding:functionality-scan/entry-points/cli-command-set",
+        "finding:tech-stack-scan/frameworks/clap"
+      ],
+      "attributes": {
+        "cli_flags_total": 491,
+        "config_setting_flags": 11,
+        "generic_override": "-c/--config key=value"
+      }
+    },
+    {
+      "id": "configuration-scan/sources/profiles",
+      "group": "sources",
+      "title": "Two generations of profiles coexist, and selecting the new one rejects the old",
+      "description": "Codex has **two profile mechanisms at once**. The legacy form is a `[profiles.<name>]` table inside `config.toml` selected by a `profile = \"...\"` key or `--profile`; the v2 form is a **separate file** `$CODEX_HOME/<name>.config.toml` layered on top of the base user config at precedence `21`. The v2 profile is a **restricted subset** — `ConfigProfile` carries about 20 fields (model, provider, approval policy, sandbox mode, reasoning effort, base URL) rather than the full 93-key surface, so a profile cannot express everything a config file can. The migration is handled by **refusing to guess**: if `--profile foo` is passed while the user config still contains a legacy `profile = \"foo\"` or a `[profiles.foo]` table, the load fails with a message telling the operator to move the settings and delete the legacy selector. Failing loudly on an ambiguous profile is the right call, though it means a user carrying an old config cannot adopt the new flag without editing first.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/config/src/loader/mod.rs",
+          "start_line": 113,
+          "end_line": 113,
+          "snippet": "/// - profile   `${CODEX_HOME}/<name>.config.toml`, when selected",
+          "note": "the v2 profile as its own layer"
+        },
+        {
+          "file": "codex-rs/config/src/profile_toml.rs",
+          "start_line": 24,
+          "end_line": 24,
+          "snippet": "pub struct ConfigProfile {",
+          "note": "the restricted profile field set"
+        },
+        {
+          "file": "codex-rs/utils/cli/src/shared_options.rs",
+          "start_line": 35,
+          "end_line": 35,
+          "snippet": "    #[arg(long = \"profile\", short = 'p')]",
+          "note": "the profile selector flag"
+        }
+      ],
+      "tags": [
+        "profiles",
+        "migration"
+      ],
+      "sokrates_refs": [
+        "component:codex_rs"
+      ],
+      "attributes": {
+        "legacy": "[profiles.<name>] in config.toml",
+        "v2": "$CODEX_HOME/<name>.config.toml",
+        "conflict": "fatal error"
+      }
+    },
+    {
+      "id": "configuration-scan/sources/remote-config",
+      "group": "sources",
+      "title": "Enterprise cloud config is fetched at startup, cached, and refreshed every 15 minutes",
+      "description": "A genuine **remote configuration source** exists for enterprise deployments: `codex-cloud-config` fetches a bundle from the backend at startup, caches it on disk, and then **refreshes in the background every 15 minutes**, with a 15-second timeout per attempt and retries. The bundle carries two payloads — cloud `config.toml` fragments that become the `EnterpriseManaged` layer at precedence `15`, and cloud `requirements.toml` fragments that become admin constraints. Failure is **fail-soft**: a timeout or a fetch error logs and keeps the existing cache, so a network outage does not stop the tool from running but does mean an operator can be running against **up to 15 minutes of stale policy** with only a log line saying so. Because the refresh applies to the cache rather than the live session, a policy change made centrally does not take effect in an already-running session — this is the one place in the product where configuration is genuinely dynamic, and its effect is deferred to the next load.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/cloud-config/src/service.rs",
+          "start_line": 36,
+          "end_line": 36,
+          "snippet": "const CLOUD_CONFIG_BUNDLE_CACHE_REFRESH_INTERVAL: Duration = Duration::from_secs(15 * 60);",
+          "note": "background refresh interval"
+        },
+        {
+          "file": "codex-rs/cloud-config/src/service.rs",
+          "start_line": 468,
+          "end_line": 468,
+          "snippet": "                        \"Timed out refreshing cloud config bundle cache from remote; keeping existing cache\"",
+          "note": "fail-soft on refresh failure"
+        }
+      ],
+      "tags": [
+        "enterprise",
+        "remote-config"
+      ],
+      "sokrates_refs": [
+        "finding:network-scan/topology/outbound-model-api"
+      ],
+      "attributes": {
+        "refresh_interval_s": 900,
+        "timeout_s": 15,
+        "on_failure": "keep cache"
+      }
+    },
+    {
+      "id": "configuration-scan/sources/traced-cli-auth-credentials-store",
+      "group": "sources",
+      "title": "Traced: cli_auth_credentials_store, from four sources to a silent plaintext fallback",
+      "description": "This setting decides **where the operator's API credentials are written**, and tracing it end to end shows every mechanism in the system at once. **Sources**, lowest to highest: the packaged `defaults.toml` sets `\"file\"`; system, cloud and user `config.toml` may set it; `-c cli_auth_credentials_store=keyring` sets it as a session flag; and an admin `requirements.toml` can **force** it via `apply_exact!`, which overrides the user's choice outright rather than merging with it. Project config **cannot** set it (it is not in the denylist, but it is also not a provenance-sensitive key — it is reachable from a project file). **Default**: `\"file\"`, meaning credentials go to `$CODEX_HOME/auth.json` written with mode `0600`. **Type coercion**: a closed four-variant enum (`file`, `keyring`, `auto`, `ephemeral`), so a typo like `\"kyring\"` is a **deserialization error with a caret diagnostic**, not a silent default. **Validation**: none beyond the enum. **The interesting part is what happens after resolution.** On a local dev build the resolver silently rewrites `keyring` and `auto` to `file`, so a developer testing keyring configuration is not exercising keyring at all. And under `auto`, a keyring failure falls back to writing the credential to a plaintext file at `warn!` level — see `secrets-management/plaintext-fallback`.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/config/defaults.toml",
+          "start_line": 6,
+          "end_line": 6,
+          "snippet": "cli_auth_credentials_store = \"file\"",
+          "note": "the packaged default"
+        },
+        {
+          "file": "codex-rs/core/src/config/requirements.rs",
+          "start_line": 32,
+          "end_line": 32,
+          "snippet": "    apply_exact!(cli_auth_credentials_store);",
+          "note": "an admin requirement forces the value"
+        },
+        {
+          "file": "codex-rs/core/src/config/mod.rs",
+          "start_line": 255,
+          "end_line": 255,
+          "snippet": "        ) => AuthCredentialsStoreMode::File,",
+          "note": "dev builds silently downgrade keyring/auto to file"
+        }
+      ],
+      "tags": [
+        "trace",
+        "credentials"
+      ],
+      "sokrates_refs": [
+        "finding:security-scan/secrets/at-rest",
+        "finding:storage-scan/integrity/auth-json-overwrite"
+      ],
+      "attributes": {
+        "sources": [
+          "defaults.toml",
+          "system/cloud/user config.toml",
+          "-c session flag",
+          "admin requirements.toml"
+        ],
+        "default": "file",
+        "winner": "admin requirements",
+        "values": [
+          "file",
+          "keyring",
+          "auto",
+          "ephemeral"
+        ]
+      }
+    },
+    {
+      "id": "configuration-scan/sources/traced-sandbox-mode",
+      "group": "sources",
+      "title": "Traced: sandbox_mode, safe by default and settable from five places",
+      "description": "`sandbox_mode` decides how much of the machine model-generated commands can touch, making it the highest-consequence setting in the product. **Sources**: user, system, cloud and project `config.toml`; a `[profiles.<name>]` table or a v2 profile file; `-c sandbox_mode=...`; the `--sandbox/-s` flag; and indirectly `--approve-for-me` (which pushes `workspace-write`) and `--dangerously-bypass-approvals-and-sandbox` (which bypasses the sandbox entirely). **Default**: `read-only` — the `#[default]` variant of the `SandboxMode` enum, so an unconfigured installation is in the **safest** of the three modes, which is the single most important default in the system and it is set correctly. **Coercion**: a closed three-variant kebab-case enum, so an unrecognised value fails to deserialize rather than falling through to a permissive mode. **Admin clamp**: `allowed_sandbox_modes` in `requirements.toml` lets an administrator remove `danger-full-access` from the menu entirely. The residual risk is not the default but the discoverability: `danger-full-access` disables sandboxing with one line in a TOML file that **no in-repo document mentions** — see `settings-surface/undocumented-settings`.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/protocol/src/config_types.rs",
+          "start_line": 88,
+          "end_line": 89,
+          "snippet": "    #[default]\n    ReadOnly,",
+          "note": "the safe default"
+        },
+        {
+          "file": "codex-rs/protocol/src/config_types.rs",
+          "start_line": 95,
+          "end_line": 95,
+          "snippet": "    DangerFullAccess,",
+          "note": "the mode that disables sandboxing"
+        },
+        {
+          "file": "codex-rs/config/src/config_toml.rs",
+          "start_line": 199,
+          "end_line": 199,
+          "snippet": "    pub sandbox_mode: Option<SandboxMode>,",
+          "note": "the config key"
+        }
+      ],
+      "tags": [
+        "trace",
+        "sandbox"
+      ],
+      "sokrates_refs": [
+        "finding:architecture-scan/security-boundaries/sandbox-os-layers",
+        "finding:security-scan/identity-access/approval-flow"
+      ],
+      "attributes": {
+        "default": "read-only",
+        "values": [
+          "read-only",
+          "workspace-write",
+          "danger-full-access"
+        ],
+        "admin_clamp": "allowed_sandbox_modes"
+      }
+    },
+    {
+      "id": "configuration-scan/settings-surface/settings-inventory",
+      "group": "settings-surface",
+      "title": "93 operator-settable keys in one schema, plus 36 admin constraints and 117 feature flags",
+      "description": "The primary operator-facing surface is the `ConfigToml` struct, which the build turns into a **93-key JSON Schema** — `codex-rs/core/config.schema.json`, 155 type definitions and roughly 490 nested properties, so the real settable surface is several hundred keys deep. These are all **tuning keys**, not specification keys: there is no input-document config here, every key changes how the program behaves on the same input. By area: **model and provider** (about 18 keys — `model`, `model_provider`, `model_providers`, reasoning effort and verbosity, context-window and compaction limits, `service_tier`); **sandbox and permissions** (about 10 — `sandbox_mode`, `sandbox_workspace_write`, `permissions`, `default_permissions`, `approval_policy`, `allow_login_shell`, `shell_environment_policy`); **auth and endpoints** (about 8 — the two credential-store keys, `openai_base_url`, `chatgpt_base_url`, the forced-login keys, MCP OAuth callback); **extensions** (about 10 — `mcp_servers`, `plugins`, `marketplaces`, `skills`, `hooks`, `apps`, `agents`, `goals`, `memories`); **UI and UX** (about 12 — `tui`, `file_opener`, `notify`, `notice`, reasoning visibility); **telemetry** (`otel`, `analytics`, `feedback`); and **9 `experimental_*` keys**. Two further surfaces sit alongside: **36 admin constraint keys** in `requirements.toml` and **117 feature flags** in the `[features]` table.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/config/src/config_toml.rs",
+          "start_line": 199,
+          "end_line": 199,
+          "snippet": "    pub sandbox_mode: Option<SandboxMode>,",
+          "note": "a representative key of the primary schema"
+        },
+        {
+          "file": "codex-rs/config/src/config_requirements.rs",
+          "start_line": 922,
+          "end_line": 922,
+          "snippet": "pub struct ConfigRequirementsToml {",
+          "note": "the separate 36-key admin constraint schema"
+        },
+        {
+          "file": "codex-rs/core/src/config/schema.md",
+          "start_line": 3,
+          "end_line": 3,
+          "snippet": "We generate a JSON Schema for `~/.codex/config.toml` from the `ConfigToml` type",
+          "note": "the schema is generated from the struct"
+        }
+      ],
+      "tags": [
+        "inventory"
+      ],
+      "sokrates_refs": [
+        "component:codex_rs"
+      ],
+      "attributes": {
+        "areas": [
+          "model-and-provider",
+          "sandbox-and-permissions",
+          "auth-and-endpoints",
+          "extensions",
+          "ui",
+          "telemetry",
+          "experimental"
+        ],
+        "top_level_keys": 93,
+        "nested_properties": 490,
+        "type_definitions": 155,
+        "admin_keys": 36,
+        "feature_flags": 117
+      }
+    },
+    {
+      "id": "configuration-scan/settings-surface/undocumented-settings",
+      "group": "settings-surface",
+      "title": "92 of 93 settings have no in-repo documentation, including every sandbox and auth key",
+      "description": "Grepping each of the 93 schema keys against `docs/` and `codex-rs/core/src/config/schema.md` finds **one key documented in the repository**: `log_dir`, in a single sentence of `docs/install.md`. The reason is structural rather than neglectful — **the configuration reference was moved off-repo**. `docs/config.md` is 15 lines whose substance is a link to `developers.openai.com/codex/config-reference`, and nine other files in `docs/` are 84-to-177-byte redirect stubs of the same shape, `authentication.md` and `sandbox.md` among them. So the settings are almost certainly documented *somewhere*; they are simply documented where **no CI check, no diff and no repo-local reader can see them**, which means schema drift against the published reference is undetectable from the code. Of the 92, about **25 are dangerous when wrong** and deserve naming: the sandbox and permission keys (`sandbox_mode`, `sandbox_workspace_write`, `permissions`, `default_permissions`, `approval_policy`, `allow_login_shell`, `shell_environment_policy`), the credential and login keys (`cli_auth_credentials_store`, `mcp_oauth_credentials_store`, `forced_login_method`, `forced_chatgpt_workspace_id`), the endpoint keys (`openai_base_url`, `chatgpt_base_url`, `model_provider`, `model_providers`, `mcp_servers`), and the telemetry keys (`otel`, `analytics`, `responses_api_metadata`). The sharpest case is `sandbox_mode = \"danger-full-access\"`, which **disables sandboxing entirely** from a config file that no shipped document describes.",
+      "severity": "medium",
+      "confidence": "likely",
+      "recommendation": "Restore a generated, in-repo key reference — the 93-key `config.schema.json` already exists, so rendering it to Markdown in CI would give a repo-local document that cannot drift from the struct. Failing that, add a CI check that every schema key appears in the published reference, so drift is caught at build time rather than by a confused operator. Prioritise the 25 dangerous-when-wrong keys.",
+      "evidence": [
+        {
+          "file": "docs/config.md",
+          "start_line": 7,
+          "end_line": 7,
+          "snippet": "For a full configuration reference, see [this documentation](https://developers.openai.com/codex/config-reference).",
+          "note": "the entire in-repo configuration reference"
+        },
+        {
+          "file": "docs/authentication.md",
+          "start_line": 3,
+          "end_line": 3,
+          "snippet": "For information about Codex CLI authentication, see [this documentation](https://developers.openai.com/codex/auth).",
+          "note": "auth docs are a 3-line redirect too"
+        },
+        {
+          "file": "codex-rs/config/src/config_toml.rs",
+          "start_line": 254,
+          "end_line": 254,
+          "snippet": "    /// file (default): Use a file in the Codex home directory.",
+          "note": "the only description of the credential-store values is a Rust doc comment"
+        }
+      ],
+      "tags": [
+        "documentation",
+        "drift"
+      ],
+      "sokrates_refs": [
+        "finding:functionality-scan/hidden-and-gaps/docs-moved-offsite"
+      ],
+      "attributes": {
+        "total_keys": 93,
+        "documented_in_repo": 1,
+        "undocumented": 92,
+        "dangerous_undocumented": [
+          "sandbox_mode",
+          "sandbox_workspace_write",
+          "permissions",
+          "default_permissions",
+          "approval_policy",
+          "allow_login_shell",
+          "shell_environment_policy",
+          "cli_auth_credentials_store",
+          "mcp_oauth_credentials_store",
+          "forced_login_method",
+          "forced_chatgpt_workspace_id",
+          "openai_base_url",
+          "chatgpt_base_url",
+          "model_provider",
+          "model_providers",
+          "mcp_servers",
+          "otel",
+          "analytics",
+          "responses_api_metadata"
+        ],
+        "method": "grep of each schema key against docs/ and schema.md"
+      }
+    },
+    {
+      "id": "configuration-scan/settings-surface/deprecated-keys",
+      "group": "settings-surface",
+      "title": "Five retired keys are still accepted; four are silent no-ops and one fails fast",
+      "description": "Five keys remain in `ConfigToml` after the features behind them were removed, hidden from the generated schema with `#[schemars(skip)]` but **still accepted by the deserializer**. Four are **silent no-ops**: `js_repl_node_path` and `js_repl_node_module_dirs` (marked 'Deprecated: ignored'), `agents.job_max_runtime_seconds` ('Removed agent-job setting retained as a no-op for compatibility'), and the same `js_repl_node_path` inside `ConfigProfile`. An operator who set them keeps them in their config, sees no warning, and gets no behaviour. The fifth, `experimental_thread_store_endpoint`, is handled correctly and shows what the others should do: it is retained **specifically so the loader can reject it**, erroring with `is no longer supported; remove it from config.toml` rather than silently falling back to local persistence. Separately, two **renamed** keys are handled properly with real aliasing rather than deprecation: `no_memories_if_mcp_or_web_search` becomes `disable_on_external_context` and `agents.max_threads` becomes `max_concurrent_threads_per_session`, normalised during merge so the old spelling keeps working.",
+      "severity": "low",
+      "confidence": "certain",
+      "recommendation": "Give the four silent no-ops the treatment `experimental_thread_store_endpoint` already gets — either a startup warning naming the key or a hard error. Since they are hidden from the schema, `--strict-config` will not catch them either, so an operator has no way to discover the setting is dead.",
+      "evidence": [
+        {
+          "file": "codex-rs/config/src/config_toml.rs",
+          "start_line": 678,
+          "end_line": 678,
+          "snippet": "    pub job_max_runtime_seconds: Option<u64>,",
+          "note": "a removed setting retained as a silent no-op"
+        },
+        {
+          "file": "codex-rs/core/src/config/mod.rs",
+          "start_line": 3097,
+          "end_line": 3097,
+          "snippet": "                \"`experimental_thread_store_endpoint` is no longer supported; remove it from config.toml\",",
+          "note": "the one retired key that fails fast"
+        },
+        {
+          "file": "codex-rs/config/src/key_aliases.rs",
+          "start_line": 19,
+          "end_line": 19,
+          "snippet": "        legacy_key: \"max_threads\",",
+          "note": "a renamed key handled by real aliasing"
+        }
+      ],
+      "tags": [
+        "deprecation"
+      ],
+      "sokrates_refs": [
+        "finding:architecture-scan/evolution/api-v1-to-v2-and-legacy-paths"
+      ],
+      "attributes": {
+        "silent_no_ops": [
+          "js_repl_node_path",
+          "js_repl_node_module_dirs",
+          "agents.job_max_runtime_seconds",
+          "profiles.<name>.js_repl_node_path"
+        ],
+        "fails_fast": [
+          "experimental_thread_store_endpoint"
+        ],
+        "aliased": [
+          "no_memories_if_mcp_or_web_search",
+          "agents.max_threads"
+        ]
+      }
+    },
+    {
+      "id": "configuration-scan/schema-and-defaults/schema-representation",
+      "group": "schema-and-defaults",
+      "title": "A typed Rust schema with a generated JSON Schema, not scattered lookups",
+      "description": "Configuration is represented as a **typed schema end to end**. `ConfigToml` and its 155 supporting types are ordinary serde structs with `JsonSchema` derives, so every key has a Rust type, and the build emits `codex-rs/core/config.schema.json` from them — a real generated artefact rather than a hand-maintained parallel document. Enums are **closed and kebab-cased** (`SandboxMode`, `AuthCredentialsStoreMode`, `WebSearchMode`), which is what gives the system its type-level validation: an unrecognised value for a closed enum cannot deserialize, so a typo in a mode name is caught at load. The typed layer sits **above** an untyped one: layers are merged as `toml::Value` and only deserialized into `ConfigToml` afterwards, which is what allows per-key origin tracking and per-key merging but also means **type errors surface only after merging**, attributed to the merged document rather than to the layer that introduced them. There are effectively **no ad-hoc lookups** — the config crate is the single owner, and the roughly 90 `unwrap_or` calls in `core/src/config/mod.rs` are default application, not independent reads.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/core/src/config/schema.md",
+          "start_line": 3,
+          "end_line": 3,
+          "snippet": "We generate a JSON Schema for `~/.codex/config.toml` from the `ConfigToml` type",
+          "note": "schema generated from the typed struct"
+        },
+        {
+          "file": "codex-rs/protocol/src/config_types.rs",
+          "start_line": 86,
+          "end_line": 86,
+          "snippet": "pub enum SandboxMode {",
+          "note": "a closed enum giving type-level validation"
+        },
+        {
+          "file": "codex-rs/config/src/config_layer_source.rs",
+          "start_line": 6,
+          "end_line": 6,
+          "snippet": "pub enum ConfigLayerSource {",
+          "note": "layers merged as toml::Value before typing"
+        }
+      ],
+      "tags": [
+        "schema",
+        "serde"
+      ],
+      "sokrates_refs": [
+        "finding:tech-stack-scan/libraries/serde"
+      ],
+      "attributes": {
+        "representation": "typed serde structs",
+        "generated_schema": "codex-rs/core/config.schema.json",
+        "type_definitions": 155
+      }
+    },
+    {
+      "id": "configuration-scan/schema-and-defaults/defaults-location",
+      "group": "schema-and-defaults",
+      "title": "Defaults live in three places, consistent today but not single-sourced",
+      "description": "A default value for a given key can come from any of **three mechanisms**, and for several keys it comes from all three. First, `codex-rs/config/defaults.toml` — a 17-line file compiled into the binary with `include_str!` and pushed as the lowest layer, holding 14 values including `project_doc_max_bytes = 32768`, `file_opener = \"vscode\"` and `cli_auth_credentials_store = \"file\"`. Second, **serde defaults** on the struct — 29 `#[serde(default = ...)]` attributes with functions such as `default_project_doc_max_bytes()`. Third, **`unwrap_or` at the point of use** in `core/src/config/mod.rs`, about 90 of them, such as `cfg.project_doc_max_bytes.unwrap_or(AGENTS_MD_MAX_BYTES)`. I checked the overlapping keys and the values **agree** — `project_doc_max_bytes` routes to the same `DEFAULT_PROJECT_DOC_MAX_BYTES` constant in both the serde default and the `unwrap_or`, and `defaults.toml` states the same number literally. So this is redundancy rather than conflict. The cost is maintenance: changing a default correctly means finding all three sites, and the literal `32768` in `defaults.toml` is not derived from the constant, so nothing prevents them diverging in a future edit.",
+      "severity": "low",
+      "confidence": "certain",
+      "recommendation": "Derive the `defaults.toml` values from the same constants the serde defaults use, or drop the per-key `unwrap_or` fallbacks now that a packaged-defaults layer guarantees the key is present. Today's agreement is maintained by hand and there is no test asserting the three sites match.",
+      "evidence": [
+        {
+          "file": "codex-rs/config/src/loader/mod.rs",
+          "start_line": 170,
+          "end_line": 170,
+          "snippet": "        let raw_toml = include_str!(\"../../defaults.toml\");",
+          "note": "defaults.toml compiled in as the lowest layer"
+        },
+        {
+          "file": "codex-rs/config/src/config_toml.rs",
+          "start_line": 77,
+          "end_line": 78,
+          "snippet": "const fn default_project_doc_max_bytes() -> Option<usize> {\n    Some(DEFAULT_PROJECT_DOC_MAX_BYTES)",
+          "note": "the same default as a serde default"
+        },
+        {
+          "file": "codex-rs/core/src/config/mod.rs",
+          "start_line": 4067,
+          "end_line": 4067,
+          "snippet": "            project_doc_max_bytes: cfg.project_doc_max_bytes.unwrap_or(AGENTS_MD_MAX_BYTES),",
+          "note": "and again as an unwrap_or at point of use"
+        }
+      ],
+      "tags": [
+        "defaults"
+      ],
+      "sokrates_refs": [
+        "component:codex_rs"
+      ],
+      "attributes": {
+        "mechanisms": [
+          "defaults.toml packaged layer",
+          "serde default attributes",
+          "unwrap_or at point of use"
+        ],
+        "defaults_toml_keys": 14,
+        "serde_defaults": 29,
+        "unwrap_or_sites": 90,
+        "conflicts_found": 0
+      }
+    },
+    {
+      "id": "configuration-scan/schema-and-defaults/default-profile",
+      "group": "schema-and-defaults",
+      "title": "An unconfigured installation is read-only, file-backed and telemetry-on",
+      "description": "With no `config.toml` at all — a missing file is **not an error**, it logs at info and yields an empty layer — Codex runs on the packaged defaults plus the serde defaults. The resulting posture: the sandbox is **`read-only`**, the safest of three modes; credentials go to `$CODEX_HOME/auth.json` at mode `0600` because `cli_auth_credentials_store` defaults to `\"file\"`; MCP OAuth tokens use `\"auto\"`, meaning **keyring with a plaintext-file fallback**; `project_doc_max_bytes` is 32 KiB; the file opener is VS Code; history is `save-all`; agent reasoning is shown; and project-root detection is on with `.git` as the marker. Two aspects of the default profile deserve an operator's attention rather than a fix. The **strictness default is permissive** — unknown keys are silently dropped unless `--strict-config` is passed. And the **telemetry defaults are on rather than opt-in**, which observability-scan rates; here it is worth recording only that flipping them is a configuration key, not a build option.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/config/defaults.toml",
+          "start_line": 1,
+          "end_line": 1,
+          "snippet": "# Fixed defaults for packaged Codex clients.",
+          "note": "the packaged default layer"
+        },
+        {
+          "file": "codex-rs/config/src/loader/layer_io.rs",
+          "start_line": 179,
+          "end_line": 179,
+          "snippet": "                tracing::info!(\"{} not found, using defaults\", path.as_path().display());",
+          "note": "a missing config file is not an error"
+        },
+        {
+          "file": "codex-rs/config/defaults.toml",
+          "start_line": 16,
+          "end_line": 17,
+          "snippet": "[history]\npersistence = \"save-all\"",
+          "note": "history default"
+        }
+      ],
+      "tags": [
+        "defaults",
+        "posture"
+      ],
+      "sokrates_refs": [
+        "finding:observability-scan/telemetry-pipeline/statsig-metrics-default-on",
+        "finding:architecture-scan/security-boundaries/open-defaults"
+      ],
+      "attributes": {
+        "sandbox": "read-only",
+        "credentials": "auth.json 0600",
+        "mcp_oauth": "auto (keyring with file fallback)",
+        "strictness": "permissive",
+        "history": "save-all"
+      }
+    },
+    {
+      "id": "configuration-scan/schema-and-defaults/type-coercion",
+      "group": "schema-and-defaults",
+      "title": "CLI override values fall back to a raw string when TOML parsing fails",
+      "description": "`-c key=value` parses the right-hand side as TOML so that `-c model=o3` works without quoting, and when that parse fails it **silently treats the text as a string literal** rather than reporting an error. For a string-typed key that is the convenience it was designed for. For a **typed** key it converts a syntax error into a type error one step later: `-c project_doc_max_bytes=32kb` becomes the string `\"32kb\"`, which then fails to deserialize into `usize` — so the operator does get an error, just one that describes the wrong problem. The riskier shape is a key whose type **is** a string but whose values are constrained, where a malformed override becomes a plausible-looking wrong value. Elsewhere coercion is well behaved: closed enums reject unknown variants outright, and the `SandboxMode` and credential-store enums are the ones that matter. Note also that a **typo'd override key** is not caught at all by default — `-c modle=o3` is discarded silently unless `--strict-config` is passed.",
+      "severity": "low",
+      "confidence": "certain",
+      "recommendation": "Report the TOML parse failure at debug level, or restrict the raw-string fallback to values that do not look like a failed literal (a bare `32kb` or `tru`). Today the fallback is indistinguishable from an intended string.",
+      "evidence": [
+        {
+          "file": "codex-rs/utils/cli/src/config_override.rs",
+          "start_line": 76,
+          "end_line": 76,
+          "snippet": "                        let trimmed = value_str.trim().trim_matches(|c| c == '\"' || c == '\\'');",
+          "note": "the silent raw-string fallback when TOML parsing fails"
+        },
+        {
+          "file": "codex-rs/utils/cli/src/config_override.rs",
+          "start_line": 21,
+          "end_line": 22,
+          "snippet": "    /// `~/.codex/config.toml`. Use a dotted path (`foo.bar.baz`) to override\n    /// nested values. The `value` portion is parsed as TOML. If it fails to",
+          "note": "the documented intent"
+        }
+      ],
+      "tags": [
+        "coercion",
+        "cli"
+      ],
+      "sokrates_refs": [
+        "component:codex_rs"
+      ],
+      "attributes": {
+        "fallback": "raw string",
+        "affected": "-c/--config overrides"
+      }
+    },
+    {
+      "id": "configuration-scan/secrets-management/secret-sources",
+      "group": "secrets-management",
+      "title": "Seven credential sources feed one resolution point",
+      "description": "Credentials reach Codex from **seven distinct sources**, all resolved in `load_auth` with an explicit precedence. First the **`CODEX_API_KEY` environment variable**, which outranks everything else. Then an **in-memory ephemeral store** for externally supplied ChatGPT tokens. Then **`CODEX_ACCESS_TOKEN`**, classified at read time into either a personal access token or an agent-identity JWT. Then the **persisted store** — `$CODEX_HOME/auth.json` at mode `0600`, or the **OS keyring** under service name `Codex Auth`, with two keyring backends (a direct payload, or an age-encrypted local file whose passphrase lives in the keyring). Alongside these: **interactive ChatGPT login** via PKCE with a local callback server, which writes into the same `auth.json`; **AWS credentials** for Bedrock, delegated entirely to the AWS default chain rather than read by Codex; and **workload identity**, a federated token-file exchange driven by `OPENAI_FEDERATION_RULE_ID` and `OPENAI_IDENTITY_TOKEN_FILE`. `OPENAI_API_KEY` is notably **not** in the resolution chain — it is only a prefill for the onboarding screen, so it seeds `auth.json` rather than acting as a runtime credential.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/login/src/auth/storage.rs",
+          "start_line": 231,
+          "end_line": 231,
+          "snippet": "const KEYRING_SERVICE: &str = \"Codex Auth\";",
+          "note": "the OS keyring service name"
+        },
+        {
+          "file": "codex-rs/login/src/auth/storage.rs",
+          "start_line": 213,
+          "end_line": 213,
+          "snippet": "            options.mode(0o600);",
+          "note": "auth.json written with restrictive permissions"
+        },
+        {
+          "file": "codex-rs/secrets/src/local.rs",
+          "start_line": 42,
+          "end_line": 42,
+          "snippet": "const CODEX_AUTH_SECRETS_FILENAME: &str = \"codex_auth.age\";",
+          "note": "the age-encrypted local secrets file"
+        }
+      ],
+      "tags": [
+        "credentials",
+        "keyring"
+      ],
+      "sokrates_refs": [
+        "finding:security-scan/identity-access/authentication",
+        "finding:security-scan/secrets/at-rest",
+        "finding:tech-stack-scan/libraries/keyring"
+      ],
+      "attributes": {
+        "sources": [
+          "CODEX_API_KEY env var",
+          "ephemeral in-memory store",
+          "CODEX_ACCESS_TOKEN env var",
+          "auth.json key file",
+          "OS keyring",
+          "interactive PKCE login",
+          "AWS default chain / workload identity"
+        ]
+      }
+    },
+    {
+      "id": "configuration-scan/secrets-management/plaintext-fallback",
+      "group": "secrets-management",
+      "title": "Keyring failure writes the credential to a plaintext file with only a warn log",
+      "description": "Both credential stores implement **`auto` mode as keyring-with-silent-file-fallback**. When the keyring save fails, `AutoAuthStorage` logs at `warn!` and writes the credential to `$CODEX_HOME/auth.json` instead; the MCP OAuth path does the same into `$CODEX_HOME/.credentials.json`. Nothing surfaces to the operator at the point of use — a `warn!` in a TUI session is not a prompt, and there is no configuration flag that says 'fail rather than downgrade' short of choosing `keyring` explicitly, which is a **different value the operator has to know exists**. This matters more for MCP than for CLI auth, because `cli_auth_credentials_store` defaults to `\"file\"` (already plaintext, so no downgrade occurs) while **`mcp_oauth_credentials_store` defaults to `\"auto\"`** — the fallback path is the shipped default for MCP OAuth tokens, and the code's own comment notes the resulting file is readable by any application running as the same user. There is a deliberate carve-out that shows the authors thought about this: a store *lock* failure is **not** treated as keyring-unavailable and does not fall back. That precision makes the remaining silence look like a choice rather than an oversight.",
+      "severity": "medium",
+      "confidence": "certain",
+      "recommendation": "Surface the downgrade where the operator will see it — a startup warning in the same channel as the project-config denylist warnings, which already prove the mechanism exists. Better still, record in the credential file that it was written by fallback, so a later run can tell the operator their keyring configuration is not taking effect.",
+      "evidence": [
+        {
+          "file": "codex-rs/login/src/auth/storage.rs",
+          "start_line": 443,
+          "end_line": 443,
+          "snippet": "                warn!(\"failed to save auth to keyring, falling back to file storage: {err}\");",
+          "note": "CLI auth silently downgrades to plaintext file"
+        },
+        {
+          "file": "codex-rs/rmcp-client/src/oauth.rs",
+          "start_line": 564,
+          "end_line": 564,
+          "snippet": "            warn!(\"falling back to file storage for OAuth tokens: {message}\");",
+          "note": "MCP OAuth does the same, and auto is its default"
+        },
+        {
+          "file": "codex-rs/config/defaults.toml",
+          "start_line": 7,
+          "end_line": 7,
+          "snippet": "mcp_oauth_credentials_store = \"auto\"",
+          "note": "the fallback-enabled mode is the shipped default for MCP"
+        }
+      ],
+      "tags": [
+        "credentials",
+        "fallback"
+      ],
+      "sokrates_refs": [
+        "finding:security-scan/secrets/at-rest",
+        "finding:reliability-scan/degradation/designed-fallbacks"
+      ],
+      "attributes": {
+        "cli_default": "file",
+        "mcp_default": "auto",
+        "fallback_signal": "warn log only",
+        "carve_out": "store lock failures do not fall back"
+      }
+    },
+    {
+      "id": "configuration-scan/secrets-management/credential-flow",
+      "group": "secrets-management",
+      "title": "Model providers configure their own credential env var, and may hold a token in plaintext",
+      "description": "`[model_providers.<name>]` lets an operator define a provider, and the credential plumbing is **part of that configuration**: `env_key` names the environment variable holding the API key, `env_key_instructions` supplies the message shown when it is missing, and `env_http_headers` maps header names to further environment variables. This makes the environment surface **user-extensible** — the set of credential-bearing variables Codex reads is not fixed by the code, so no static analysis of `env::var` call sites can enumerate it. The flow itself is clean: `api_key()` reads the named variable, rejects an empty or whitespace value, and returns a typed `EnvVarError` carrying the operator instructions rather than a bare failure. Alongside it sits `experimental_bearer_token`, which holds a **token literally in the config file**, and the field's own doc comment says its use is discouraged in favour of `env_key` for security reasons. That is the right warning in the right place — but it is a Rust doc comment, so an operator reading a config example never sees it, and the key is not in the project-config denylist.",
+      "severity": "low",
+      "confidence": "certain",
+      "recommendation": "Consider adding `experimental_bearer_token` and `model_providers` to the project-local denylist reasoning — `model_providers` is already denied, which covers the nested token, so the residual gap is only that a user-level config can carry a plaintext token with no warning at load. A startup warning when `experimental_bearer_token` is set would match how the denylist already warns.",
+      "evidence": [
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 102,
+          "end_line": 102,
+          "snippet": "    pub env_key: Option<String>,",
+          "note": "config names the env var holding the credential"
+        },
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 110,
+          "end_line": 110,
+          "snippet": "    pub experimental_bearer_token: Option<String>,",
+          "note": "a token held directly in the config file"
+        },
+        {
+          "file": "codex-rs/model-provider-info/src/lib.rs",
+          "start_line": 127,
+          "end_line": 127,
+          "snippet": "    pub env_http_headers: Option<HashMap<String, String>>,",
+          "note": "headers sourced from further env vars named in config"
+        }
+      ],
+      "tags": [
+        "credentials",
+        "providers"
+      ],
+      "sokrates_refs": [
+        "finding:functionality-scan/integrations/model-providers",
+        "finding:security-scan/secrets/in-memory-and-redaction"
+      ],
+      "attributes": {
+        "credential_keys": [
+          "env_key",
+          "env_key_instructions",
+          "env_http_headers",
+          "experimental_bearer_token",
+          "auth",
+          "aws"
+        ]
+      }
+    },
+    {
+      "id": "configuration-scan/secrets-management/redaction",
+      "group": "secrets-management",
+      "title": "Best-effort regex redaction, including a pattern that catches config-shaped assignments",
+      "description": "The configuration layer redacts secrets before they reach logs and output using **four regexes**, and the module says of itself that it works 'on best effort basis'. Three match credential *shapes* — OpenAI keys (`sk-` plus 20+ characters), AWS access key ids (`AKIA` plus 16), and bearer tokens. The fourth is the one that matters for configuration: it matches **`api_key`/`token`/`secret`/`password` followed by `:` or `=` and a value**, which is precisely the shape of a TOML or env-var assignment, so a config file echoed into a log or an error message has its credential-bearing lines masked regardless of the key's own name. The limits are inherent to the approach: a provider whose key has no recognisable prefix and whose config key is not one of the four words passes through unredacted, and `experimental_bearer_token = \"...\"` is caught by the assignment pattern only because the key name contains `token`. Worth distinguishing from `thread_resume_redaction.rs`, which despite the name is a **payload-size measure** for two mobile clients and explicitly leaves persisted history unchanged — it is not a secrets control.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/secrets/src/sanitizer.rs",
+          "start_line": 10,
+          "end_line": 10,
+          "snippet": "    compile_regex(r#\"(?i)\\b(api[_-]?key|token|secret|password)\\b(\\s*[:=]\\s*)([\"']?)[^\\s\"']{8,}\"#)",
+          "note": "the config-assignment-shaped redaction pattern"
+        },
+        {
+          "file": "codex-rs/secrets/src/sanitizer.rs",
+          "start_line": 13,
+          "end_line": 13,
+          "snippet": "/// Remove secret and keys from a String. This is done on best effort basis following some",
+          "note": "the module's own statement of its limits"
+        }
+      ],
+      "tags": [
+        "redaction",
+        "logging"
+      ],
+      "sokrates_refs": [
+        "finding:security-scan/secrets/in-memory-and-redaction",
+        "finding:observability-scan/logging/prompt-redaction-identity-fields"
+      ],
+      "attributes": {
+        "patterns": [
+          "openai sk- key",
+          "AWS AKIA id",
+          "bearer token",
+          "key/token/secret/password assignment"
+        ],
+        "basis": "best-effort regex"
+      }
+    },
+    {
+      "id": "configuration-scan/secrets-management/operator-setup",
+      "group": "secrets-management",
+      "title": "No .env.example and no in-repo auth setup guide; the recipe lives in a crate README",
+      "description": "An operator setting Codex up for the first time gets **no dotenv scaffolding at all** — there is no `.env`, no `.env.example`, and no dotenv loader anywhere in the tree, which is consistent with the design (credentials come from a keyring, a key file, or an exported variable) but removes the usual discovery affordance. The in-repo guidance is thin: `docs/authentication.md` is **three lines redirecting to an external URL**, and neither credential-store key appears anywhere under `docs/`. The one concrete recipe that ships is in a crate README, showing `CODEX_API_KEY=\"$OPENAI_API_KEY\"` for the exec-server. In practice there are three viable setup paths and an operator has to infer them from the code or the external site: run `codex login` for interactive PKCE, export `CODEX_API_KEY`, or export `OPENAI_API_KEY` and let the TUI onboarding screen detect and store it. That third path is the only one with a visible prompt — the onboarding screen says it detected the variable — which makes it the de facto documented route by accident rather than design.",
+      "severity": "low",
+      "confidence": "certain",
+      "recommendation": "Add a short in-repo `docs/authentication.md` section naming the three setup paths and the two credential-store keys. This is the highest-value single document to restore, because unlike tuning keys a credential misconfiguration blocks first use entirely.",
+      "evidence": [
+        {
+          "file": "docs/authentication.md",
+          "start_line": 3,
+          "end_line": 3,
+          "snippet": "For information about Codex CLI authentication, see [this documentation](https://developers.openai.com/codex/auth).",
+          "note": "the entire in-repo auth documentation"
+        },
+        {
+          "file": "codex-rs/exec-server/README.md",
+          "start_line": 51,
+          "end_line": 51,
+          "snippet": "CODEX_API_KEY=\"$OPENAI_API_KEY\" \\",
+          "note": "the only concrete credential recipe that ships"
+        }
+      ],
+      "tags": [
+        "onboarding",
+        "documentation"
+      ],
+      "sokrates_refs": [
+        "finding:functionality-scan/workflows/first-run",
+        "finding:functionality-scan/hidden-and-gaps/docs-moved-offsite"
+      ],
+      "attributes": {
+        "dotenv": "absent",
+        "setup_paths": [
+          "codex login (PKCE)",
+          "CODEX_API_KEY env var",
+          "OPENAI_API_KEY detected at onboarding"
+        ]
+      }
+    },
+    {
+      "id": "configuration-scan/validation/unknown-keys",
+      "group": "validation",
+      "title": "Unknown keys are silently dropped unless --strict-config is passed",
+      "description": "By default a key the schema does not recognise is **discarded without a word**. Serde ignores it, no warning is logged, and the operator's `modle = \"gpt-5\"` simply never takes effect. Strict rejection exists and is well built — `serde_ignored` plus `serde_path_to_error` produce `unknown configuration field \\`<path>\\`` with a **rustc-style caret diagnostic** pointing at the offending line and column, and it extends into the `[features]` table by checking each key against the known-feature registry. But it is reachable **only through the `--strict-config` CLI flag**, whose default is `false`; there is no config key and no environment variable that turns it on, so an operator cannot make strictness their standing preference — and a config-file setting could not do it anyway, since the strictness decision has to precede reading the file. The same silence applies to **`-c` overrides**: `-c modle=o3` is discarded by default, with its own dedicated message available only under strict mode. Several loader paths are also **hardcoded non-strict** regardless of the flag, including the local-executor reads and the default cloud-config path.",
+      "severity": "low",
+      "confidence": "certain",
+      "recommendation": "Add a warn-level middle ground: log unknown keys by name at startup even when strict mode is off. The machinery already collects them, so this is a matter of routing the collected paths to a warning instead of discarding them — and it would use the same startup-warning channel that project-config key stripping already uses.",
+      "evidence": [
+        {
+          "file": "codex-rs/config/src/state.rs",
+          "start_line": 35,
+          "end_line": 35,
+          "snippet": "            strict_config: false,",
+          "note": "strictness is off by default"
+        },
+        {
+          "file": "codex-rs/tui/src/cli.rs",
+          "start_line": 16,
+          "end_line": 16,
+          "snippet": "    #[arg(long = \"strict-config\", default_value_t = false)]",
+          "note": "the only way to enable it is a CLI flag"
+        },
+        {
+          "file": "codex-rs/config/src/loader/mod.rs",
+          "start_line": 669,
+          "end_line": 669,
+          "snippet": "            format!(\"unknown configuration field `{ignored_path}` in -c/--config override\"),",
+          "note": "typo'd CLI overrides are also silent by default"
+        }
+      ],
+      "tags": [
+        "strictness",
+        "typos"
+      ],
+      "sokrates_refs": [
+        "component:codex_rs"
+      ],
+      "attributes": {
+        "default": "silently ignored",
+        "strict_mode": "--strict-config CLI flag only",
+        "covers": [
+          "config.toml",
+          "-c overrides",
+          "[features] table"
+        ]
+      }
+    },
+    {
+      "id": "configuration-scan/validation/failure-behaviour",
+      "group": "validation",
+      "title": "Malformed config aborts with a caret diagnostic, except in untrusted project directories",
+      "description": "A config file that will not parse as TOML is a **fatal error with an excellent message**. The loader converts the parse failure into a `ConfigError` carrying file, line and column, and the TUI restores the terminal, prints a **rustc-style rendering with a gutter, the source line and a caret underline**, and exits 1. This is the strongest part of the validation story: the operator learns exactly which character of which file is wrong. A **missing** file is not an error at all — it logs at info and contributes an empty layer, which is correct for a layered system where most layers are absent most of the time. There is **one exception worth knowing**: a malformed `.codex/config.toml` in an **untrusted** directory is not fatal. The loader substitutes an empty table and continues, and unlike the denylist-stripping path it does **not** push a startup warning, so the operator working in an untrusted checkout gets no signal that their project config is broken rather than merely disabled. The reasoning is defensible — an untrusted project's file contributes nothing anyway — but the silence conflates 'ignored because untrusted' with 'ignored because broken'.",
+      "severity": "low",
+      "confidence": "certain",
+      "recommendation": "Push a startup warning when an untrusted project config fails to parse, reusing the channel that already reports stripped denylist keys. The operator would then be able to distinguish a disabled layer from a broken one before they trust the directory.",
+      "evidence": [
+        {
+          "file": "codex-rs/config/src/loader/layer_io.rs",
+          "start_line": 168,
+          "end_line": 168,
+          "snippet": "                tracing::error!(\"Failed to parse {}: {err}\", path.as_path().display());",
+          "note": "malformed TOML becomes an InvalidData error"
+        },
+        {
+          "file": "codex-rs/config/src/loader/mod.rs",
+          "start_line": 1529,
+          "end_line": 1529,
+          "snippet": "                            config: TomlValue::Table(toml::map::Map::new()),",
+          "note": "untrusted project config silently becomes an empty table"
+        },
+        {
+          "file": "codex-rs/config/src/diagnostics.rs",
+          "start_line": 1,
+          "end_line": 2,
+          "snippet": "//! Helpers for mapping config parse/validation failures to file locations and\n//! rendering them in a user-friendly way.",
+          "note": "the caret-diagnostic renderer"
+        }
+      ],
+      "tags": [
+        "failure",
+        "diagnostics"
+      ],
+      "sokrates_refs": [
+        "finding:reliability-scan/error-model/central-codex-err"
+      ],
+      "attributes": {
+        "malformed": "fail-fast with caret diagnostic",
+        "missing": "empty layer, info log",
+        "untrusted_project_malformed": "silent empty table"
+      }
+    },
+    {
+      "id": "configuration-scan/validation/validation-timing",
+      "group": "validation",
+      "title": "Types and enums checked at load; semantic checks deferred to first use",
+      "description": "Validation happens in **two waves at different times**. At load, everything the type system can express is checked: TOML syntax, field types, and closed-enum membership — so `sandbox_mode = \"danger\"` or `cli_auth_credentials_store = \"kyring\"` fails at startup with a spanned diagnostic. Beyond types, the load-time checks are **selective rather than systematic**: `validate_enabled_config_layers` checks the shell-environment-policy filter representation, permission-profile names are validated, and the multi-agent tool namespace is checked. Everything else is checked **when the subsystem first initialises**. The network proxy is the clearest case: `network.proxy_url`, `network.socks_url` and `network.allow_unix_sockets` are only parsed and range-checked when the proxy starts, where a non-absolute socket path or a zero port produces a contextual error. For a single-user interactive CLI this is a reasonable trade — the operator is present, sees the error, and fixes it. It matters more for the **headless `codex exec` path**, where a misconfigured proxy surfaces only once a session reaches the point of needing it.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/config/src/state.rs",
+          "start_line": 511,
+          "end_line": 511,
+          "snippet": "pub(crate) fn validate_enabled_config_layers(layers: &[ConfigLayerEntry]) -> std::io::Result<()> {",
+          "note": "selective load-time validation"
+        },
+        {
+          "file": "codex-rs/network-proxy/src/config.rs",
+          "start_line": 428,
+          "end_line": 428,
+          "snippet": "pub(crate) fn validate_unix_socket_allowlist_paths(cfg: &NetworkProxyConfig) -> Result<()> {",
+          "note": "proxy settings validated at subsystem start"
+        },
+        {
+          "file": "codex-rs/network-proxy/src/state.rs",
+          "start_line": 77,
+          "end_line": 77,
+          "snippet": "    crate::config::validate_unix_socket_allowlist_paths(&config)?;",
+          "note": "invoked at proxy state construction, not at config load"
+        }
+      ],
+      "tags": [
+        "validation"
+      ],
+      "sokrates_refs": [
+        "finding:network-scan/connection-management/proxy-support",
+        "finding:reliability-scan/error-model/central-codex-err"
+      ],
+      "attributes": {
+        "load_time": [
+          "TOML syntax",
+          "field types",
+          "closed enums",
+          "shell env policy",
+          "permission profile names"
+        ],
+        "first_use": [
+          "network proxy URLs and ports",
+          "unix socket allowlist",
+          "auth config"
+        ]
+      }
+    },
+    {
+      "id": "configuration-scan/flags-and-runtime/feature-flags",
+      "group": "flags-and-runtime",
+      "title": "117 feature flags in one registry with declared lifecycle stages",
+      "description": "Feature flags are a **first-class, centrally registered mechanism** rather than scattered booleans. A single `FEATURES` table declares every flag with an id, the `[features]` TOML key an operator writes, a **lifecycle stage**, and a default. The stages are meaningful: `Stable` (38 flags — shipped, the flag kept for ad-hoc disabling), `UnderDevelopment` (41 — not user-visible), `Experimental` (1 — surfaced in the `/experimental` menu with a name, description and announcement), `Deprecated` (3), and `Removed` (34). Flags are **config keys, not a remote service**: they come from the same layered `[features]` table as everything else, so an administrator can set them through `requirements.toml` and a user through their config file. The registry pays for itself in two places: strict-config validation checks `[features]` keys against it, and telemetry emits a `codex.feature.state` counter for every flag whose value differs from its default — deliberately **skipping `Removed` flags**, which is the one place the code acknowledges that removed flags still exist in the wild.",
+      "severity": "info",
+      "confidence": "certain",
+      "evidence": [
+        {
+          "file": "codex-rs/features/src/lib.rs",
+          "start_line": 824,
+          "end_line": 824,
+          "snippet": "pub const FEATURES: &[FeatureSpec] = &[",
+          "note": "the single flag registry"
+        },
+        {
+          "file": "codex-rs/features/src/lib.rs",
+          "start_line": 43,
+          "end_line": 43,
+          "snippet": "pub enum Stage {",
+          "note": "declared lifecycle stages"
+        },
+        {
+          "file": "codex-rs/features/src/lib.rs",
+          "start_line": 677,
+          "end_line": 678,
+          "snippet": "/// Keys accepted in `[features]` tables.\npub fn feature_for_key(key: &str) -> Option<Feature> {",
+          "note": "the registry backs strict-config key checking"
+        }
+      ],
+      "tags": [
+        "feature-flags"
+      ],
+      "sokrates_refs": [
+        "finding:functionality-scan/hidden-and-gaps/feature-flag-switchboard"
+      ],
+      "attributes": {
+        "total": 117,
+        "stable": 38,
+        "under_development": 41,
+        "experimental": 1,
+        "deprecated": 3,
+        "removed": 34,
+        "delivery": "config layers, not remote"
+      }
+    },
+    {
+      "id": "configuration-scan/flags-and-runtime/dead-flags",
+      "group": "flags-and-runtime",
+      "title": "34 removed feature flags are still accepted as valid keys and do nothing",
+      "description": "Of the 117 registered flags, **34 are staged `Removed`** — the feature is gone and the branch is unreachable — yet they remain in the `FEATURES` table, and `feature_for_key` iterates the **whole table without filtering by stage**. The consequence is that `is_known_feature_key` returns true for a removed flag, so `[features] undo = true` or `js_repl = true` is **accepted even under `--strict-config`**, the one mode whose entire purpose is catching keys that will not take effect. An operator carrying a config from an older release gets no signal that a third of their flags are inert. The dead set includes recognisable names an operator plausibly still has set: `undo`, `js_repl`, `search_tool`, `sqlite`, `multi_agent_mode`, `remote_control`, `tool_search`, `collaboration_modes`, `responses_websockets`, and `experimental_windows_sandbox`. A further **3 flags are `Deprecated`** (`web_search_request`, `web_search_cached`, `use_legacy_landlock`) and are in the same position. The telemetry path already treats `Removed` as special by skipping it, so the distinction the fix needs is **present in the code and simply not applied to key validation**.",
+      "severity": "low",
+      "confidence": "certain",
+      "recommendation": "Make `is_known_feature_key` reject `Removed` stages under strict mode, or warn on them always — the stage data is already there and `emit_metrics` already branches on it. Strict mode accepting keys it knows are dead is the specific gap: an operator who opted into strictness is asking exactly this question.",
+      "evidence": [
+        {
+          "file": "codex-rs/features/src/lib.rs",
+          "start_line": 829,
+          "end_line": 829,
+          "snippet": "        stage: Stage::Removed,",
+          "note": "a removed flag still present in the registry"
+        },
+        {
+          "file": "codex-rs/features/src/lib.rs",
+          "start_line": 696,
+          "end_line": 696,
+          "snippet": "    key == \"tool_registry\" || feature_for_key(key).is_some()",
+          "note": "known-key check does not filter removed stages"
+        },
+        {
+          "file": "codex-rs/features/src/lib.rs",
+          "start_line": 490,
+          "end_line": 491,
+          "snippet": "            if matches!(feature.stage, Stage::Removed) {\n                continue;",
+          "note": "telemetry already special-cases Removed, key validation does not"
+        }
+      ],
+      "tags": [
+        "feature-flags",
+        "dead-code"
+      ],
+      "sokrates_refs": [
+        "finding:functionality-scan/hidden-and-gaps/feature-flag-switchboard"
+      ],
+      "attributes": {
+        "removed_count": 34,
+        "deprecated_count": 3,
+        "accepted_under_strict": true,
+        "examples": [
+          "undo",
+          "js_repl",
+          "search_tool",
+          "sqlite",
+          "multi_agent_mode",
+          "remote_control",
+          "tool_search",
+          "collaboration_modes",
+          "responses_websockets",
+          "experimental_windows_sandbox"
+        ]
+      }
+    },
+    {
+      "id": "configuration-scan/flags-and-runtime/restart-required",
+      "group": "flags-and-runtime",
+      "title": "Effectively all settings require a restart; the only refresh is the cloud policy cache",
+      "description": "Codex has **no configuration reload mechanism** for its own files: no SIGHUP handler that rereads config, no watcher on `config.toml`, no `/reload` command. The layer stack is built once per session and the resulting `Config` is passed around by value, so changing `~/.codex/config.toml` mid-session has **no effect until the next launch**. The file-watching machinery that exists in the workspace watches **workspace files for the agent**, not configuration, and the `ConfigReloader` trait in the network proxy is implemented only by `StaticConfigReloader` and `StaticNetworkProxyReloader` — both of which return 'nothing changed' or refuse to reload, so the reload seam is declared but **not wired to any live source**. The single genuinely dynamic path is the **enterprise cloud bundle**, refreshed into its cache every 15 minutes, and even that takes effect at the next load rather than in the running session. What the product does provide instead is **per-session override**: `-c` flags and `--sandbox`/`--model` let an operator get a different effective configuration by starting a new session, which for a CLI is the idiomatic answer. The gap is only that nothing **documents** the restart requirement.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/network-proxy/src/runtime.rs",
+          "start_line": 181,
+          "end_line": 181,
+          "snippet": "pub trait ConfigReloader: Send + Sync {",
+          "note": "a reload seam that exists but has only static implementations"
+        },
+        {
+          "file": "codex-rs/network-proxy/src/runtime.rs",
+          "start_line": 206,
+          "end_line": 206,
+          "snippet": "        Box::pin(async { anyhow::bail!(\"static config state cannot be reloaded\") })",
+          "note": "the only implementation refuses to reload"
+        },
+        {
+          "file": "codex-rs/cloud-config/src/service.rs",
+          "start_line": 36,
+          "end_line": 36,
+          "snippet": "const CLOUD_CONFIG_BUNDLE_CACHE_REFRESH_INTERVAL: Duration = Duration::from_secs(15 * 60);",
+          "note": "the one periodically refreshed source"
+        }
+      ],
+      "tags": [
+        "reload",
+        "runtime"
+      ],
+      "sokrates_refs": [
+        "finding:functionality-scan/features/session-lifecycle"
+      ],
+      "attributes": {
+        "reload": "restart-required",
+        "watch": "none for config",
+        "signal": "none",
+        "dynamic": "cloud bundle cache only"
+      }
+    },
+    {
+      "id": "configuration-scan/configuration-posture/posture",
+      "group": "configuration-posture",
+      "title": "A mature layered configuration system whose documentation left the repository",
+      "description": "Codex composes configuration from **nine explicitly ranked TOML layers** — packaged defaults, MDM, system, enterprise cloud, user, profile, project, session flags, and two legacy managed layers — folded by a recursive per-key merge that also records **which layer set each key**. Defaults come from three places (a compiled-in `defaults.toml`, serde attributes, and `unwrap_or` at point of use) that currently agree but are maintained by hand. Environment variables sit **outside** the stack as a parallel channel of 110 names, and CLI flags contribute one generic `-c key=value` plus about ten named settings. **How an operator finds out what they can set is the central weakness**: the surface is 93 schema keys, 36 admin constraint keys and 117 feature flags, and exactly **one key is documented in the repository** — the reference now lives behind a URL, so drift against the code is invisible to CI, to a diff, and to anyone reading the source. **The riskiest default is not dangerous** — the sandbox defaults to `read-only`, credentials to a `0600` file — but `mcp_oauth_credentials_store = \"auto\"` ships a **silent keyring-to-plaintext fallback** as the default path. **On bad input** the system is bimodal: a malformed file aborts with an excellent caret diagnostic, while an unrecognised key vanishes without a word unless the operator knew to pass `--strict-config`. Notable strengths worth preserving: the **project-config denylist**, which stops a checked-in file redirecting credentials; the numeric precedence order with per-key origins; and the feature registry with declared lifecycle stages. The three highest-leverage changes are documentation restoration, a warn-level unknown-key path, and making strict mode reject removed feature flags.",
+      "severity": "info",
+      "confidence": "likely",
+      "evidence": [
+        {
+          "file": "codex-rs/config/src/loader/mod.rs",
+          "start_line": 105,
+          "end_line": 106,
+          "snippet": "/// Configuration is built up from multiple layers in the following order:\n///",
+          "note": "the loader documents its own layer model"
+        },
+        {
+          "file": "codex-rs/config/src/config_layer_source.rs",
+          "start_line": 33,
+          "end_line": 34,
+          "snippet": "    pub fn precedence(&self) -> i16 {\n        match self {",
+          "note": "precedence as an explicit numeric order"
+        }
+      ],
+      "tags": [
+        "posture",
+        "synthesis"
+      ],
+      "sokrates_refs": [
+        "finding:configuration-scan/settings-surface/undocumented-settings",
+        "finding:configuration-scan/secrets-management/plaintext-fallback",
+        "finding:configuration-scan/validation/unknown-keys",
+        "finding:configuration-scan/sources/source-restrictions"
+      ],
+      "attributes": {
+        "sources": 9,
+        "settings": 93,
+        "precedence": "documented",
+        "defaults": "mixed",
+        "on_invalid": "mixed"
+      }
+    }
+  ],
+  "summary_visual": {
+    "file": "visuals/configuration-scan.jpeg",
+    "credit": "Illustration generated by Google Gemini (gemini-3-pro-image-preview)",
+    "generated_at": "2026-08-29T14:05:22Z",
+    "prompt": "Create a single, calm, aesthetically pleasing illustration that tells the story of the analysis summary below - a reader should grasp its one or two big ideas at a glance. Text is welcome but sparse: several short labels or key words that anchor the story. Let shapes, metaphor, composition and colour carry most of the meaning. Style: polished flat vector illustration, crisp outlines, minimal shading, generous margins so nothing touches the edges, a disciplined palette of deep blue, teal, soft green and warm orange accents on a light background. Uncluttered - a few well-chosen elements and plenty of negative space. No photorealism, no 3D render, no clip-art collage, no people's faces.\nVisual motif for this kind of analysis (configuration-scan): a few layered streams flowing into one gauge that shows the value that finally wins, a locked key set aside. Show the layering as a stack of ordered bands, not as a labelled list - name at most two or three of the sources and leave the rest unlabelled.\nSubject: the software project 'openai / codex'.\nStory to tell (pick the essence, do not transcribe it): Codex is configured by nine explicitly ranked TOML layers — a compiled-in defaults.toml, macOS MDM preferences, /etc/codex/config.toml, an enterprise cloud bundle, $CODEX_HOME/config.toml, an optional profile file, project .codex/config.toml, -c key=value session flags, and two legacy managed layers — folded by a recursive per-key merge that records which layer set each key. The operator surface is 93 keys in a generated JSON Schema, alongside 36 admin constraint keys in requirements.toml and 117 feature flags with declared lifecycle stages. The system's mechanics are strong: precedence is a numeric total order rather than an argument sequence, project-local config is denied twelve credential- and execution-sensitive keys so a checked-in file cannot redirect where credentials go, and a malformed file aborts with a rustc-style caret diagnostic. Two gaps stand out."
+  }
+}

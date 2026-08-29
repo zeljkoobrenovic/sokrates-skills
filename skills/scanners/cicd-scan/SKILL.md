@@ -31,6 +31,8 @@ Config files say what steps exist; they don't say what the *process* is. This sc
 
 A publish target like npm sits in two groups by design: the *act* of publishing (the job, its credentials, signing) is `release`; the *consumption channel map* (every way users receive the software, including that npm package) is `deployment`. Describe the mechanics once, in `release`, and let `deployment` reference them.
 
+**Containers and infrastructure definitions.** The job that builds or pushes an image, and the step that applies infrastructure (`terraform apply`, `kubectl apply`, `helm upgrade`), are this scanner's — they are pipeline stages. What those definitions *contain* — base images and their pinning, the user a container runs as, declared resources, ports, limits and privileges — belongs to `iac-scan`; describe the job here and reference its finding for the content rather than reading the Dockerfile or manifest yourself.
+
 ## What a good finding looks like
 
 Each process finding answers: *what happens* (the flow, named triggers and steps — "on a `rust-v*` tag, workflow X builds N targets and uploads to Y"), *where that's defined* (evidence: the trigger line, the key step — cite the workflow/script lines you actually read), and *what's notable* (the judgment: a gap, a strength, an inference about the parts you can't see). A finding that paraphrases one workflow's step list adds nothing; the value is in connecting files into a flow and naming what's missing.

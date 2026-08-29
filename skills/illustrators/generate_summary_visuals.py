@@ -87,6 +87,8 @@ MOTIFS = {
     "security-scan": "a magnifying glass over code lines, spotting a few flagged fragments in an otherwise clean field",
     "domain-language-scan": "a map of distinct territories for the core concepts, a few borders blurred or overlapping, no place names",
     "evolution-scan": "a timeline or growth rings showing eras, growth and shifting centres of activity",
+    "iac-scan": "two halves: on one side a solid blueprint of the environment the project does declare, on the other the infrastructure it only consumes, drawn as pale ghost outlines. Give each half ONE heading and add at most two small labels in total; never repeat a label, never caption individual shapes, and prefer unlabelled icons over captioned ones",
+    "configuration-scan": "a few layered streams flowing into one gauge that shows the value that finally wins, a locked key set aside. Show the layering as a stack of ordered bands, not as a labelled list - name at most two or three of the sources and leave the rest unlabelled",
 }
 
 STYLE = (

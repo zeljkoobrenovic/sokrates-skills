@@ -1,10 +1,11 @@
 {
-  "_comment": "Scanner display metadata embedded into the AI Insights Explorer by render_findings.py. Order of entries = display order (generic first, then more specialised). A scanner missing here still renders, with a title-cased id and no descriptions.",
+  "_comment": "Scanner display metadata embedded into the AI Insights Explorer by render_findings.py. Order of entries = display order (generic first, then more specialised). A scanner missing here still renders, with a title-cased id and no descriptions. `tier` is basic (the descriptive overview scanners) or deep-dive (the evaluative ones); deep dives also carry a `family` (quality, runtime, security) so a subset can be run on its own. The explorer groups the sidebar by tier.",
   "scanners": [
     {
       "id": "functionality-scan",
       "name": "Functionality",
       "emoji": "🧭",
+      "tier": "basic",
       "description": "Describes what the software actually does, reverse-engineered from the code: its purpose and audience, the feature inventory, the entry points through which functionality is reached, the end-to-end workflows, the data it manages, its integrations, and the behaviour that is hidden, dormant or promised by the docs but not implemented.",
       "groups": {
         "purpose": "The one-page answer: what the software is, for whom, what problem it solves, what it deliberately is not, and how its product surfaces relate.",
@@ -20,6 +21,7 @@
       "id": "domain-language-scan",
       "name": "Domain Language",
       "emoji": "🗺️",
+      "tier": "basic",
       "description": "Writes down the domain language of the codebase: the core concepts with code-anchored definitions, which components own which vocabulary, which concepts each capability family rides on, and where naming drifts (synonyms, homonyms, renames in flight).",
       "groups": {
         "glossary": "The core concepts of the system — one entry per major concept with its definition anchored in code, its identity and lifecycle, and the component that owns it.",
@@ -32,6 +34,7 @@
       "id": "architecture-scan",
       "name": "Architecture",
       "emoji": "🏛️",
+      "tier": "basic",
       "description": "Infers the architecture actually implemented in the code: overall style and shape, what each major component is responsible for, the load-bearing boundaries and contracts, where dependency direction is violated, how parts communicate at runtime, and which migrations are in progress. Includes the security boundaries as structure: where untrusted data enters, sandbox and process isolation, network confinement, escape hatches.",
       "groups": {
         "style": "The shape narrative: overall architectural style(s), layer composition, and what the structure is optimised for.",
@@ -47,6 +50,7 @@
       "id": "evolution-scan",
       "name": "Evolution",
       "emoji": "🕰️",
+      "tier": "basic",
       "description": "Tells the codebase's history as a story from its git log: the eras of development and what each was about, how the code grew and where it came from, how the center of activity shifted between areas, who arrived and who left, which modules were born, rewritten or abandoned, and where velocity and work mix are heading.",
       "groups": {
         "eras": "The timeline as chapters: each era's date range, what the project was then, what the big commits built, and what closed the era.",
@@ -61,6 +65,7 @@
       "id": "tech-stack-scan",
       "name": "Tech Stack",
       "emoji": "🧰",
+      "tier": "basic",
       "description": "Inventories the technology stack with file/line evidence: languages and runtimes, frameworks, significant libraries, build tooling, CI/CD, infrastructure, databases and storage, external services, and the protocols and formats that shape interfaces.",
       "groups": {
         "languages-runtimes": "Programming languages with their approximate share, plus runtimes and pinned versions (Node, JVM, Python, Rust toolchains).",
@@ -78,6 +83,7 @@
       "id": "cicd-scan",
       "name": "CI/CD",
       "emoji": "🔁",
+      "tier": "basic",
       "description": "Reconstructs the CI/CD process as an evidence-backed narrative: what triggers a build, how code is built and tested, which quality gates guard merges, how releases are versioned and published, where artifacts are deployed and how users receive them — and the pipeline's own hygiene risks.",
       "groups": {
         "triggers": "The pipeline entry points: what runs on pull request, push, tag, schedule or manual dispatch, including path filters and concurrency rules.",
@@ -93,6 +99,8 @@
       "id": "testing-scan",
       "name": "Testing",
       "emoji": "🧪",
+      "tier": "deep-dive",
+      "family": "quality",
       "description": "Reads the tests as a system: the layers as implemented (unit, integration, e2e, snapshot, property, fuzz), the coverage map inferred from what tests reference, test quality (assertions, mocking, determinism, flakiness, skips), the test infrastructure, and the gaps on load-bearing paths.",
       "groups": {
         "test-model": "The layers as implemented, frameworks and runners per layer, where tests live, test-to-main ratio per component, how each layer is run.",
@@ -104,24 +112,11 @@
       }
     },
     {
-      "id": "observability-scan",
-      "name": "Observability",
-      "emoji": "📡",
-      "description": "Maps how the system observes itself: logging practice and hygiene, metrics and what they measure, tracing and context propagation, error and crash reporting, health and diagnostic surfaces, where telemetry flows — and what monitoring the emitted signals can and cannot support.",
-      "groups": {
-        "logging": "Logging frameworks and conventions: structured vs. freeform, level discipline, destinations and rotation; hygiene issues such as sensitive data in logs or missing redaction.",
-        "metrics": "What is measured and how: counters, gauges and histograms and their subjects, naming conventions, cardinality risks, emission paths.",
-        "tracing": "Spans and context propagation: instrumentation coverage, cross-process and async propagation, sampling.",
-        "error-reporting": "Crash and error capture: panic/exception hooks, error-reporting services, user-facing vs. operator-facing error paths — including swallowed errors and silent failures.",
-        "health-diagnostics": "Health and readiness surfaces, self-diagnostic commands, debug endpoints or views, diagnostic bundles users can send.",
-        "telemetry-pipeline": "Where the data goes: exporters, backends, enabling configuration, on/off defaults, sampling and batching, privacy and opt-out posture.",
-        "monitoring-posture": "The synthesis: which alerts and dashboards the emitted signals can support per subsystem, and the blind spots that emit nothing."
-      }
-    },
-    {
       "id": "reliability-scan",
       "name": "Reliability",
       "emoji": "🛡️",
+      "tier": "deep-dive",
+      "family": "quality",
       "description": "Maps how the system behaves when things go wrong: the error model, how failures are handled on the paths that matter, how they are isolated so one broken part does not take the rest down, how the system recovers and degrades, whether resources are released and shutdown is orderly — and the blast radius of the main failure modes.",
       "groups": {
         "error-model": "How errors are represented and classified: exception or Result conventions, central error types and their taxonomy, retryable vs. fatal distinctions, user-facing vs. internal mapping, and where the model is bypassed.",
@@ -134,9 +129,40 @@
       }
     },
     {
+      "id": "maintainability-scan",
+      "name": "Maintainability",
+      "emoji": "🧰",
+      "tier": "deep-dive",
+      "family": "quality",
+      "description": "Grades maintainability along five sub-characteristics — modularity, reusability, analysability, modifiability, testability — as evidenced grades per sub-characteristic and per component, rolled up from Sokrates' size, complexity, duplication, coupling, churn and ownership numbers and the other scanners' findings, plus targeted reading of what nobody else covers.",
+      "groups": {
+        "modularity": "Change impact radius: component coupling (fan-in/out, cycles), cross-component temporal coupling, boundary leaks — what a change in one component does to others.",
+        "reusability": "Which assets are reusable in fact (libraries with no product coupling, shared utilities with one owner) and which are trapped or copy-pasted (cross-component duplication, utilities depending on the product).",
+        "analysability": "Can the part to change be found and its consequences seen: naming and module size, documentation footprint and freshness, dead and dormant code, visibility of coupling.",
+        "modifiability": "Where changes are expensive: complexity, size and duplication concentration, hotspot clusters, single ownership, hardcoded vs. configured behaviour, fix-heavy churn.",
+        "testability": "The design's testability: seams and injectable collaborators, global state, construction of dependencies — with the testing scanner's coverage verdict rolled up by reference.",
+        "maintainability-posture": "The synthesis: the five grades, the component that costs the most maintenance effort, the trajectory, the highest-leverage changes."
+      }
+    },
+    {
+      "id": "risk-synthesis-scan",
+      "name": "Risk Synthesis",
+      "emoji": "🔥",
+      "tier": "deep-dive",
+      "family": "quality",
+      "description": "Turns Sokrates' quantitative risk signals into explained, actionable findings: what each hotspot file does and why its complexity, churn and ownership make it risky, where knowledge is concentrated in too few people, and why coupled files keep changing together.",
+      "groups": {
+        "hotspots": "One finding per risky file: what it does, why it keeps changing, whether its complexity is essential or accidental, and what a targeted improvement would be.",
+        "knowledge-risk": "Bus-factor concentration: how much of the codebase depends on one or two contributors, and the single-owner areas that matter — where losing a person means losing knowledge.",
+        "change-coupling": "Files that repeatedly change together and the semantic reason why: shared protocol, duplicated logic, a leaky boundary, or legitimately cohesive code."
+      }
+    },
+    {
       "id": "performance-scan",
       "name": "Performance",
       "emoji": "⚡",
+      "tier": "deep-dive",
+      "family": "runtime",
       "description": "Static performance and efficiency review: the workload model (what the cost scales with), algorithmic and data-structure choices on the hot paths, I/O and memory behaviour, parallelism and contention, caching and recomputation, the limits that keep one big input from dominating — and a ranked list of likely bottlenecks and highest-leverage optimizations.",
       "groups": {
         "workload-model": "What the system does under load: inputs and their sizes, the main loop and what runs per item vs. once, the scaling factors, the performance currency (latency, throughput, memory, startup).",
@@ -152,6 +178,8 @@
       "id": "storage-scan",
       "name": "Storage",
       "emoji": "🗄️",
+      "tier": "deep-dive",
+      "family": "runtime",
       "description": "Maps how the system works with persistent data: the data classes and where they live, access patterns (ORM/SQL, transactions, locking, streaming), schema and on-disk format ownership, versioning and migrations, integrity and corruption recovery, and the data lifecycle — with the risk per data class.",
       "groups": {
         "persistence-model": "The data-class inventory: what is stored where, in what format, resolved how, owned by whom, how sensitive; storage technologies as used.",
@@ -166,6 +194,8 @@
       "id": "network-scan",
       "name": "Network",
       "emoji": "🌐",
+      "tier": "deep-dive",
+      "family": "runtime",
       "description": "Maps how the system talks over the network: the endpoint topology (what it listens on, what it connects to, defaults), protocols as used, connection management (clients, timeouts, TLS, proxies, reconnection), endpoint configurability, behaviour without connectivity, and the data that crosses the wire.",
       "groups": {
         "topology": "The endpoint inventory: what listens, what connects out, direction, hosts/ports, defaults, opt-in vs. default path, local IPC.",
@@ -178,9 +208,28 @@
       }
     },
     {
+      "id": "observability-scan",
+      "name": "Observability",
+      "emoji": "📡",
+      "tier": "deep-dive",
+      "family": "runtime",
+      "description": "Maps how the system observes itself: logging practice and hygiene, metrics and what they measure, tracing and context propagation, error and crash reporting, health and diagnostic surfaces, where telemetry flows — and what monitoring the emitted signals can and cannot support.",
+      "groups": {
+        "logging": "Logging frameworks and conventions: structured vs. freeform, level discipline, destinations and rotation; hygiene issues such as sensitive data in logs or missing redaction.",
+        "metrics": "What is measured and how: counters, gauges and histograms and their subjects, naming conventions, cardinality risks, emission paths.",
+        "tracing": "Spans and context propagation: instrumentation coverage, cross-process and async propagation, sampling.",
+        "error-reporting": "Crash and error capture: panic/exception hooks, error-reporting services, user-facing vs. operator-facing error paths — including swallowed errors and silent failures.",
+        "health-diagnostics": "Health and readiness surfaces, self-diagnostic commands, debug endpoints or views, diagnostic bundles users can send.",
+        "telemetry-pipeline": "Where the data goes: exporters, backends, enabling configuration, on/off defaults, sampling and batching, privacy and opt-out posture.",
+        "monitoring-posture": "The synthesis: which alerts and dashboards the emitted signals can support per subsystem, and the blind spots that emit nothing."
+      }
+    },
+    {
       "id": "security-scan",
       "name": "Security",
       "emoji": "🔐",
+      "tier": "deep-dive",
+      "family": "security",
       "description": "Security review, design first and code second: identity and permission design, secrets by design and in the tree, validation at the boundaries and injection-prone construction, crypto fitness, unsafe/native/dynamic code, runtime trust in third-party code and model output — with a posture stating what was swept clean and what was not covered.",
       "groups": {
         "identity-access": "Authentication and authorization design: credential flows, token lifecycle and storage, permission and policy models, approval and consent flows, managed overrides, defaults and bypasses.",
@@ -194,28 +243,36 @@
       }
     },
     {
-      "id": "risk-synthesis-scan",
-      "name": "Risk Synthesis",
-      "emoji": "🔥",
-      "description": "Turns Sokrates' quantitative risk signals into explained, actionable findings: what each hotspot file does and why its complexity, churn and ownership make it risky, where knowledge is concentrated in too few people, and why coupled files keep changing together.",
+      "id": "iac-scan",
+      "name": "Infrastructure as Code",
+      "emoji": "🏗️",
+      "tier": "deep-dive",
+      "family": "security",
+      "description": "Reads the code that defines the runtime environment: the IaC inventory and its tooling, the container and dev-environment definitions read as content, the resources and topology actually declared, how environments and variants differ, where state lives and who applies it, and the hardening posture of the declared infrastructure — reporting honestly when a project has no provisioning IaC.",
       "groups": {
-        "hotspots": "One finding per risky file: what it does, why it keeps changing, whether its complexity is essential or accidental, and what a targeted improvement would be.",
-        "knowledge-risk": "Bus-factor concentration: how much of the codebase depends on one or two contributors, and the single-owner areas that matter — where losing a person means losing knowledge.",
-        "change-coupling": "Files that repeatedly change together and the semantic reason why: shared protocol, duplicated logic, a leaky boundary, or legitimately cohesive code."
+        "inventory": "What infrastructure code exists: the tools in use, where the definitions live, how much of the runtime environment they cover, and what is declared nowhere.",
+        "resources": "What is declared, by family: container images, workloads and services, network and ingress, storage, identity and managed services, with the properties that matter.",
+        "environments": "Environments and variants: how staging, production and development differ, through workspaces, overlays, values files and compose overrides.",
+        "state-and-drift": "Where state lives and how it is protected, the apply path, version pinning of providers, modules and charts, and the accommodations made for drift.",
+        "hardening": "Security and robustness properties of the declaration itself: image pinning, users and privileges, host access, exposed ports, public access, resource limits, probes and encryption flags.",
+        "iac-posture": "The synthesis: what could be rebuilt from the repository, what could not, and the highest-leverage changes."
       }
     },
     {
-      "id": "maintainability-scan",
-      "name": "Maintainability",
-      "emoji": "🧰",
-      "description": "Grades maintainability along five sub-characteristics — modularity, reusability, analysability, modifiability, testability — as evidenced grades per sub-characteristic and per component, rolled up from Sokrates' size, complexity, duplication, coupling, churn and ownership numbers and the other scanners' findings, plus targeted reading of what nobody else covers.",
+      "id": "configuration-scan",
+      "name": "Configuration",
+      "emoji": "🎛️",
+      "tier": "deep-dive",
+      "family": "security",
+      "description": "Reconstructs how the software is configured: the sources it accepts and how they compose into an effective value, the settings surface and its defaults, how configuration reaches the code, how secrets are supplied and held, how values are validated and what happens when they are wrong, and how settings change at runtime.",
       "groups": {
-        "modularity": "Change impact radius: component coupling (fan-in/out, cycles), cross-component temporal coupling, boundary leaks — what a change in one component does to others.",
-        "reusability": "Which assets are reusable in fact (libraries with no product coupling, shared utilities with one owner) and which are trapped or copy-pasted (cross-component duplication, utilities depending on the product).",
-        "analysability": "Can the part to change be found and its consequences seen: naming and module size, documentation footprint and freshness, dead and dormant code, visibility of coupling.",
-        "modifiability": "Where changes are expensive: complexity, size and duplication concentration, hotspot clusters, single ownership, hardcoded vs. configured behaviour, fix-heavy churn.",
-        "testability": "The design's testability: seams and injectable collaborators, global state, construction of dependencies — with the testing scanner's coverage verdict rolled up by reference.",
-        "maintainability-posture": "The synthesis: the five grades, the component that costs the most maintenance effort, the trajectory, the highest-leverage changes."
+        "sources": "Where configuration comes from and how it composes: files, environment variables, CLI flags, profiles and remote settings, with the precedence and merge rules that pick the winner.",
+        "settings-surface": "What is configurable: the settings inventory by area, the notable individual settings, the ones the code reads but no document mentions, and the ones the docs promise but the code ignores.",
+        "schema-and-defaults": "How configuration is represented in the code: a typed schema or scattered lookups, where defaults live, and what an unconfigured installation actually does.",
+        "secrets-management": "The plumbing that supplies credentials: the sources, the path from source to client, plaintext fallbacks, redaction, and what an operator must set up.",
+        "validation": "Schema and value validation, required-value checks, the unknown-key policy, when validation runs, and the behaviour on bad or missing configuration.",
+        "flags-and-runtime": "Feature flags, experiments and kill switches, and dynamic behaviour: reload, file watching, and which settings need a restart.",
+        "configuration-posture": "The synthesis: the configuration model, how an operator discovers it, the riskiest default, and what to change first."
       }
     }
   ]

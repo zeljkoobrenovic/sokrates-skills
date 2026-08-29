@@ -20,12 +20,14 @@ skills/
 | skill | what it finds |
 |---|---|
 | `sokrates-scan-core` | the shared contract: findings format, evidence rules, validator, explorer renderer, merge/diff tools |
-| `full-scan` | orchestrator — runs all scanners in dependency order and merges the results |
+| `full-scan` | orchestrator — runs a basic scan (six descriptive scanners), a deep dive (all evaluative scanners or one family: quality, runtime, security), or a full scan, in dependency order, and merges the results |
 | `functionality-scan` | what the software does: purpose, features, entry points, workflows, data, integrations, hidden functionality and doc-vs-code gaps |
 | `domain-language-scan` | the domain language: glossary, bounded contexts, concepts per capability, language drift |
 | `architecture-scan` | the implemented architecture: style, components, boundaries, violations, communication, migrations, security boundaries (trust map, sandboxing, escape hatches) |
 | `tech-stack-scan` | languages, frameworks, libraries, build tooling, CI/CD, infrastructure, external services |
 | `cicd-scan` | the CI/CD process as a narrative: triggers, build, tests, gates, release, deployment, hygiene |
+| `iac-scan` | infrastructure as code: inventory and coverage, containers and dev environments as content, declared resources, environment variants, state and apply path, hardening of the declaration |
+| `configuration-scan` | configuration: sources and precedence, settings surface and defaults, secrets plumbing, validation and failure behaviour, feature flags and reload |
 | `testing-scan` | test layers, coverage map inferred from references, assertion/mocking/determinism quality, flakiness and skips, infrastructure, gaps |
 | `observability-scan` | logging, metrics, tracing, error reporting, health surfaces, telemetry pipeline, blind spots |
 | `reliability-scan` | error model, failure handling on load-bearing paths, isolation and blast radius, retries/timeouts, degradation, resource cleanup and shutdown |
@@ -58,7 +60,7 @@ The field references under `skills/config/*/references/` were read from the Sokr
 
 ## Example
 
-**[Live: AI Insights Explorer for openai/codex](https://zeljkoobrenovic.github.io/sokrates-skills/examples/codex/ai-insights/)** — all fifteen scanners, 330 verified findings, each summary illustrated (source in `examples/codex/ai-insights/`).
+**[Live: AI Insights Explorer for openai/codex](https://zeljkoobrenovic.github.io/sokrates-skills/examples/codex/ai-insights/)** — fifteen scanners, 330 verified findings, each summary illustrated (source in `examples/codex/ai-insights/`).
 
 ## Install
 

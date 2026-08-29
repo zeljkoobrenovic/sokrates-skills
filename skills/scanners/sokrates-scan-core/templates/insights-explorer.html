@@ -360,7 +360,6 @@
         <div class="project-name" id="project-name"></div>
         <div class="nav-title">Views</div>
         <div id="nav-fixed"></div>
-        <div class="nav-title">Scanners</div>
         <div id="nav-scanners"></div>
         <div class="sidebar-foot" id="sidebar-foot"></div>
     </aside>
@@ -651,9 +650,21 @@
         document.getElementById('nav-fixed').innerHTML =
             navItem('overview', pageIcon('overview', '', '<span class="sicon">⌂</span>') + 'Overview', allFindings.length, '') +
             navItem('attention', pageIcon('attention', '', '<span class="sicon">⚑</span>') + 'Attention items', attention.length, sevDots(attention));
-        document.getElementById('nav-scanners').innerHTML = docs.map(d =>
-            navItem(d.scanner, scannerIcon(d.scanner) + esc(scannerName(d.scanner)), d.findings.length, sevDots(d.findings))
-        ).join('');
+        // Scanners group by tier: `basic` describes the codebase, `deep-dive` evaluates one
+        // dimension. A scanner with no tier in the metadata falls into the basic section, so an
+        // older scanners.json still renders as one flat list under a single heading.
+        const TIERS = [{key: 'basic', label: 'Basic'}, {key: 'deep-dive', label: 'Deep dives'}];
+        const tierOf = d => ((META[d.scanner] || {}).tier === 'deep-dive' ? 'deep-dive' : 'basic');
+        const anyDeep = docs.some(d => tierOf(d) === 'deep-dive');
+        document.getElementById('nav-scanners').innerHTML = TIERS.map(t => {
+            const inTier = docs.filter(d => tierOf(d) === t.key);
+            if (!inTier.length) return '';
+            const title = anyDeep ? t.label : 'Scanners';
+            return '<div class="nav-title">' + esc(title) + '</div>' + inTier.map(d =>
+                navItem(d.scanner, scannerIcon(d.scanner) + esc(scannerName(d.scanner)),
+                        d.findings.length, sevDots(d.findings))
+            ).join('');
+        }).join('');
         document.getElementById('sidebar-foot').innerHTML =
             docs.length + ' scanner' + (docs.length === 1 ? '' : 's') + ' · ' + allFindings.length + ' findings<br>' +
             'generated ' + esc(fmtDate(GENERATED_AT)) + '<br>' +

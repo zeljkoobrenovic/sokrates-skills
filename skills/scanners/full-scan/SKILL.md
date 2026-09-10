@@ -1,6 +1,14 @@
 ---
 name: full-scan
-description: Orchestrates the Sokrates AI scanner suite over one codebase in whichever bundle the user asks for - a basic scan (the six descriptive scanners that answer "what is this codebase"), a deep dive (the evaluative scanners, all of them or one named family: quality, runtime, security), or a full scan (all seventeen) - running them in dependency order so later scanners build on earlier findings, validating each, merging into the combined report, and diffing against previous results on re-runs. Use when the user asks for a full scan, a basic or quick scan, a deep dive, an overview of an unfamiliar codebase, "run all scanners", a whole-codebase audit combining tech stack + functionality + risks + CI/CD + IaC + configuration + testing + observability + reliability + performance + storage + network + security + architecture + domain + maintainability, or a re-scan to see what changed. Requires a _sokrates analysis in the target project.
+description: >-
+  Orchestrates the Sokrates AI scanner suite over one codebase in whichever bundle the user asks for - a basic scan
+  (the six descriptive scanners that answer "what is this codebase"), a deep dive (the evaluative scanners, all of them
+  or one named family: quality, runtime, security), or a full scan (all seventeen) - running them in dependency order so
+  later scanners build on earlier findings, validating each, merging into the combined report, and diffing against previous
+  results on re-runs. Use when the user asks for a full scan, a basic or quick scan, a deep dive, an overview of an unfamiliar
+  codebase, "run all scanners", a whole-codebase audit combining tech stack + functionality + risks + CI/CD + IaC + configuration
+  + testing + observability + reliability + performance + storage + network + security + architecture + domain + maintainability,
+  or a re-scan to see what changed. Requires a _sokrates analysis in the target project.
 ---
 
 # Full scan (orchestrator)

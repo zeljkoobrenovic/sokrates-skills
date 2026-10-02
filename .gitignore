@@ -4,3 +4,7 @@ venv/
 __pycache__/
 *.pyc
 .DS_Store
+_sokrates/
+git-history.txt
+git-commits.txt
+git-commit-trailers.txt

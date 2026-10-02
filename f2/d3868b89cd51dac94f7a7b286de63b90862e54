@@ -1,0 +1,29 @@
+skills/scanners/sokrates-scan-core/scripts/summarize_findings.py
+  s_40c0e74316fcc6::t_919dc2f44c62c0 78-79
+skills/scanners/sokrates-scan-core/scripts/validate_findings.py
+  s_40c0e74316fcc6::t_195de2163a2baf 166-167
+skills/sokrates/scripts/capabilities.py
+  s_40c0e74316fcc6::t_3a0c915d42cd8b 122-147,152,173-174,190-197
+skills/sokrates/scripts/situation.py
+  s_40c0e74316fcc6::t_7083c4c14ee0bd 389-397
+tests/test_entry.py
+  s_40c0e74316fcc6::t_cbf7a91194d1c5 5,213-237
+tests/test_scan_core.py
+  s_40c0e74316fcc6::t_5a4602957a888b 25,295
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f2d3868b89cd51dac94f7a7b286de63b90862e54",
+  "prompts": {},
+  "sessions": {
+    "s_40c0e74316fcc6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a859e40-f6c6-4dfa-8fdb-6c295588cf73",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

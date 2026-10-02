@@ -1,0 +1,29 @@
+skills/improve/sokrates-improve/SKILL.md
+  s_40c0e74316fcc6::t_b8a10164e3de3b 15
+skills/improve/sokrates-improve/scripts/select_targets.py
+  s_40c0e74316fcc6::t_850d624d4395ec 17-24,150-213,217,225-237,243
+skills/scanners/landscape-synthesis-scan/scripts/landscape_digest.py
+  s_40c0e74316fcc6::t_2b6040a7061a0c 104-106,113-116,121-142,167-169,179-181,207-208,221-226
+skills/sokrates/scripts/situation.py
+  s_40c0e74316fcc6::t_5fcad9f2a28ff1 334-336
+tests/test_improve.py
+  s_40c0e74316fcc6::t_5257403412aa02 6,220-243
+tests/test_landscape_synthesis.py
+  s_40c0e74316fcc6::t_9b40c8bff70f9e 87-102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "27ddee876702776305a48afb55415b8e219fb27e",
+  "prompts": {},
+  "sessions": {
+    "s_40c0e74316fcc6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a859e40-f6c6-4dfa-8fdb-6c295588cf73",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

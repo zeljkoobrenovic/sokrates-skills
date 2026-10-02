@@ -1,0 +1,29 @@
+README.md
+  s_40c0e74316fcc6::t_ea73df10b3c6d5 7-20,25
+install.sh
+  s_40c0e74316fcc6::t_921d37ee15b89a 23
+skills/sokrates/SKILL.md
+  s_40c0e74316fcc6::t_1e0e2c37e5d620 1-82
+skills/sokrates/scripts/situation.py
+  s_40c0e74316fcc6::t_5f93563b8ad55f 1-365
+tests/support.py
+  s_40c0e74316fcc6::t_17ffb756bf3d1c 46
+tests/test_entry.py
+  s_40c0e74316fcc6::t_d307ac2de970df 1-96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "af743a7e3618d1a7eeb0574045a76623a9f22cd4",
+  "prompts": {},
+  "sessions": {
+    "s_40c0e74316fcc6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a859e40-f6c6-4dfa-8fdb-6c295588cf73",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

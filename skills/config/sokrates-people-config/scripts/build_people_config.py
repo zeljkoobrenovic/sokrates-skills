@@ -382,17 +382,24 @@ def main():
 
     # ---- config-people.json
     people = []
+    represented = set()
     for gp in groups:
-        if len(gp["emails"]) == 1 and not args.all:
-            continue
         prior = next((existing_by_email[e] for e in gp["emails"] if e in existing_by_email), None)
+        if len(gp["emails"]) == 1 and not args.all and not prior:
+            continue   # a hand-written entry is kept even when only one of its addresses has commits (the others may be gone from the history)
+        represented.update(gp["emails"])
         entry = {"email": prior.get("email") if prior and prior.get("email") else gp["email"],
                  "userName": prior.get("userName") if prior and prior.get("userName") else gp["userName"],
                  "links": (prior or {}).get("links") or [], "image": (prior or {}).get("image") or "",
                  "emailPatterns": sorted({f"\\Q{e}\\E" for e in gp["emails"]} | set((prior or {}).get("emailPatterns") or [])),
                  "userNamePatterns": (prior or {}).get("userNamePatterns") or []}
         people.append(entry)
-    people.sort(key=lambda p: p["userName"].lower())
+    for person in existing:   # entries for people without any commit in this history (or an older one) survive a re-run verbatim
+        emails = {str(person.get("email", "")).lower()} | {literal_from_pattern(x) for x in person.get("emailPatterns") or []}
+        if not (emails & represented):
+            people.append(person)
+            represented.update(e for e in emails if e)
+    people.sort(key=lambda p: str(p.get("userName", "")).lower())
 
     # ---- review file
     review = {

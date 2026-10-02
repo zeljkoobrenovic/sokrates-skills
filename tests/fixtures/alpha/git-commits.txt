@@ -1,0 +1,6 @@
+534b2754a27f0fc7436db327572fcee0ec91b701 Pin requests to the version the tests run with
+753b79815b0d2acade8ff03788f6049d2883a986 Terraform for the cache bucket, architecture notes
+3757ac92b074f0f5690611958b7a7b77be146bac Bump requests from 2.32.3 to 2.32.4
+0914ca8bccefd7b7bfe91843439329af3799db5e Retry the orders fetch, keep the legacy CSV export
+fe5b3fc4cb071760577c81e22d021647c3d4a23b Add web client, CI and Docker image
+75c18f5d3bad85723b92c9186c89f18ff6ef61fa Add sqlite repository and tests

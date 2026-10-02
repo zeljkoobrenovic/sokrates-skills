@@ -1,0 +1,16 @@
+2025-08-02 ada@example.com 534b2754a27f0fc7436db327572fcee0ec91b701 requirements.txt Ada&nbsp;Lovelace 1 1
+2025-07-12 grace@example.com 753b79815b0d2acade8ff03788f6049d2883a986 CODEOWNERS Grace&nbsp;Hopper 3 0
+2025-07-12 grace@example.com 753b79815b0d2acade8ff03788f6049d2883a986 docs/architecture.md Grace&nbsp;Hopper 3 0
+2025-07-12 grace@example.com 753b79815b0d2acade8ff03788f6049d2883a986 infra/main.tf Grace&nbsp;Hopper 23 0
+2025-04-05 49699333+dependabot[bot]@users.noreply.github.com 3757ac92b074f0f5690611958b7a7b77be146bac requirements.txt dependabot[bot] 1 1
+2025-01-20 ada@example.com 0914ca8bccefd7b7bfe91843439329af3799db5e src/app/legacy.py Ada&nbsp;Lovelace 26 0
+2025-01-20 ada@example.com 0914ca8bccefd7b7bfe91843439329af3799db5e src/app/old_cache.py Ada&nbsp;Lovelace 0 6
+2025-01-20 ada@example.com 0914ca8bccefd7b7bfe91843439329af3799db5e src/app/service.py Ada&nbsp;Lovelace 58 0
+2025-01-20 ada@example.com 0914ca8bccefd7b7bfe91843439329af3799db5e tests/test_service.py Ada&nbsp;Lovelace 21 0
+2024-09-10 12345+ada@users.noreply.github.com fe5b3fc4cb071760577c81e22d021647c3d4a23b .github/workflows/ci.yml Ada&nbsp;Lovelace 9 0
+2024-09-10 12345+ada@users.noreply.github.com fe5b3fc4cb071760577c81e22d021647c3d4a23b Dockerfile Ada&nbsp;Lovelace 7 0
+2024-09-10 12345+ada@users.noreply.github.com fe5b3fc4cb071760577c81e22d021647c3d4a23b web/client.js Ada&nbsp;Lovelace 22 0
+2024-06-15 grace@example.com 75c18f5d3bad85723b92c9186c89f18ff6ef61fa pyproject.toml Grace&nbsp;Hopper 4 0
+2024-06-15 grace@example.com 75c18f5d3bad85723b92c9186c89f18ff6ef61fa src/app/old_cache.py Grace&nbsp;Hopper 6 0
+2024-06-15 grace@example.com 75c18f5d3bad85723b92c9186c89f18ff6ef61fa src/app/repo.py Grace&nbsp;Hopper 34 0
+2024-06-15 grace@example.com 75c18f5d3bad85723b92c9186c89f18ff6ef61fa tests/test_repo.py Grace&nbsp;Hopper 5 0

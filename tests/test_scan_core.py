@@ -1,0 +1,165 @@
+"""sokrates-scan-core: validate, merge, diff and render findings files."""
+import json
+import shutil
+
+from tests.support import ALPHA, ALPHA_INSIGHTS, FixtureTest, read_json, run, write_json
+
+
+class ValidateFindingsTest(FixtureTest):
+
+    def test_fixture_findings_verify_against_the_source(self):
+        for name in ("security-scan.json", "reliability-scan.json"):
+            result = run("validate", ALPHA_INSIGHTS / name)
+            self.assert_ok(result, name)
+            self.assertIn("OK: 3/3 findings fully verified", result.stdout)
+
+    def test_src_root_defaults_to_the_declared_target_relative_to_the_file(self):
+        result = run("validate", ALPHA_INSIGHTS / "security-scan.json", "--json")
+        self.assert_ok(result)
+        report = json.loads(result.stdout)
+        self.assertTrue(report["ok"])
+        self.assertEqual((report["findings_total"], report["findings_verified"]), (3, 3))
+
+    def test_a_finding_without_evidence_is_only_a_warning_when_possible(self):
+        result = run("validate", ALPHA_INSIGHTS / "reliability-scan.json")
+        self.assertIn("WARNING reliability-scan/overview/single-upstream: no file/line evidence", result.stdout)
+
+    def test_wrong_snippet_fails_with_a_drift_hint(self):
+        folder = self.copy_of(ALPHA_INSIGHTS)
+        doc = read_json(folder / "security-scan.json")
+        bucket = doc["findings"][0]["evidence"][0]
+        bucket["start_line"] += 1
+        bucket["end_line"] += 1                      # the snippet is still in the file, one line up
+        doc["findings"][1]["evidence"][0]["snippet"] = "USER nobody"   # not in the file at all
+        write_json(folder / "security-scan.json", doc)
+        result = run("validate", folder / "security-scan.json", "--src-root", ALPHA)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("snippet does not match infra/main.tf", result.stdout)
+        self.assertIn("(snippet found near line", result.stdout)
+        self.assertIn("snippet does not match Dockerfile", result.stdout)
+        self.assertIn("(snippet not found anywhere in file)", result.stdout)
+        self.assertIn("FAILED: 1/3 findings fully verified", result.stdout)
+
+    def test_structure_errors(self):
+        folder = self.copy_of(ALPHA_INSIGHTS)
+        doc = read_json(folder / "security-scan.json")
+        doc["findings"][0]["severity"] = "urgent"
+        doc["findings"][1]["id"] = "Not A Valid Id"
+        doc["findings"][2]["id"] = doc["findings"][0]["id"]
+        del doc["findings"][2]["confidence"]
+        del doc["summary"]
+        write_json(folder / "security-scan.json", doc)
+        result = run("validate", folder / "security-scan.json", "--src-root", ALPHA)
+        self.assertEqual(result.returncode, 1)
+        for text in ("missing required field 'summary'", "severity must be one of", "does not match <scanner>/<group>/<slug>",
+                     "duplicate id", "missing required field 'confidence'"):
+            self.assertIn(text, result.stdout)
+
+    def test_cross_reference_must_resolve_within_the_folder(self):
+        folder = self.copy_of(ALPHA_INSIGHTS)
+        (folder / "reliability-scan.json").unlink()      # the referenced finding lives there
+        result = run("validate", folder / "security-scan.json", "--src-root", ALPHA)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("cites finding:reliability-scan/error-handling/swallowed-cache-write-error but no findings file", result.stdout)
+
+    def test_missing_file_and_bad_src_root_are_invocation_errors(self):
+        self.assertEqual(run("validate", self.tmp / "nope.json").returncode, 2)
+        self.assertEqual(run("validate", ALPHA_INSIGHTS / "security-scan.json", "--src-root", self.tmp / "missing").returncode, 2)
+
+
+class MergeFindingsTest(FixtureTest):
+
+    def test_merges_a_folder_into_a_valid_combined_document(self):
+        folder = self.copy_of(ALPHA_INSIGHTS)
+        result = run("merge", folder)
+        self.assert_ok(result)
+        combined = read_json(folder / "combined-report.json")
+        self.assertEqual(combined["scanner"], "combined")
+        self.assertEqual(len(combined["findings"]), 6)
+        self.assertEqual(combined["target"]["name"], "acme / alpha")
+        self.assertIn("security-scan/infrastructure/public-cache-bucket", [f["id"] for f in combined["findings"]])
+        validated = run("validate", folder / "combined-report.json", "--src-root", ALPHA)
+        self.assert_ok(validated, "the combined document must pass the validator")
+        self.assertIn("6/6 findings fully verified", validated.stdout)
+
+    def test_remerging_skips_the_previous_combined_report(self):
+        folder = self.copy_of(ALPHA_INSIGHTS)
+        self.assert_ok(run("merge", folder))
+        again = run("merge", folder)
+        self.assert_ok(again)
+        self.assertIn("skipped combined-report.json", again.stderr)
+        self.assertEqual(len(read_json(folder / "combined-report.json")["findings"]), 6)
+
+    def test_descends_from_the_reports_folder_and_honours_output_path(self):
+        reports = self.copy_of(ALPHA / "_sokrates" / "reports", "reports")
+        out = self.tmp / "merged.json"
+        self.assert_ok(run("merge", reports, "-o", out))
+        self.assertEqual(len(read_json(out)["findings"]), 6)
+        self.assertFalse((reports / "ai-insights" / "combined-report.json").exists())
+
+    def test_nothing_to_merge_is_an_error(self):
+        empty = self.tmp / "empty"
+        empty.mkdir()
+        self.assertNotEqual(run("merge", empty).returncode, 0)
+
+
+class DiffFindingsTest(FixtureTest):
+
+    def test_identical_runs_report_no_changes_and_exit_zero(self):
+        result = run("diff", ALPHA_INSIGHTS / "reliability-scan.json", ALPHA_INSIGHTS / "reliability-scan.json")
+        self.assert_ok(result)
+        self.assertIn("0 new · 0 resolved · 3 persisting (0 changed)", result.stdout)
+        self.assertIn("No changes", result.stdout)
+
+    def test_new_resolved_and_changed_findings_exit_one(self):
+        new_doc = read_json(ALPHA_INSIGHTS / "reliability-scan.json")
+        resolved = new_doc["findings"].pop(1)
+        new_doc["findings"][0]["severity"] = "high"
+        new_doc["findings"].append({**resolved, "id": "reliability-scan/retries/no-jitter", "title": "Retries have no jitter"})
+        new_path = self.tmp / "new.json"
+        write_json(new_path, new_doc)
+        result = run("diff", ALPHA_INSIGHTS / "reliability-scan.json", new_path, "-o", self.tmp / "diff.md")
+        self.assertEqual(result.returncode, 1)
+        text = (self.tmp / "diff.md").read_text()
+        self.assertIn("1 new · 1 resolved · 2 persisting (1 changed)", text)
+        self.assertIn("reliability-scan/retries/no-jitter", text)
+        self.assertIn("reliability-scan/retries/fixed-sleep-retry", text)
+        self.assertIn("severity medium → high", text)
+
+    def test_a_non_findings_file_is_rejected(self):
+        write_json(self.tmp / "x.json", {"hello": 1})
+        result = run("diff", self.tmp / "x.json", ALPHA_INSIGHTS / "reliability-scan.json")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("not a findings file", result.stderr)
+
+
+class RenderFindingsTest(FixtureTest):
+
+    def test_renders_a_self_contained_explorer_next_to_the_findings(self):
+        folder = self.copy_of(ALPHA_INSIGHTS)
+        result = run("render", folder)
+        self.assert_ok(result)
+        self.assertIn("2 scanners, 6 findings", result.stdout)
+        html = (folder / "index.html").read_text()
+        self.assertIn("Cache bucket is public-read", html)
+        self.assertIn("reliability-scan", html)
+        for token in ("${data}", "${icons}", "${scanners}", "${generatedAt}"):
+            self.assertNotIn(token, html, "every placeholder must be substituted")
+        self.assertNotIn("</script>", html.split("Cache bucket is public-read")[0][-200:],
+                         "embedded JSON must not be able to close the script tag")
+
+    def test_descends_from_reports_and_skips_the_combined_report(self):
+        reports = self.copy_of(ALPHA / "_sokrates" / "reports", "reports")
+        self.assert_ok(run("merge", reports))
+        result = run("render", reports)
+        self.assert_ok(result)
+        self.assertIn("2 scanners, 6 findings", result.stdout)
+        self.assertTrue((reports / "ai-insights" / "index.html").is_file())
+
+    def test_missing_placeholder_in_template_is_an_error(self):
+        folder = self.copy_of(ALPHA_INSIGHTS)
+        template = self.tmp / "broken.html"
+        template.write_text("<html>${data}</html>")
+        result = run("render", folder, "--template", template)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("template lacks placeholder", result.stderr)

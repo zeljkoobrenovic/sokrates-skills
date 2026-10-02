@@ -107,6 +107,17 @@ Requirements: Python 3.9+ (standard library only) for the scripts; a Sokrates an
 
 ## Development
 
+The scripts have a test suite, standard library only like the scripts themselves:
+
+```bash
+python3 -m unittest discover -s tests -t . -v
+```
+
+It runs every script against `tests/fixtures`: two small repositories analyzed by a real Sokrates run (config,
+`data.zip`, git exports, hand-written findings with verifiable evidence) and a landscape over both; see
+`tests/fixtures/README.md`. GitHub Actions runs it on every push and pull request. When a script changes what it
+reads from Sokrates, rebuild the fixtures with `SOKRATES_JAR=<cli jar> tests/fixtures/make_fixtures.sh`.
+
 New skills follow the loop that produced the existing ones: write the `SKILL.md` against the family conventions in `skills/scanners/sokrates-scan-core/SKILL.md`, run it live on a real codebase with a fresh agent, ask that agent what was unclear or missing, and fold the answers back into the skill and its scripts. See `skills/scanners/README.md` and `skills/config/README.md` for the per-family details.
 
 ## License

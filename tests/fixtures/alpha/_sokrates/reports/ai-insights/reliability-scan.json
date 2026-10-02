@@ -1,0 +1,62 @@
+{
+  "scanner": "reliability-scan",
+  "scanner_version": "1.0",
+  "analyzed_at": "2025-09-01T12:00:00Z",
+  "target": {
+    "name": "acme / alpha",
+    "src_root": "../../..",
+    "commit": "534b275"
+  },
+  "summary": "A single fetch loop with naive retries; one swallowed exception around the cache write.",
+  "stats": {
+    "handling_sites": 3,
+    "swallowed": 1
+  },
+  "findings": [
+    {
+      "id": "reliability-scan/error-handling/swallowed-cache-write-error",
+      "group": "error-handling",
+      "title": "Cache write failures are swallowed",
+      "severity": "medium",
+      "confidence": "certain",
+      "description": "fetch_orders wraps the cache write in a bare except that passes, so a full disk or a missing cache directory is invisible.",
+      "recommendation": "Log the exception at warning level and surface a metric; keep returning the fetched orders.",
+      "evidence": [
+        {
+          "file": "src/app/service.py",
+          "start_line": 70,
+          "end_line": 71,
+          "snippet": "    except Exception:\n            pass",
+          "note": "nothing is logged"
+        }
+      ]
+    },
+    {
+      "id": "reliability-scan/retries/fixed-sleep-retry",
+      "group": "retries",
+      "title": "Retries sleep a fixed time on 429",
+      "severity": "low",
+      "confidence": "likely",
+      "description": "A 429 answer is retried after two seconds regardless of the Retry-After header.",
+      "recommendation": "Honour Retry-After and back off exponentially.",
+      "evidence": [
+        {
+          "file": "src/app/service.py",
+          "start_line": 46,
+          "end_line": 46,
+          "snippet": "                time.sleep(2)",
+          "note": "fixed sleep"
+        }
+      ]
+    },
+    {
+      "id": "reliability-scan/overview/single-upstream",
+      "group": "overview",
+      "title": "One upstream, no circuit breaker",
+      "severity": "info",
+      "confidence": "possible",
+      "description": "Every order comes from one API; there is no fallback when it is down.",
+      "evidence": []
+    }
+  ]
+}

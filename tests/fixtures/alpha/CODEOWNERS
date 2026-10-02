@@ -1,0 +1,3 @@
+src/app/ @acme/backend
+web/     @acme/frontend
+infra/   @acme/platform

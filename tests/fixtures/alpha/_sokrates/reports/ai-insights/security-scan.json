@@ -1,0 +1,68 @@
+{
+  "scanner": "security-scan",
+  "scanner_version": "1.0",
+  "analyzed_at": "2025-09-01T12:00:00Z",
+  "target": {
+    "name": "acme / alpha",
+    "src_root": "../../..",
+    "commit": "534b275"
+  },
+  "summary": "Secrets come from the environment; the cache bucket is world-readable and the container runs as root.",
+  "findings": [
+    {
+      "id": "security-scan/infrastructure/public-cache-bucket",
+      "group": "infrastructure",
+      "title": "Cache bucket is public-read",
+      "severity": "high",
+      "confidence": "certain",
+      "description": "The Terraform bucket that holds the cached orders grants public read.",
+      "recommendation": "Set the ACL to private and add a bucket policy that only the service role can read.",
+      "sokrates_refs": [
+        "finding:reliability-scan/error-handling/swallowed-cache-write-error"
+      ],
+      "evidence": [
+        {
+          "file": "infra/main.tf",
+          "start_line": 18,
+          "end_line": 18,
+          "snippet": "  acl    = \"public-read\"",
+          "note": "public ACL"
+        }
+      ]
+    },
+    {
+      "id": "security-scan/containers/runs-as-root",
+      "group": "containers",
+      "title": "Container runs as root",
+      "severity": "medium",
+      "confidence": "certain",
+      "description": "The image switches to root right before the entrypoint.",
+      "evidence": [
+        {
+          "file": "Dockerfile",
+          "start_line": 6,
+          "end_line": 6,
+          "snippet": "USER root",
+          "note": "root user"
+        }
+      ]
+    },
+    {
+      "id": "security-scan/secrets/token-from-environment",
+      "group": "secrets",
+      "title": "API token read from the environment",
+      "severity": "info",
+      "confidence": "certain",
+      "description": "The upstream token is a required environment variable, never written to disk.",
+      "evidence": [
+        {
+          "file": "src/app/service.py",
+          "start_line": 18,
+          "end_line": 18,
+          "snippet": "        \"token\": os.environ[\"ORDERS_API_TOKEN\"],",
+          "note": "required token"
+        }
+      ]
+    }
+  ]
+}

@@ -35,6 +35,29 @@ from collections import Counter, defaultdict
 from datetime import date, timedelta
 from pathlib import Path
 
+
+def data_folder(path):
+    """The extracted data folder. Also accepts data.zip itself, or a folder that holds one (reports/, _sokrates/,
+    the repository): the archive is extracted into a temporary folder that is removed at exit."""
+    import atexit
+    import shutil
+    import tempfile
+    import zipfile
+    p = Path(path)
+    zip_path = None
+    if p.is_file() and p.suffix == ".zip":
+        zip_path = p
+    elif not (p / "text").is_dir():
+        zip_path = next((c for c in (p / "data.zip", p / "data" / "data.zip", p / "reports" / "data" / "data.zip",
+                                     p / "_sokrates" / "reports" / "data" / "data.zip") if c.is_file()), None)
+    if zip_path is None:
+        return p
+    folder = tempfile.mkdtemp(prefix="sokrates-data-")
+    atexit.register(shutil.rmtree, folder, True)
+    with zipfile.ZipFile(zip_path) as archive:
+        archive.extractall(folder)
+    return Path(folder)
+
 THEMES = [
     ("fix", re.compile(r"\b(fix|fixes|fixed|bug|bugfix|hotfix|resolve[sd]?|repair|regression|crash|broken|prevent|avoid|handle|guard|reject|tolerate|correct|ensure|fallback)\b", re.I)),
     ("feature", re.compile(r"\b(add|adds|added|implement|implements|introduce[sd]?|support|new|enable|allow|feat|feature)\b", re.I)),
@@ -181,7 +204,7 @@ def main():
     args = ap.parse_args()
 
     src_root = Path(args.src_root)
-    data_dir = Path(args.data) if args.data else None
+    data_dir = data_folder(args.data) if args.data else None
     history, messages, source = load_history(src_root, data_dir)
     if not history:
         print("error: no git history found (git-history.txt in src root, or zips/git-history.zip in data)",

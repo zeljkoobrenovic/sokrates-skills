@@ -163,3 +163,44 @@ class RenderFindingsTest(FixtureTest):
         result = run("render", folder, "--template", template)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("template lacks placeholder", result.stderr)
+
+
+class StatsConsistencyTest(FixtureTest):
+
+    def test_stats_that_disagree_with_the_findings_are_a_warning(self):
+        folder = self.copy_of(ALPHA_INSIGHTS)
+        doc = read_json(folder / "reliability-scan.json")
+        doc["stats"] = {"findings_total": 5, "findings_above_info": 2, "handling_sites": 3}
+        write_json(folder / "reliability-scan.json", doc)
+        result = run("validate", folder / "reliability-scan.json", "--src-root", ALPHA)
+        self.assert_ok(result, "stats drift is a warning, not an error")
+        self.assertIn("WARNING stats.findings_total is 5 but the file holds 3", result.stdout)
+        self.assertNotIn("stats.findings_above_info", result.stdout, "2 above info is right (one finding is info)")
+
+
+class SummarizeFindingsTest(FixtureTest):
+
+    def test_markdown_summary(self):
+        result = run("summarize", ALPHA_INSIGHTS, "--top", "3")
+        self.assert_ok(result)
+        text = result.stdout
+        self.assertIn("# AI insights — acme / alpha", text)
+        self.assertIn("**AI insights: 1 high · 2 medium · 1 low (2 informational) from 2 scanners**, analyzed 2025-09-01", text)
+        self.assertIn("## Needs attention (3 of 4)", text)
+        first = text.split("## Needs attention")[1].splitlines()[2]
+        self.assertTrue(first.startswith("- **Cache bucket is public-read** — high, security-scan, `infra/main.tf:18`. Set the ACL to private"), first)
+        self.assertIn("| reliability-scan | 3 | 2 | 2025-09-01 |", text)
+        self.assertIn("| security-scan | 3 | 2 | 2025-09-01 |", text)
+
+    def test_badge_and_output_file(self):
+        result = run("summarize", ALPHA / "_sokrates" / "reports", "--badge")
+        self.assert_ok(result)
+        self.assertEqual(result.stdout.strip(), "AI insights: 1 high · 2 medium · 1 low (2 informational) from 2 scanners")
+        out = self.tmp / "summary.md"
+        self.assert_ok(run("summarize", ALPHA_INSIGHTS / "security-scan.json", "-o", out))
+        self.assertIn("from 1 scanner**", out.read_text())
+
+    def test_no_findings_is_an_error(self):
+        empty = self.tmp / "empty"
+        empty.mkdir()
+        self.assertEqual(run("summarize", empty).returncode, 1)

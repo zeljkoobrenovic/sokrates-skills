@@ -20,6 +20,23 @@ import time
 import zipfile
 from pathlib import Path
 
+
+def alias_jar(command):
+    """The jar a `sokrates` wrapper script runs, when the command is such a script (mirrors capabilities.py)."""
+    import re
+    path = shutil.which(command)
+    if not path or not Path(path).is_file():
+        return None
+    try:
+        head = Path(path).read_bytes()[:4000]
+    except OSError:
+        return None
+    if b"\0" in head:
+        return None
+    match = re.search(rb"(\S+\.jar)", head)
+    return match.group(1).decode("utf-8", errors="replace") if match else None
+
+
 SKIP_DIRS = {".git", "node_modules", "target", "build", "dist", "venv", ".venv", "__pycache__", "_sokrates", "_sokrates_landscape"}
 
 
@@ -53,10 +70,12 @@ def metrics_of(zip_path):
 
 
 def git_head_time(folder):
+    """When analyzed content last changed: the newest commit that touched something other than documentation."""
     if not (folder / ".git").exists():
         return None
     try:
-        out = subprocess.run(["git", "-C", str(folder), "log", "-1", "--format=%ct"], capture_output=True, text=True, timeout=10)
+        out = subprocess.run(["git", "-C", str(folder), "log", "-1", "--format=%ct", "--", ".", ":(exclude,glob)**/*.md", ":(exclude)*.md",
+                              ":(exclude)docs", ":(exclude)CHANGELOG*", ":(exclude)LICENSE*"], capture_output=True, text=True, timeout=10)
         return int(out.stdout.strip()) if out.returncode == 0 and out.stdout.strip() else None
     except (OSError, ValueError, subprocess.TimeoutExpired):
         return None
@@ -331,7 +350,9 @@ def describe(s, tools):
                      f"; AI findings in {s['repositories_with_findings']} repositories ({s['findings_total']} findings)" +
                      f"; virtual landscapes: {s['virtual_landscapes']}; people config: {'yes' if s['people_config'] else 'no'}")
     run = tools["run"]
-    lines.append("  Sokrates: " + (f"run as `{run}`" if run else "NOT FOUND (no sokrates, SOKRATES_JAR or docker)") +
+    jar = alias_jar("sokrates") if run == "sokrates" else None
+    wrapped = f" (runs {jar}, built {time.strftime('%Y-%m-%d', time.localtime(Path(jar).stat().st_mtime))})" if jar and Path(jar).is_file() else ""
+    lines.append("  Sokrates: " + (f"run as `{run}`{wrapped}" if run else "NOT FOUND (no sokrates, SOKRATES_JAR or docker)") +
                  (f"; agents on PATH: {', '.join(tools['agents'])}" if tools["agents"] else "; no agent CLI on PATH"))
     return lines
 

@@ -52,9 +52,18 @@ The commands that matter:
 | `-dataOnly` | only the `data.zip` - enough for every skill, much faster, no HTML |
 | `-ai claude\|codex\|gemini` | run the agent with the skills after each analysis (incremental, `-aiMaxRepos`, `-aiForce`) |
 
-A relative `-confFile _sokrates/config.json` and an absolute source root both work in current builds;
-Sokrates ignores its own output unconditionally. Older builds behave differently - when something looks
-off, check the version (`<run> ` with no arguments prints the usage, which lists the commands and flags).
+Builds differ: older ones lack `-dataOnly`, `-ai`, `-prune`, the organization commands, or match scope
+patterns against the whole path. Do not guess from dates — probe:
+
+```bash
+python3 <this-skill-path>/scripts/capabilities.py [--data _sokrates/reports/data/data.zip] [--json <scratch>/capabilities.json]
+```
+
+It runs the detected CLI, parses its usage into commands and options, says which capabilities the
+installed build has and lacks (and which jar a `sokrates` wrapper runs), and with `--data` which exports
+an analysis holds (history zip, units, duplicates, temporal dependencies, …). When a capability is
+missing, say so and use the older form (`extractGitHistory` + `init` + `generateReports` instead of
+`analyze`, a full run instead of `-dataOnly`) rather than failing on an unknown flag.
 
 ## 4. Which skill when (the map)
 

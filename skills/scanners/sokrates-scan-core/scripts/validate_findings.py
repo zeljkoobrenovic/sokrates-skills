@@ -106,6 +106,21 @@ def check_structure(doc, errors):
     return findings
 
 
+def check_stats(doc, findings, warnings):
+    """A `stats` count that disagrees with the findings list means the file was edited (a re-verification removed or
+    downgraded findings) without refreshing stats and summary — a warning, since stats keys are scanner-specific."""
+    stats = doc.get("stats")
+    if not isinstance(stats, dict):
+        return
+    total = sum(1 for f in findings if isinstance(f, dict))
+    above_info = sum(1 for f in findings if isinstance(f, dict) and str(f.get("severity")).lower() != "info")
+    expectations = {"findings_total": total, "findings_count": total, "total_findings": total,
+                    "findings_above_info": above_info, "above_info": above_info, "actionable_findings": above_info}
+    for key, expected in expectations.items():
+        if isinstance(stats.get(key), int) and stats[key] != expected:
+            warnings.append(f"stats.{key} is {stats[key]} but the file holds {expected} — refresh stats and summary after editing findings")
+
+
 def verify_evidence(findings, src_root: Path, errors, warnings):
     """Check every snippet against the actual file content. Returns per-finding results."""
     file_cache = {}
@@ -197,6 +212,7 @@ def main():
             if isinstance(ref, str) and ref.startswith("finding:") and ref[8:] not in folder_ids:
                 errors.append(f"{f.get('id')}: sokrates_refs cites {ref} but no findings file in the folder has that id")
     findings = check_structure(doc, errors)
+    check_stats(doc, findings, warnings)
     results = verify_evidence(findings, src_root, errors, warnings)
 
     verified = sum(1 for r in results if r["verified"])

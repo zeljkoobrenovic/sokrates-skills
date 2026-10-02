@@ -17,6 +17,9 @@ python3 skills/sokrates/scripts/situation.py          # where am I, and what is 
 prints whether the folder is a repository or a landscape, whether an analysis exists and how old it is,
 whether the configuration was tuned, which AI findings exist, how Sokrates can be run on this machine, and
 a ranked list of next steps that name the skill or command for each. The other skills are what it routes to.
+Its sibling `capabilities.py` probes what the installed Sokrates build can do (commands, flags, the exports in
+a `data.zip`) so no skill has to guess from version dates, and `skills/scanners/sokrates-scan-core/scripts/summarize_findings.py`
+turns findings into the short Markdown you paste into a pull request or a chat.
 
 ## What is in here
 

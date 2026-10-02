@@ -1,5 +1,5 @@
 """Scripts that pre-compute digests from the extracted Sokrates data: hotspots, maintainability drivers, the evolution timeline."""
-from tests.support import ALPHA, FixtureTest, find_values, read_json, run
+from tests.support import ALPHA, ALPHA_DATA_ZIP, FixtureTest, find_values, read_json, run
 
 
 class SelectHotspotsTest(FixtureTest):
@@ -81,3 +81,31 @@ class EvolutionTimelineTest(FixtureTest):
         result = run("evolution", "--src-root", no_source)
         self.assertEqual(result.returncode, 3)
         self.assertIn("no git history found", result.stderr)
+
+
+class DataZipAcceptedDirectlyTest(FixtureTest):
+    """The scripts that read the extracted data folder also take data.zip itself, or the folder holding it."""
+
+    def test_hotspots_from_the_zip(self):
+        out = self.tmp / "h.json"
+        self.assert_ok(run("hotspots", "--data", ALPHA_DATA_ZIP, "-o", out))
+        self.assertEqual(read_json(out)["stats"]["units_analyzed"], 12)
+
+    def test_maintainability_from_the_sokrates_folder(self):
+        out = self.tmp / "m.json"
+        result = run("maintainability", ALPHA / "_sokrates", "--json", out)
+        self.assert_ok(result)
+        self.assertIn("131 main LOC", result.stdout)
+
+    def test_evolution_from_the_zip(self):
+        no_source = self.tmp / "no-source"
+        no_source.mkdir()
+        out = self.tmp / "e.json"
+        self.assert_ok(run("evolution", "--src-root", no_source, "--data", ALPHA_DATA_ZIP, "-o", out))
+        self.assertEqual(read_json(out)["stats"]["commits"], 6)
+
+    def test_testing_counter_components_from_the_reports_folder(self):
+        out = self.tmp / "t.json"
+        result = run("count_test", ALPHA, "--components-dir", ALPHA / "_sokrates" / "reports", "--json", out)
+        self.assert_ok(result)
+        self.assertIn("test LOC by Sokrates component", result.stdout)

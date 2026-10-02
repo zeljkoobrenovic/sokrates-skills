@@ -14,7 +14,8 @@ Usage:
 With --src-root (recommended), hotspot files are opened to locate embedded
 Rust test modules, so production vs. test code is not conflated.
 
-<extracted-data-dir> is the folder data.zip was unzipped into (must contain
+<extracted-data-dir> is the folder data.zip was unzipped into — or data.zip itself, or the folder
+holding it (reports/, _sokrates/, the repository) — (must contain
 text/mainFilesWithHistory.txt, text/units.txt, text/contributors.txt,
 text/temporal_dependencies_different_folders_30_days.txt).
 """
@@ -25,6 +26,29 @@ import math
 import re
 import sys
 from pathlib import Path
+
+
+def data_folder(path):
+    """The extracted data folder. Also accepts data.zip itself, or a folder that holds one (reports/, _sokrates/,
+    the repository): the archive is extracted into a temporary folder that is removed at exit."""
+    import atexit
+    import shutil
+    import tempfile
+    import zipfile
+    p = Path(path)
+    zip_path = None
+    if p.is_file() and p.suffix == ".zip":
+        zip_path = p
+    elif not (p / "text").is_dir():
+        zip_path = next((c for c in (p / "data.zip", p / "data" / "data.zip", p / "reports" / "data" / "data.zip",
+                                     p / "_sokrates" / "reports" / "data" / "data.zip") if c.is_file()), None)
+    if zip_path is None:
+        return p
+    folder = tempfile.mkdtemp(prefix="sokrates-data-")
+    atexit.register(shutil.rmtree, folder, True)
+    with zipfile.ZipFile(zip_path) as archive:
+        archive.extractall(folder)
+    return Path(folder)
 
 TEST_PATH_RE = re.compile(
     r"(^|/)(tests?|__tests__|testdata|spec)/"        # tests/, spec/ directories
@@ -115,7 +139,7 @@ def main():
     ap.add_argument("-o", "--output", help="Write JSON here (default: stdout)")
     args = ap.parse_args()
 
-    data = Path(args.data)
+    data = data_folder(args.data)
     text = data / "text"
     for required in ("mainFilesWithHistory.txt", "units.txt", "contributors.txt"):
         if not (text / required).exists():

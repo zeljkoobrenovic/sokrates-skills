@@ -1,0 +1,54 @@
+
+Usage: java -jar sokrates.jar <command> <options>
+
+Help: java -jar sokrates.jar <command> -help
+
+Commands: analyze, analyzeGitRepo, init, generateReports, analyzeLandscape, updateLandscape, analyzeGitHubOrg, analyzeGitLabGroup, updateLandscapePeopleConfigByUserName, updatePeopleConfigByUserName, updateConfig, addCustomTab, extractGitHistory, createConventionsFile, exportStandardConventions, extractGitSubHistory
+
+* analyze: One-shot analysis: extracts the git history (when the source root is a git repository), creates the analysis configuration if none exists (init), and generates the reports. The recommended way to get a first report: run it from the root of the code base without any options.
+   - options: [-srcRoot <arg>] [-confFile <arg>] [-outputFolder <arg>] [-dataOnly] [-conventionsFile <arg>] [-name <arg>] [-description <arg>] [-logoLink <arg>] [-addLink <arg>] [-skipGitHistory] [-postAnalysis <command>] [-ai <claude|codex|gemini>] [-aiPrompt <text>] [-aiMaxRepos <count>] [-aiForce] [-date <arg>] [-timeout <arg>] [-help]
+
+* analyzeGitRepo: Clones a git repository from its URL into a temporary folder (JGit, no git binary needed), runs analyze on it, and keeps only the analysis — config.json and reports/ — in <destFolder> (default: <currentFolder>/<owner>/<repository>, e.g. junit-team/junit4); the clone is deleted. Re-runs clone again and reuse the kept config.json, so edits survive. The output layout is what analyzeLandscape expects, so several analyzeGitRepo runs in one folder plus analyzeLandscape make a landscape. For private HTTPS repositories set the SOKRATES_GIT_TOKEN (and optionally SOKRATES_GIT_USER) environment variable.
+   - options: [-url <gitUrl>] [-destFolder <arg>] [-branch <arg>] [-depth <arg>] [-dataOnly] [-postAnalysis <command>] [-ai <claude|codex|gemini>] [-aiPrompt <text>] [-aiMaxRepos <count>] [-aiForce] [-conventionsFile <arg>] [-name <arg>] [-description <arg>] [-logoLink <arg>] [-addLink <arg>] [-date <arg>] [-timeout <arg>] [-help]
+
+* init: Creates a new Sokrates analysis configuration file based on standard and optional custom conventions
+   - options: [-srcRoot <arg>] [-confFile <arg>] [-conventionsFile <arg>] [-name <arg>] [-description <arg>] [-logoLink <arg>] [-addLink <arg>] [-timeout <arg>] [-help]
+
+* generateReports: Generates Sokrates reports based on the analysis configuration
+   - options: [-confFile <arg>] [-outputFolder <arg>] [-dataOnly] [-timeout <arg>] [-date <arg>] [-help]
+
+* analyzeLandscape: Creates or updates a Sokrates landscape report aggregating the repository analyses found under the analysis root (the landscape counterpart of analyze). With -url (repeatable) and/or -urls <file> (one git URL per line, # comments), it first runs analyzeGitRepo for each URL into <analysisRoot>/<owner>/<repository> (a failing repository is logged and skipped; -prune deletes the kept analyses of repositories no longer listed or no longer existing), then builds the landscape; without URLs it aggregates what is already there. Same options as updateLandscape, which is kept as the older name.
+   - options: [-analysisRoot <arg>] [-url <gitUrl>] [-urls <file>] [-depth <arg>] [-dataOnly] [-prune] [-postAnalysis <command>] [-ai <claude|codex|gemini>] [-aiPrompt <text>] [-aiMaxRepos <count>] [-aiForce] [-conventionsFile <arg>] [-confFile <arg>] [-recursive] [-setName <arg>] [-setDescription <arg>] [-setLogoLink <arg>] [-addLink <arg>] [-timeout <arg>] [-date <arg>] [-help]
+
+* updateLandscape: Updates or creates a Sokrates landscape report, aggregating results of multiple analyses; with -url / -urls it first clones and analyzes those git repositories (the older name of analyzeLandscape, same options)
+   - options: [-analysisRoot <arg>] [-url <gitUrl>] [-urls <file>] [-depth <arg>] [-dataOnly] [-prune] [-postAnalysis <command>] [-ai <claude|codex|gemini>] [-aiPrompt <text>] [-aiMaxRepos <count>] [-aiForce] [-conventionsFile <arg>] [-confFile <arg>] [-recursive] [-setName <arg>] [-setDescription <arg>] [-setLogoLink <arg>] [-addLink <arg>] [-timeout <arg>] [-date <arg>] [-help]
+
+* analyzeGitHubOrg: Analyzes whole GitHub organizations (or user accounts): for every -org (repeatable) and/or login in -orgs <file>, lists its repositories with the GitHub REST API, filters them (forks and archived repositories are excluded unless -includeForks / -includeArchived; -pushedWithinDays, -includeRepoNamePattern / -excludeRepoNamePattern and -maxRepos narrow further), writes the selection to <analysisRoot>/<org>/repos.txt, analyzes each repository into <analysisRoot>/<org>/<repository> (the analyzeGitRepo step) and builds a landscape per organization in <analysisRoot>/<org>/_sokrates_landscape, named, described, linked and branded from the organization's GitHub profile (only fields you have not set). With several organizations a parent landscape in <analysisRoot>/_sokrates_landscape lists them as sub-landscapes. -listOnly just writes repos.txt; -prune deletes analyses of repositories no longer selected. Set SOKRATES_GIT_TOKEN for private repositories and the higher API rate limit.
+   - options: [-org <login>] [-orgs <file>] [-analysisRoot <arg>] [-includeForks] [-includeArchived] [-pushedWithinDays <days>] [-includeRepoNamePattern <regex>] [-excludeRepoNamePattern <regex>] [-maxRepos <count>] [-listOnly] [-prune] [-depth <arg>] [-dataOnly] [-postAnalysis <command>] [-ai <claude|codex|gemini>] [-aiPrompt <text>] [-aiMaxRepos <count>] [-aiForce] [-conventionsFile <arg>] [-setName <arg>] [-setDescription <arg>] [-setLogoLink <arg>] [-addLink <arg>] [-timeout <arg>] [-date <arg>] [-help]
+
+* analyzeGitLabGroup: The GitLab counterpart of analyzeGitHubOrg: for every -group (repeatable; a full path like gitlab-org/ci-cd or a URL, a username also works) and/or path in -groups <file>, lists the projects of the group and all its subgroups with the GitLab REST API (gitlab.com, or the instance given with -gitlabUrl or by a -group URL), filters them with the same options (forks and archived excluded unless -includeForks / -includeArchived; -pushedWithinDays, -includeRepoNamePattern / -excludeRepoNamePattern, -maxRepos), writes the selection to <analysisRoot>/<group path>/repos.txt, analyzes each project into <analysisRoot>/<group path>/<project path> (subgroups kept as folders) and builds a landscape per group in <analysisRoot>/<group path>/_sokrates_landscape, named, described, linked and branded from the group's profile (only fields you have not set); several groups get a parent landscape. -listOnly and -prune as for analyzeGitHubOrg. Set SOKRATES_GIT_TOKEN (sent as PRIVATE-TOKEN) for private groups.
+   - options: [-group <path>] [-groups <file>] [-gitlabUrl <url>] [-analysisRoot <arg>] [-includeForks] [-includeArchived] [-pushedWithinDays <days>] [-includeRepoNamePattern <regex>] [-excludeRepoNamePattern <regex>] [-maxRepos <count>] [-listOnly] [-prune] [-depth <arg>] [-dataOnly] [-postAnalysis <command>] [-ai <claude|codex|gemini>] [-aiPrompt <text>] [-aiMaxRepos <count>] [-aiForce] [-conventionsFile <arg>] [-setName <arg>] [-setDescription <arg>] [-setLogoLink <arg>] [-addLink <arg>] [-timeout <arg>] [-date <arg>] [-help]
+
+* updateLandscapePeopleConfigByUserName: Updates (or creates) the landscape config-people.json by grouping all contributor emails sharing the same display name (userName) under one entry, joining the emails in the email field with ';'. Purely additive: appends only new emails to existing entries, never removes emails or entries.
+   - options: [-analysisRoot <arg>] [-confFile <arg>] [-timeout <arg>] [-help]
+
+* updatePeopleConfigByUserName: Single-repository version of updateLandscapePeopleConfigByUserName: updates (or creates) _sokrates/config-people.json by grouping all contributor emails sharing the same display name (userName) under one entry. Reads only the repository's git-history.txt, so run it after extractGitHistory (no generateReports needed). Same config file and people-config format as landscapes. Purely additive.
+   - options: [-confFile <arg>] [-timeout <arg>] [-help]
+
+* updateConfig: Updates an analysis configuration file and completes missing fields
+   - options: [-confFile <arg>] [-skipComplexAnalyses] [-setCacheFiles <arg>] [-setName <arg>] [-setDescription <arg>] [-setLogoLink <arg>] [-addLink <arg>] [-timeout <arg>] [-help]
+
+* addCustomTab: Adds a custom iframe tab to the repository report configuration (config.json customTabs). If a custom tab with the same label already exists, it is overwritten instead of added.
+   - options: [-confFile <arg>] [-label <arg>] [-iframeLink <arg>] [-help]
+
+* extractGitHistory: Extract a git history in a format used by Sokrates and saves it in the git-history.txt file
+   - options: [-analysisRoot <arg>] [-help]
+
+* createConventionsFile: Create a new analysis conventions file and saves it in <current-folder>/analysis_conventions.json 
+
+* exportStandardConventions: Export standard Sokrates analysis convention to <current-folder>/standard_analysis_conventions.json.
+
+* extractGitSubHistory: A utility function to split a git history file (git-history.txt) into smaller ones based on a commit file path prefix, removing the prefix from file path in split files
+   - options: [-prefix <arg>] [-analysisRoot <arg>] [-help]
+
+

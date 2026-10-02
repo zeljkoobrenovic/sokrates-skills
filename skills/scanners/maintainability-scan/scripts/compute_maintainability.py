@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Roll up Sokrates data into maintainability drivers per sub-characteristic (modularity, reusability, analysability, modifiability, testability).
 
-Deterministic, standard-library only. Reads an UNZIPPED data.zip directory and
+Deterministic, standard-library only. Reads an UNZIPPED data.zip directory (or data.zip itself, or
+the reports/ or _sokrates/ folder holding it) and
 prints, per component and for the system, the numbers the maintainability scanner
 grades from; every number carries its provenance (which Sokrates export it came
 from). Says explicitly when an export is absent (e.g. no dependency extraction).
@@ -32,6 +33,29 @@ import re
 import sys
 from collections import defaultdict
 from pathlib import Path
+
+
+def data_folder(path):
+    """The extracted data folder. Also accepts data.zip itself, or a folder that holds one (reports/, _sokrates/,
+    the repository): the archive is extracted into a temporary folder that is removed at exit."""
+    import atexit
+    import shutil
+    import tempfile
+    import zipfile
+    p = Path(path)
+    zip_path = None
+    if p.is_file() and p.suffix == ".zip":
+        zip_path = p
+    elif not (p / "text").is_dir():
+        zip_path = next((c for c in (p / "data.zip", p / "data" / "data.zip", p / "reports" / "data" / "data.zip",
+                                     p / "_sokrates" / "reports" / "data" / "data.zip") if c.is_file()), None)
+    if zip_path is None:
+        return p
+    folder = tempfile.mkdtemp(prefix="sokrates-data-")
+    atexit.register(shutil.rmtree, folder, True)
+    with zipfile.ZipFile(zip_path) as archive:
+        archive.extractall(folder)
+    return Path(folder)
 
 FIX_RX = re.compile(r"\b(fix|fixes|fixed|bug|bugfix|hotfix|regression|crash|broken|repair|revert)\b", re.I)
 FEAT_RX = re.compile(r"\b(add|adds|added|feat|feature|implement|introduce|support|new)\b", re.I)
@@ -128,7 +152,7 @@ def main(argv=None) -> int:
     ap.add_argument("--min-shared", type=int, default=3, help="minimum shared commits for a co-change pair to count (default 3)")
     ap.add_argument("--src-root", help="source root: counts documentation files in the tree even when Sokrates' config ignores them (docs/, *.md)")
     args = ap.parse_args(argv)
-    d = Path(args.data_dir).resolve()
+    d = data_folder(args.data_dir).resolve()
     if not (d / "files.json").is_file():
         print(f"error: {d}/files.json not found — pass the unzipped data.zip directory", file=sys.stderr)
         return 2

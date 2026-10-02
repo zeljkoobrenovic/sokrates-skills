@@ -65,7 +65,13 @@ Two more scripts operate on finished findings files; run them when asked for a c
   ```bash
   python3 <core-skill-path>/scripts/diff_findings.py old.json new.json [-o diff.txt]
   ```
-  Reports new / resolved / persisting findings and severity/confidence changes; exit code 1 when anything changed (usable as a CI gate), 0 when identical. Include the diff summary when reporting to the user — "2 new, 1 resolved since 2026-08-24" is often the headline.
+  Reports new / resolved / persisting findings and severity/confidence changes; exit code 1 when anything changed (usable as a CI gate), 0 when identical.
+- **Summarize** — the text to paste into a pull request, a wiki page or a chat (the explorer is for browsing):
+  ```bash
+  python3 <core-skill-path>/scripts/summarize_findings.py _sokrates/reports/ai-insights/ [--top 10] [-o summary.md]
+  python3 <core-skill-path>/scripts/summarize_findings.py _sokrates/reports/ai-insights/ --badge    # one line: "AI insights: 2 high · 5 low (10 informational) from 3 scanners"
+  ```
+- **After editing a findings file by hand or re-verifying part of it** (a few findings removed or downgraded after a fix), refresh its `summary` and `stats` too: the validator warns when a `stats` count (`findings_total`, `findings_above_info`, …) disagrees with the findings list. Include the diff summary when reporting to the user — "2 new, 1 resolved since 2026-08-24" is often the headline.
 
 ## Findings format
 

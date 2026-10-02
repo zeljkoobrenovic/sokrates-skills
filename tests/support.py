@@ -44,6 +44,8 @@ SCRIPTS = {
     "people": SKILLS / "config/sokrates-people-config/scripts/build_people_config.py",
     "visuals": SKILLS / "illustrators/generate_summary_visuals.py",
     "situation": SKILLS / "sokrates/scripts/situation.py",
+    "capabilities": SKILLS / "sokrates/scripts/capabilities.py",
+    "summarize": SKILLS / "scanners/sokrates-scan-core/scripts/summarize_findings.py",
 }
 
 

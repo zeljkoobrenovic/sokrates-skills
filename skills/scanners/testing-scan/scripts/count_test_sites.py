@@ -31,6 +31,29 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+
+def data_folder(path):
+    """The extracted data folder. Also accepts data.zip itself, or a folder that holds one (reports/, _sokrates/,
+    the repository): the archive is extracted into a temporary folder that is removed at exit."""
+    import atexit
+    import shutil
+    import tempfile
+    import zipfile
+    p = Path(path)
+    zip_path = None
+    if p.is_file() and p.suffix == ".zip":
+        zip_path = p
+    elif not (p / "text").is_dir():
+        zip_path = next((c for c in (p / "data.zip", p / "data" / "data.zip", p / "reports" / "data" / "data.zip",
+                                     p / "_sokrates" / "reports" / "data" / "data.zip") if c.is_file()), None)
+    if zip_path is None:
+        return p
+    folder = tempfile.mkdtemp(prefix="sokrates-data-")
+    atexit.register(shutil.rmtree, folder, True)
+    with zipfile.ZipFile(zip_path) as archive:
+        archive.extractall(folder)
+    return Path(folder)
+
 EXTS = {
     "rust": {".rs"}, "java": {".java", ".kt", ".scala"}, "csharp": {".cs"},
     "js": {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}, "python": {".py"}, "go": {".go"},
@@ -280,7 +303,7 @@ def main(argv=None) -> int:
     by_component = {}
     if args.components_dir:
         comp_dirs, comp_main_loc, comp_files = {}, {}, {}
-        for f in sorted(Path(args.components_dir).glob(f"text/aspect_component_{args.decomposition}_*.txt")):
+        for f in sorted(data_folder(args.components_dir).glob(f"text/aspect_component_{args.decomposition}_*.txt")):
             name = f.stem[len(f"aspect_component_{args.decomposition}_"):]
             files, total = [], 0
             for line in f.read_text(errors="replace").splitlines()[1:]:

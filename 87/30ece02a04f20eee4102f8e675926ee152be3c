@@ -1,0 +1,31 @@
+skills/config/sokrates-decompositions/scripts/propose_decompositions.py
+  s_40c0e74316fcc6::t_3daf53d99b4038 23,165-166,170-171
+skills/config/sokrates-features-of-interest/scripts/propose_concerns.py
+  s_40c0e74316fcc6::t_8b7b1e285b4128 16,139-140,142-143,176
+skills/config/sokrates-repo-config/SKILL.md
+  s_40c0e74316fcc6::t_32f3762a039811 38
+skills/config/sokrates-repo-config/references/config-reference.md
+  s_40c0e74316fcc6::t_f7920905793ff1 31
+skills/config/sokrates-repo-config/scripts/preview_config.py
+  s_40c0e74316fcc6::t_82318b424859b7 21-24,107,240
+tests/fixtures/README.md
+  s_40c0e74316fcc6::t_51760a31544e59 15-18
+tests/test_config.py
+  s_40c0e74316fcc6::t_9ff89bde2c593e 36-39,43-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8730ece02a04f20eee4102f8e675926ee152be3c",
+  "prompts": {},
+  "sessions": {
+    "s_40c0e74316fcc6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a859e40-f6c6-4dfa-8fdb-6c295588cf73",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

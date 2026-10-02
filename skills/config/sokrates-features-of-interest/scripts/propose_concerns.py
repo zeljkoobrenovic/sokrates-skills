@@ -97,39 +97,24 @@ def resolve_src_root(config_path: Path, src_root: str) -> Path:
     return cand if cand.exists() else Path(src_root)
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("config")
-    ap.add_argument("-o", "--output")
-    ap.add_argument("--min-files", type=int, default=3, help="drop candidates matching fewer files")
-    ap.add_argument("--max-files", type=int, default=200000)
-    ap.add_argument("--samples", type=int, default=4)
-    args = ap.parse_args()
+TEST_REGION_START = re.compile(r"^\s*#\[cfg\(test\)\]")   # Rust inline test modules: everything after this marker
 
-    config_path = Path(args.config)
-    try:
-        config = json.loads(config_path.read_text())
-    except (OSError, json.JSONDecodeError) as e:
-        print(f"error: {e}", file=sys.stderr); return 2
-    src_root = resolve_src_root(config_path, config.get("srcRoot", ".."))
-    if not src_root.is_dir():
-        print(f"error: srcRoot {src_root} not found", file=sys.stderr); return 2
+
+def collect_main_files(src_root, config, max_files):
+    """The main-scope files with their lines, scoped as Sokrates does: extensions, ignore, the other scopes' filters, size limits."""
     src_root_str = str(src_root)
     extensions = {e.lower() for e in config.get("extensions") or []}
     ignore = [Rule(r) for r in config.get("ignore") or []]
     non_main = [Rule(r) for s in ("test", "generated", "buildAndDeployment", "other") for r in (config.get(s) or {}).get("sourceFileFilters") or []]
     analysis = config.get("analysis") or {}
     max_bytes = int(analysis.get("maxFileSizeBytes", 1000000)); max_lines = int(analysis.get("maxLines", 10000)); max_line_len = int(analysis.get("maxLineLength", 1000))
-    warnings = []
-
-    # ---- collect main files with their lines
     files = {}
     total = 0
     for root, dirs, fns in os.walk(src_root):
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
         for fn in fns:
             total += 1
-            if total > args.max_files:
+            if total > max_files:
                 break
             rel = os.path.relpath(os.path.join(root, fn), src_root).replace(os.sep, "/")
             ext = fn.rsplit(".", 1)[-1].lower() if "." in fn else ""
@@ -153,46 +138,49 @@ def main():
             if len(lines) > max_lines or any(len(ln) > max_line_len for ln in lines):
                 continue
             files[rel] = lines
-    if (src_root / "_sokrates").is_dir() and not any("_sokrates" in (r.path_pattern or "") for r in ignore):
-        warnings.append("`.*/_sokrates/.*` is missing from ignore — Sokrates will count its own output as main (this script skips the folder)")
-    loc = {rel: sum(1 for ln in lines if ln.strip()) for rel, lines in files.items()}
-    total_loc = sum(loc.values()) or 1
+    sokrates_unignored = (src_root / "_sokrates").is_dir() and not any("_sokrates" in (r.path_pattern or "") for r in ignore)
+    return files, sokrates_unignored
 
-    TEST_REGION_START = re.compile(r"^\s*#\[cfg\(test\)\]")   # Rust inline test modules: everything after this marker
-    test_region_start = {}
+
+def rust_test_regions(files):
+    """Per Rust file, the line index where the inline test module starts."""
+    starts = {}
     for rel, lines in files.items():
         if rel.endswith(".rs"):
             for i, ln in enumerate(lines):
                 if TEST_REGION_START.match(ln):
-                    test_region_start[rel] = i
+                    starts[rel] = i
                     break
+    return starts
 
-    def evaluate(name, content_re, path_re):
-        """Returns hit files, hit lines, samples, hits inside test regions, matched-token counter."""
-        hit_files, hit_lines, hits_in_tests = set(), 0, 0
-        tokens = Counter()
-        first_hit = {}
-        for rel, lines in files.items():
-            if path_re is not None and not path_re.fullmatch("/" + rel):
-                continue
-            tstart = test_region_start.get(rel, 10**9)
-            for i, ln in enumerate(lines, 1):
-                m = content_re.fullmatch(ln)
-                if m:
-                    hit_lines += 1
-                    if i - 1 >= tstart:
-                        hits_in_tests += 1
-                    tok = next((g for g in m.groups() if g), None) if m.groups() else None
-                    tokens[(tok or ln.strip())[:60]] += 1
-                    if rel not in hit_files:
-                        hit_files.add(rel)
-                        first_hit[rel] = f"{rel}:{i}: {ln.strip()[:110]}"
-        ordered = sorted(first_hit)
-        step = max(1, len(ordered) // max(1, args.samples))
-        samples = [first_hit[r] for r in ordered[::step][:args.samples]]   # stratified over the sorted tree, not the first N
-        return hit_files, hit_lines, samples, hits_in_tests, tokens
 
-    # ---- catalog
+def evaluate(files, test_region_start, samples_count, content_re, path_re):
+    """Returns hit files, hit lines, samples, hits inside test regions, matched-token counter."""
+    hit_files, hit_lines, hits_in_tests = set(), 0, 0
+    tokens = Counter()
+    first_hit = {}
+    for rel, lines in files.items():
+        if path_re is not None and not path_re.fullmatch("/" + rel):
+            continue
+        tstart = test_region_start.get(rel, 10**9)
+        for i, ln in enumerate(lines, 1):
+            m = content_re.fullmatch(ln)
+            if m:
+                hit_lines += 1
+                if i - 1 >= tstart:
+                    hits_in_tests += 1
+                tok = next((g for g in m.groups() if g), None) if m.groups() else None
+                tokens[(tok or ln.strip())[:60]] += 1
+                if rel not in hit_files:
+                    hit_files.add(rel)
+                    first_hit[rel] = f"{rel}:{i}: {ln.strip()[:110]}"
+    ordered = sorted(first_hit)
+    step = max(1, len(ordered) // max(1, samples_count))
+    samples = [first_hit[r] for r in ordered[::step][:samples_count]]   # stratified over the sorted tree, not the first N
+    return hit_files, hit_lines, samples, hits_in_tests, tokens
+
+
+def catalog_proposals(files, test_region_start, loc, total_loc, min_files, samples_count, warnings):
     proposals = []
     for group, name, content, path, desc in CATALOG:
         try:
@@ -200,8 +188,8 @@ def main():
             path_re = re.compile(path) if path else None
         except re.error as e:
             warnings.append(f"catalog pattern for `{name}` failed to compile: {e}"); continue
-        hit_files, hit_lines, samples, hits_in_tests, tokens = evaluate(name, content_re, path_re)
-        if len(hit_files) < args.min_files:
+        hit_files, hit_lines, samples, hits_in_tests, tokens = evaluate(files, test_region_start, samples_count, content_re, path_re)
+        if len(hit_files) < min_files:
             continue
         files_loc = sum(loc[f] for f in hit_files)
         by_top = Counter("/".join(f.split("/")[:2]) if f.count("/") >= 2 else (f.split("/")[0] if "/" in f else "(root)") for f in hit_files)
@@ -214,8 +202,11 @@ def main():
             "top_matched_tokens": tokens.most_common(8),
             "config": {"name": name, "sourceFileFilters": [{"pathPattern": path or "", "contentPattern": content, "exception": False, "note": desc}], "files": [], "textOperations": []},
         })
+    return proposals
 
-    # ---- libraries (repository-specific integration concerns)
+
+def library_proposals(files, test_region_start, min_files, samples_count):
+    """The most imported external libraries (first-party names dropped), as rows and as ready integration concerns."""
     lib_files = defaultdict(set)
     lib_lines = Counter()
     for rel, lines in files.items():
@@ -235,18 +226,21 @@ def main():
     lib_rows = []
     for lib, fs in sorted(lib_files.items(), key=lambda kv: -len(kv[1])):
         internal = lib.lower().replace("-", "_") in top_names or lib.lower().startswith(("codex", "crate"))
-        if internal or len(fs) < max(args.min_files, 5):
+        if internal or len(fs) < max(min_files, 5):
             continue
         lib_rows.append({"library": lib, "files": len(fs), "files_pct": round(100 * len(fs) / max(1, len(files)), 1),
-                         "import_lines": lib_lines[lib], "samples": sorted(fs)[:args.samples]})
+                         "import_lines": lib_lines[lib], "samples": sorted(fs)[:samples_count]})
     lib_rows = lib_rows[:25]
     lib_concerns = []
     for r in lib_rows[:12]:
         lib = r["library"]
         esc = re.escape(lib)
         lib_concerns.append({"name": f"uses {lib}", "sourceFileFilters": [{"pathPattern": "", "contentPattern": f".*\\b{esc}\\b.*", "exception": False, "note": f"files referencing {lib}"}], "files": [], "textOperations": []})
+    return lib_rows, lib_concerns
 
-    # ---- existing concerns
+
+def existing_concerns(config, files, test_region_start, samples_count, loc, total_loc, proposals, warnings):
+    """What the configuration's current concerns match today."""
     existing = []
     for grp in config.get("concernGroups") or config.get("concerns") or []:
         for c in grp.get("concerns") or []:
@@ -259,31 +253,19 @@ def main():
                     warnings.append(f"existing concern `{c.get('name')}` has a regex that does not compile ({e}) — Sokrates silently matches nothing"); continue
                 if cre is None and pre is None:
                     continue
-                hf, _, _, _, _ = evaluate(c.get("name"), cre or re.compile(".*"), pre)
+                hf, _, _, _, _ = evaluate(files, test_region_start, samples_count, cre or re.compile(".*"), pre)
                 hit |= hf
             existing.append({"group": grp.get("name"), "name": c.get("name"), "files": len(hit), "loc_pct": round(100 * sum(loc[f] for f in hit) / total_loc, 1)})
             if "(TODO|FIXME)" in json.dumps(c.get("sourceFileFilters") or []):
                 broad = next((p for p in proposals if p["name"] == "TODOs and FIXMEs"), None)
                 if broad and broad["files"] > len(hit):
-                    warnings.append(f"existing concern `{c.get('name')}` matches {len(hit)} files but a word-boundary pattern matches {broad['files']} — this codebase writes TODO(name)-style markers; replace the pattern with `.*\\b(TODO|FIXME|XXX|HACK)\\b.*`")
+                    warnings.append(f"existing concern `{c.get('name')}` matches {len(hit)} files but a word-boundary pattern matches {broad['files']} — this codebase writes TODO(name)-style markers; replace the pattern with the catalog's")
+    return existing
 
-    # ---- assemble suggested config
-    groups = defaultdict(list)
-    for p in proposals:
-        groups[p["group"]].append(p["config"])
-    suggested = [{"name": g, "concerns": cs, "metaConcerns": []} for g, cs in groups.items()]
-    if lib_concerns:
-        suggested.append({"name": "integration libraries", "concerns": lib_concerns, "metaConcerns": []})
 
-    out = {"config": str(config_path), "srcRoot": src_root_str, "main_files": len(files), "main_loc": total_loc,
-           "existing_concerns": existing, "catalog": proposals, "libraries": lib_rows,
-           "suggested_concernGroups": suggested, "warnings": warnings,
-           "notes": ["contentPattern must match a whole line — keep the `.*…*` wrapping", "concerns are evaluated against main files only",
-                     "a concern touching > 60% of files is not a feature of interest but a property of the codebase — narrow it or drop it"]}
-    if args.output:
-        Path(args.output).write_text(json.dumps(out, indent=2))
-
-    print(f"Features-of-interest proposals — {config_path}  ({len(files)} main files, {total_loc} LOC; % LOC = LOC of matched files / main LOC)")
+def print_report(out, config_path):
+    proposals, existing, lib_rows, warnings = out["catalog"], out["existing_concerns"], out["libraries"], out["warnings"]
+    print(f"Features-of-interest proposals — {config_path}  ({out['main_files']} main files, {out['main_loc']} LOC; % LOC = LOC of matched files / main LOC)")
     if existing:
         print("existing concerns: " + ", ".join(f"{e['group']}/{e['name']} ({e['files']} files, {e['loc_pct']}% LOC)" for e in existing))
     print("\nCandidates (files matched, % of main files, matching lines):")
@@ -298,10 +280,52 @@ def main():
         print("\nMost used external libraries (candidate integration concerns): " + ", ".join(f"{r['library']} ({r['files']})" for r in lib_rows[:15]))
     for w in warnings:
         print(f"WARNING: {w}")
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("config")
+    ap.add_argument("-o", "--output")
+    ap.add_argument("--min-files", type=int, default=3, help="drop candidates matching fewer files")
+    ap.add_argument("--max-files", type=int, default=200000)
+    ap.add_argument("--samples", type=int, default=4)
+    args = ap.parse_args()
+
+    config_path = Path(args.config)
+    try:
+        config = json.loads(config_path.read_text())
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"error: {e}", file=sys.stderr); return 2
+    src_root = resolve_src_root(config_path, config.get("srcRoot", ".."))
+    if not src_root.is_dir():
+        print(f"error: srcRoot {src_root} not found", file=sys.stderr); return 2
+    warnings = []
+    files, sokrates_unignored = collect_main_files(src_root, config, args.max_files)
+    if sokrates_unignored:
+        warnings.append("`.*/_sokrates/.*` is missing from ignore — Sokrates will count its own output as main (this script skips the folder)")
+    loc = {rel: sum(1 for ln in lines if ln.strip()) for rel, lines in files.items()}
+    total_loc = sum(loc.values()) or 1
+    test_region_start = rust_test_regions(files)
+    proposals = catalog_proposals(files, test_region_start, loc, total_loc, args.min_files, args.samples, warnings)
+    lib_rows, lib_concerns = library_proposals(files, test_region_start, args.min_files, args.samples)
+    existing = existing_concerns(config, files, test_region_start, args.samples, loc, total_loc, proposals, warnings)
+    groups = defaultdict(list)
+    for p in proposals:
+        groups[p["group"]].append(p["config"])
+    suggested = [{"name": g, "concerns": cs, "metaConcerns": []} for g, cs in groups.items()]
+    if lib_concerns:
+        suggested.append({"name": "integration libraries", "concerns": lib_concerns, "metaConcerns": []})
+    out = {"config": str(config_path), "srcRoot": str(src_root), "main_files": len(files), "main_loc": total_loc,
+           "existing_concerns": existing, "catalog": proposals, "libraries": lib_rows,
+           "suggested_concernGroups": suggested, "warnings": warnings,
+           "notes": ["contentPattern must match a whole line — keep the `.*…*` wrapping", "concerns are evaluated against main files only",
+                     "a concern touching > 60% of files is not a feature of interest but a property of the codebase — narrow it or drop it"]}
+    if args.output:
+        Path(args.output).write_text(json.dumps(out, indent=2))
+    print_report(out, config_path)
     if args.output:
         print(f"\nwrote {args.output}")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

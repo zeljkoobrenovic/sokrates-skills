@@ -1,0 +1,33 @@
+skills/improve/sokrates-improve/SKILL.md
+  s_40c0e74316fcc6::t_f5085db95c8022 37
+skills/improve/sokrates-improve/scripts/measure.py
+  s_40c0e74316fcc6::t_775cb3b32a97fb 10-13,26,82-83,157-161,172,194-197
+skills/improve/sokrates-improve/scripts/sokrates_data.py
+  s_40c0e74316fcc6::t_aa4cb11020f08e 113-142
+skills/scanners/sokrates-scan-core/SKILL.md
+  s_40c0e74316fcc6::t_dd85cfd5a9fdea 74-78
+skills/scanners/sokrates-scan-core/scripts/recheck_findings.py
+  s_40c0e74316fcc6::t_28b5e424c7be65 1-165
+tests/support.py
+  s_40c0e74316fcc6::t_fe0e43ccba12ca 49
+tests/test_improve.py
+  s_40c0e74316fcc6::t_1f249071cf2c57 143,159-187
+tests/test_scan_core.py
+  s_40c0e74316fcc6::t_f4e52e7bf08396 207-264
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "07f1b2e88738fa9d46cc5ada7977f81ade009f6a",
+  "prompts": {},
+  "sessions": {
+    "s_40c0e74316fcc6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a859e40-f6c6-4dfa-8fdb-6c295588cf73",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

@@ -1,0 +1,51 @@
+README.md
+  s_40c0e74316fcc6::t_963938027188b0 20-22
+skills/improve/sokrates-improve/SKILL.md
+  s_40c0e74316fcc6::t_7bc3c582f19050 32
+skills/scanners/evolution-scan/scripts/evolution_timeline.py
+  s_40c0e74316fcc6::t_6f85cbb61efdc5 38-60,207
+skills/scanners/maintainability-scan/scripts/compute_maintainability.py
+  s_40c0e74316fcc6::t_3af0dd3b513d0d 4-5,37-59,155
+skills/scanners/risk-synthesis-scan/scripts/select_hotspots.py
+  s_40c0e74316fcc6::t_3ae66437d00f3f 17-18,30-52,142
+skills/scanners/sokrates-scan-core/SKILL.md
+  s_40c0e74316fcc6::t_3ef9dc0c5d61f7 68-74
+skills/scanners/sokrates-scan-core/scripts/summarize_findings.py
+  s_40c0e74316fcc6::t_9e51602de911bc 1-124
+skills/scanners/sokrates-scan-core/scripts/validate_findings.py
+  s_40c0e74316fcc6::t_236986e2ecca1c 109-123,215
+skills/scanners/testing-scan/scripts/count_test_sites.py
+  s_40c0e74316fcc6::t_50290bf53952d4 34-56,306
+skills/sokrates/SKILL.md
+  s_40c0e74316fcc6::t_e4d975e3598967 55-66
+skills/sokrates/scripts/capabilities.py
+  s_40c0e74316fcc6::t_ce0bf26a47b834 1-167
+skills/sokrates/scripts/situation.py
+  s_40c0e74316fcc6::t_31abfa868d2b33 23-39,73,77-78,353-355
+tests/fixtures/sokrates-usage.txt
+  s_40c0e74316fcc6::t_17b7091065adbe 1-54
+tests/support.py
+  s_40c0e74316fcc6::t_26c93bea044675 47-48
+tests/test_entry.py
+  s_40c0e74316fcc6::t_8d153674fae268 5,97-189
+tests/test_scan_core.py
+  s_40c0e74316fcc6::t_962c043779c801 166-206
+tests/test_synthesis.py
+  s_40c0e74316fcc6::t_376c35c19828f3 2,84-111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "842674f09fe1bee4c74f0f0d383007d13b340c83",
+  "prompts": {},
+  "sessions": {
+    "s_40c0e74316fcc6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a859e40-f6c6-4dfa-8fdb-6c295588cf73",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

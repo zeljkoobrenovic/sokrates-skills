@@ -1,0 +1,19 @@
+skills/config/sokrates-decompositions/scripts/propose_decompositions.py
+  s_40c0e74316fcc6::t_556a23dee86d7b 115,117-120,126,130,139,172-212,224-226,230-276,278-279,282-284,289-290,292-293,302-307,309-464,474-491,504-506,508-517,526,529,535,538,540-581
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e20446f6ecc490eb13c3fe5d8b4d3acd3833ab54",
+  "prompts": {},
+  "sessions": {
+    "s_40c0e74316fcc6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a859e40-f6c6-4dfa-8fdb-6c295588cf73",
+        "model": "unknown"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

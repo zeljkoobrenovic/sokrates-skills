@@ -77,11 +77,33 @@ missing, say so and use the older form (`extractGitHistory` + `init` + `generate
 | how good it is at testing, reliability, maintainability, risk | `full-scan` family `quality` |
 | performance, storage, network, observability | `full-scan` family `runtime` |
 | security, infrastructure, configuration | `full-scan` family `security` |
-| the findings format, validation, explorer, merge, diff | `sokrates-scan-core` |
+| the findings format, validation, explorer, merge, diff, re-check, summary | `sokrates-scan-core` |
 | make the code better where the numbers say so, and prove it | `sokrates-improve` |
 | a landscape: what gets aggregated, tags, teams | `sokrates-landscape-config` |
 | sub-landscapes by naming, technology, team, activity | `sokrates-virtual-landscapes` |
 | the portfolio story over a scanned landscape: concentration, recurring findings, coverage, priorities | `landscape-synthesis-scan` |
+
+A named worry goes straight to its scanner (each writes validated findings; `full-scan` runs bundles of them):
+
+| the question | scanner |
+| --- | --- |
+| what does this software do, for whom, through which entry points | `functionality-scan` |
+| what do the domain concepts mean, where does the language drift | `domain-language-scan` |
+| how is it structured, what depends on what, is the architecture eroding | `architecture-scan` |
+| how did it get here, what is the trajectory | `evolution-scan` |
+| which languages, frameworks, libraries, build and infra tooling | `tech-stack-scan` |
+| how is it built, tested, released, deployed | `cicd-scan` |
+| what runtime environment does it declare: Terraform, Kubernetes, Dockerfiles | `iac-scan` |
+| how is it configured, where do settings and secrets come from | `configuration-scan` |
+| how well is it tested, what is untested | `testing-scan` |
+| what does it log, measure, trace; what stays dark | `observability-scan` |
+| what happens when things fail: errors, retries, isolation | `reliability-scan` |
+| where will it be slow, what scales badly | `performance-scan` |
+| where does the data live, how is it versioned and kept intact | `storage-scan` |
+| what does it connect to and listen on, what happens offline | `network-scan` |
+| is it secure: identity, secrets, injection, crypto, trust | `security-scan` |
+| how maintainable, graded per sub-characteristic and component | `maintainability-scan` |
+| which files are risky and why, bus factor, change coupling | `risk-synthesis-scan` |
 
 ## 5. Rules shared by every skill
 

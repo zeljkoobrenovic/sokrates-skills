@@ -1,0 +1,75 @@
+skills/config/sokrates-decompositions/SKILL.md
+  s_40c0e74316fcc6::t_76b9152c587264 3
+skills/config/sokrates-features-of-interest/SKILL.md
+  s_40c0e74316fcc6::t_a05886bad1a419 3
+skills/config/sokrates-landscape-config/SKILL.md
+  s_40c0e74316fcc6::t_38c42df8d1fbc5 3
+skills/config/sokrates-people-config/SKILL.md
+  s_40c0e74316fcc6::t_79f1b83a3a9c4a 3
+skills/config/sokrates-repo-config/SKILL.md
+  s_40c0e74316fcc6::t_1af90b1c422757 3
+skills/config/sokrates-virtual-landscapes/SKILL.md
+  s_40c0e74316fcc6::t_7d8bdc4201286f 3
+skills/improve/sokrates-improve/SKILL.md
+  s_40c0e74316fcc6::t_216d945e972b62 3
+skills/scanners/architecture-scan/SKILL.md
+  s_40c0e74316fcc6::t_3ba92afaa16552 3
+skills/scanners/cicd-scan/SKILL.md
+  s_40c0e74316fcc6::t_d9815919e523c5 3
+skills/scanners/configuration-scan/SKILL.md
+  s_40c0e74316fcc6::t_7b52d1efe8719d 3
+skills/scanners/domain-language-scan/SKILL.md
+  s_40c0e74316fcc6::t_f6f2118777c4aa 3
+skills/scanners/evolution-scan/SKILL.md
+  s_40c0e74316fcc6::t_b9789a11ac3e06 3
+skills/scanners/full-scan/SKILL.md
+  s_40c0e74316fcc6::t_3c38592a17be88 3
+skills/scanners/functionality-scan/SKILL.md
+  s_40c0e74316fcc6::t_240c31aeb3096d 3
+skills/scanners/iac-scan/SKILL.md
+  s_40c0e74316fcc6::t_d11fa189375002 3
+skills/scanners/landscape-synthesis-scan/SKILL.md
+  s_40c0e74316fcc6::t_6360586f4baf01 3
+skills/scanners/maintainability-scan/SKILL.md
+  s_40c0e74316fcc6::t_802316d9ac6b7e 3
+skills/scanners/network-scan/SKILL.md
+  s_40c0e74316fcc6::t_ac3c7af1467478 3
+skills/scanners/observability-scan/SKILL.md
+  s_40c0e74316fcc6::t_46331d790e4d69 3
+skills/scanners/performance-scan/SKILL.md
+  s_40c0e74316fcc6::t_b3407ebb3235c0 3
+skills/scanners/reliability-scan/SKILL.md
+  s_40c0e74316fcc6::t_23fc4b2733fcaa 3
+skills/scanners/risk-synthesis-scan/SKILL.md
+  s_40c0e74316fcc6::t_62aeeb468ca31c 3
+skills/scanners/security-scan/SKILL.md
+  s_40c0e74316fcc6::t_8b0f491b638ac7 3
+skills/scanners/sokrates-scan-core/SKILL.md
+  s_40c0e74316fcc6::t_5efe849ad7d47b 3
+skills/scanners/storage-scan/SKILL.md
+  s_40c0e74316fcc6::t_3453443e1b9bfe 3
+skills/scanners/tech-stack-scan/SKILL.md
+  s_40c0e74316fcc6::t_06ddaed63cc349 3
+skills/scanners/testing-scan/SKILL.md
+  s_40c0e74316fcc6::t_c04f48e92b5311 3
+skills/sokrates/SKILL.md
+  s_40c0e74316fcc6::t_59857007e47daf 3
+tests/test_skill_pages.py
+  s_40c0e74316fcc6::t_ad4b8d8c2bba95 32-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a7a9fab3acbe0f077a78aa3a6a4c0445f588af25",
+  "prompts": {},
+  "sessions": {
+    "s_40c0e74316fcc6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a859e40-f6c6-4dfa-8fdb-6c295588cf73",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

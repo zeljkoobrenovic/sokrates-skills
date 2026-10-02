@@ -1,6 +1,6 @@
 ---
 name: cicd-scan
-description: Reconstructs a codebase's CI/CD process as an evidence-backed narrative - what triggers a build, how the code is built and tested, which quality gates guard merges, how releases are versioned and published, where artifacts get deployed and how users receive them - plus hygiene risks in the pipeline itself (unpinned actions, missing gates, secret exposure). Use whenever the user asks how a project is built/tested/deployed/released, wants the CI/CD or release process explained or documented, asks "what happens when I push / tag / merge", or wants a pipeline audit. Works best with a Sokrates analysis (_sokrates folder) but degrades gracefully without one.
+description: Reconstructs the CI/CD process as an evidence-backed narrative: what triggers a build, how code is built and tested, the quality gates on merges, how releases are versioned and published, where artifacts go and how users get them, plus pipeline hygiene risks (unpinned actions, missing gates, secret exposure). Use for how a project is built, tested, released or deployed, "what happens when I push or tag", or a pipeline audit.
 ---
 
 # CI/CD process scan

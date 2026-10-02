@@ -1,7 +1,6 @@
 ---
 name: sokrates-people-config
-description: Builds and reviews the Sokrates config-people.json that merges contributor identities (several e-mails or user names of the same person) from git commit history - for one repository (_sokrates/config-people.json from git-history.txt) or a whole landscape (_sokrates_landscape/config-people.json across all repositories, where per-repository files with a single e-mail become duplicates once combined). The script applies explicit, confidence-rated rules (same user name, GitHub noreply forms, matching logins, same local part across domains), preserves hand-made entries, and writes config-people-for-review.json listing every merge a human should check plus candidates it did not apply. Use when contributor counts look inflated, the same person appears under several addresses, the user asks to merge or deduplicate contributors, fix bus-factor numbers, or set up people/teams before a landscape.
-
+description: Builds and reviews the Sokrates config-people.json that merges contributor identities (several e-mails or user names of one person) from git history, for one repository or a whole landscape, with explicit confidence-rated rules and a review file of every merge and the candidates it did not apply. Use when contributor counts look inflated, one person appears under several addresses, to deduplicate contributors, fix bus-factor numbers, or set up people and teams before a landscape.
 ---
 
 # Sokrates people config (contributor identities)

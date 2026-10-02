@@ -1,6 +1,6 @@
 ---
 name: storage-scan
-description: Maps how a codebase works with persistent data - the persistence model (which data lives in files, databases, caches, object stores, and in what formats), how it is accessed (ORM vs raw SQL, transactions, locking, concurrent access, streaming vs whole-file), how schemas and on-disk formats are owned, versioned and migrated, how data is kept intact (atomic writes, checksums, corruption handling, backward compatibility of formats), and its lifecycle (creation, retention, cleanup, backup, export/import) - synthesized into a storage posture with the risks per data class. Use whenever the user asks where a project stores its data, how it uses files or a database, about the data model on disk, migrations, file formats, data integrity or corruption, retention/cleanup, or wants a persistence/storage review. Works best with a Sokrates analysis (_sokrates folder) but degrades gracefully without one.
+description: Maps how a codebase works with persistent data: what lives in files, databases, caches and object stores and in which formats, how it is accessed (ORM vs raw SQL, transactions, locking, streaming), how schemas and formats are versioned and migrated, integrity and corruption handling, and the data lifecycle (retention, cleanup, backup, export). Use for where a project stores its data, migrations, file formats, data integrity, retention, or a storage review.
 ---
 
 # Storage scan

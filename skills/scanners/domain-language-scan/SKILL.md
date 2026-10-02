@@ -1,6 +1,6 @@
 ---
 name: domain-language-scan
-description: Writes down a codebase's domain language - the core concepts (glossary with code-anchored definitions), which components own which concepts (bounded contexts), which concepts each product capability rides on, and where the ubiquitous language drifts (one concept under two names, one name meaning two things, renames caught mid-flight). Use whenever the user asks what the domain concepts/entities of a codebase mean, wants a glossary, domain model, ubiquitous language, concept map, or onboarding vocabulary, or wants naming consistency reviewed. For what the software does (features, entry points, workflows) use functionality-scan instead. Works best with a Sokrates analysis (_sokrates folder).
+description: Writes down a codebase's domain language: a glossary with code-anchored definitions, which components own which concepts (bounded contexts), the concepts each capability rides on, and where the language drifts (one concept under two names, one name for two things). Use for domain concepts, a glossary, domain model, ubiquitous language or naming-consistency review. For features and entry points use functionality-scan.
 ---
 
 # Domain language scan

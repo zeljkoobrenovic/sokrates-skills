@@ -1,6 +1,6 @@
 ---
 name: sokrates-improve
-description: Improves source code where a Sokrates analysis says it matters, and proves the improvement with the same numbers. Picks a target - a long or complex unit, a duplicated block, a churn-times-complexity hotspot file, or an AI scanner finding with a recommendation - makes a behaviour-preserving change on a branch, re-runs Sokrates, and reports before/after metrics (and whether the finding is resolved). Use when the user asks to reduce complexity or duplication, refactor hotspots, "fix the top findings", act on a Sokrates or AI Insights report, or pay down technical debt in a measurable way.
+description: Improves source code where a Sokrates analysis says it matters and proves it with the same numbers: picks a target (a complex or long unit, a duplicated block, a churn-times-complexity hotspot, or an AI finding with a recommendation), makes one behaviour-preserving change on a branch, re-measures, and reports before/after; across a landscape it ranks targets of every repository together. Use to reduce complexity or duplication, refactor hotspots, fix the top findings, or pay down debt measurably.
 ---
 
 # Sokrates improve

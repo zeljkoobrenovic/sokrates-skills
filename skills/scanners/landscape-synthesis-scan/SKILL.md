@@ -1,6 +1,6 @@
 ---
 name: landscape-synthesis-scan
-description: Reads the AI findings of a whole Sokrates landscape (many repositories) and writes the portfolio story - where attention concentrates, which findings repeat across repositories so that one fix pattern resolves many, which repositories or scanners are uncovered, and what to do first across the estate. Use when the user has a landscape (_sokrates_landscape/) whose repositories were scanned, and asks "where are the risks across our repositories", "what repeats", "which repos need attention first", "summarize the AI insights of the landscape", or wants a portfolio-level view of the per-repository scans. Requires scanner findings in at least one repository (sokrates analyzeLandscape -ai <agent> produces them).
+description: The portfolio story over a whole Sokrates landscape's AI findings: where attention concentrates, which findings recur across repositories so one fix pattern resolves many, which repositories or scanners are uncovered, and what to do first across the estate. Use on a landscape (_sokrates_landscape/) whose repositories were scanned: risks across our repositories, what repeats, which repos need attention first. Needs findings in at least one repository.
 ---
 
 # Landscape synthesis scan

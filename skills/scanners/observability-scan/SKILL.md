@@ -1,6 +1,6 @@
 ---
 name: observability-scan
-description: Maps how a codebase observes itself - logging practice and hygiene, metrics and what they measure, tracing and context propagation, error/crash reporting, health/readiness surfaces - and infers what monitoring can exist downstream (which dashboards and alerts the emitted signals could feed, where the telemetry goes, what stays dark). Use whenever the user asks how a project does logging/metrics/tracing/telemetry, what monitoring or alerting exists or is possible, whether errors are swallowed, what data leaves the machine, or wants an observability audit or gap analysis. Works best with a Sokrates analysis (_sokrates folder) but degrades gracefully without one.
+description: Maps how a codebase observes itself: logging practice and hygiene, metrics and what they measure, tracing and context propagation, error and crash reporting, health surfaces, and what monitoring can exist downstream and what stays dark. Use for logging, metrics, tracing, telemetry, monitoring or alerting questions, swallowed errors, what data leaves the machine, or an observability audit.
 ---
 
 # Observability scan

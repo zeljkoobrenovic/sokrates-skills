@@ -1,6 +1,6 @@
 ---
 name: sokrates-scan-core
-description: Shared foundation for all Sokrates AI scanner skills. Defines the common findings output format (grouped findings with file/line evidence), the evidence rules that keep scanners honest, how to read an existing Sokrates analysis (_sokrates folder), and the validate/render scripts every scanner must run. Load this whenever you are running any *-scan skill on a codebase with a Sokrates analysis, writing a new scanner skill, or asked to validate/render/merge scanner findings files.
+description: Shared foundation of every Sokrates AI scanner: the findings format with file/line evidence, the evidence rules, how to read a _sokrates analysis, and the validate / render / merge / diff / re-check / summarize scripts. Load when running any *-scan skill, writing a new scanner, or validating, rendering, diffing or summarizing findings files.
 ---
 
 # Sokrates scan core

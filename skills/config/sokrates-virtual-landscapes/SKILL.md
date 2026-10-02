@@ -1,6 +1,6 @@
 ---
 name: sokrates-virtual-landscapes
-description: Defines virtual landscapes for a Sokrates landscape - the virtualLandscapes section of _sokrates_landscape/config.json that groups repositories into sub-landscapes by repository-name patterns - from the user's own grouping (products, teams, org units) or from what the repository analyses reveal (naming conventions, folders, main technology, activity, contributor domains, shared committers, tags), with nesting. Includes a proposal script that measures every candidate grouping (members, LOC shares, coverage, remainder) and emits paste-ready config, and validates a user-supplied grouping. Use when the user wants to split a large landscape into meaningful sub-landscapes, group repositories by product/team/technology/platform, asks how to organise many repositories in Sokrates, or wants an "active vs dormant" or "in-house vs community" view.
+description: Defines virtual landscapes, the virtualLandscapes section of _sokrates_landscape/config.json that groups repositories into sub-landscapes by name patterns, from the user's own grouping (products, teams, org units) or from what the analyses reveal (naming conventions, folders, technology, activity, contributor domains, shared committers, tags), with nesting and a script that measures every candidate grouping. Use to split a large landscape into meaningful sub-landscapes or group repositories by product, team or technology.
 ---
 
 # Sokrates virtual landscapes

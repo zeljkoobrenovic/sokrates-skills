@@ -1,6 +1,6 @@
 ---
 name: functionality-scan
-description: Defines and describes what the analyzed software actually does, reverse-engineered from the code rather than the README - its purpose and audience, the inventory of user-facing features, the entry points through which functionality is reached (commands, endpoints, UI screens, hooks, config), the end-to-end workflows that connect them, the data the system manages, its integrations, the behaviour that is hidden, dormant or gated, and where the documentation and the code disagree. Use whenever the user asks what a codebase does, what its features are, wants a functional description, feature list, product manual, "what can this software do", a capability inventory for a handover or due diligence, or asks whether the README matches the code. Works best with a Sokrates analysis (_sokrates folder).
+description: Describes what the software actually does, reverse-engineered from the code: purpose and audience, feature inventory, entry points (commands, endpoints, screens, hooks), end-to-end workflows, managed data, integrations, hidden or dormant behaviour, and where the docs disagree with the code. Use for "what does this codebase do", a feature list, a product manual, a capability inventory, or a README-vs-code check.
 ---
 
 # Functionality scan

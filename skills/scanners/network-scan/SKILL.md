@@ -1,6 +1,6 @@
 ---
 name: network-scan
-description: Maps how a codebase talks over the network - the connectivity topology (what it listens on, what it connects to, which side initiates, which ports and hosts), the protocols as used in code (HTTP/REST, WebSocket, SSE, gRPC, MCP, raw sockets, sync vs streaming), connection management (clients and pooling, keep-alive, reconnection, timeouts, TLS configuration, proxies, DNS), configurability of endpoints (env vars, config keys, hardcoded hosts), behaviour without connectivity (offline mode, cached fallbacks, what breaks), and the data that crosses the wire (payload shapes, sizes, what leaves the machine) - synthesized into a connectivity posture. Use whenever the user asks what a project connects to, what it listens on, which protocols it uses, how it handles proxies/TLS/timeouts, what happens offline, what data it sends where, or wants a network/connectivity review. Works best with a Sokrates analysis (_sokrates folder) but degrades gracefully without one.
+description: Maps how a codebase talks over the network: what it listens on and connects to, protocols as used (HTTP, WebSocket, SSE, gRPC, MCP, raw sockets), connection management (pooling, keep-alive, reconnection, timeouts, TLS, proxies), endpoint configurability, behaviour offline, and the data that crosses the wire. Use for what a project connects to or listens on, protocols, proxies, TLS, timeouts, offline behaviour, what it sends where, or a connectivity review.
 ---
 
 # Network scan

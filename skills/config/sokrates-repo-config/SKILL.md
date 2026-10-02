@@ -1,6 +1,6 @@
 ---
 name: sokrates-repo-config
-description: Creates and tunes the per-repository Sokrates configuration (_sokrates/config.json) - source scope (srcRoot, extensions, ignore rules), classification of files into main/test/generated/build/other, logical decompositions into components (folder depth, explicit components, meta rules), concerns (features of interest), goals and controls, git-history and contributor settings, analysis limits and risk thresholds. Includes a preview script that simulates Sokrates' scoping on the real tree so a config can be checked before running the analysis. Use when the user wants to set up Sokrates for a repository, asks why files are missing/misclassified in a Sokrates report, wants better components, wants to exclude vendored or generated code, tune thresholds, or make init reproducible across many repositories.
+description: Creates and tunes the per-repository Sokrates configuration (_sokrates/config.json): source scope (srcRoot, extensions, ignore rules), classification into main/test/generated/build/other, components, concerns, goals and controls, history and contributor settings, limits and thresholds, with a preview script that simulates Sokrates' scoping on the real tree. Use to set up Sokrates for a repository, when files are missing or misclassified in a report, to exclude vendored or generated code, or to tune thresholds.
 ---
 
 # Sokrates repository configuration

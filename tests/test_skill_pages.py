@@ -29,7 +29,10 @@ class SkillPagesTest(unittest.TestCase):
                 fm = front_matter(page.read_text())
                 self.assertIsNotNone(fm, "front matter block")
                 self.assertEqual(fm.get("name", "").strip(), page.parent.name)
-                self.assertGreater(len(fm.get("description", "").strip()), 80, "a description an agent can route on")
+                description = fm.get("description", "").strip()
+                self.assertGreater(len(description), 80, "a description an agent can route on")
+                self.assertLessEqual(len(description), 560, "every description is loaded into every agent session: keep it to the what and the triggers")
+                self.assertIn("Use ", description, "the triggers an agent routes on") if page.parent.name not in ("sokrates", "sokrates-scan-core") else None
 
     def test_every_referenced_script_exists(self):
         all_scripts = {p.name: p for p in SKILLS.rglob("scripts/*.py")}

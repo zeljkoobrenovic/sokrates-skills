@@ -1,6 +1,6 @@
 ---
 name: sokrates
-description: Start here for anything about Sokrates (sokrates.dev), a source-code analysis tool - "analyze this repository", "what is this codebase", "set up / improve the Sokrates config", "scan for risks", "build a landscape of our repositories", "improve the code where it matters". Works out where the user is (no analysis yet, a fresh configuration, findings present, a landscape root) and routes to the right sokrates-skill, running Sokrates itself when that is the next step.
+description: Start here for anything about Sokrates (sokrates.dev), the source-code analysis tool: analyze a repository, understand a codebase, set up or improve the Sokrates config, scan for risks, build a landscape of many repositories, improve code where it matters. Finds out where the user is and routes to the right sokrates-skill, running Sokrates when that is the next step.
 ---
 
 # Sokrates (start here)

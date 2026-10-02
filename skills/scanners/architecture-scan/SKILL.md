@@ -1,6 +1,6 @@
 ---
 name: architecture-scan
-description: Infers a codebase's actual architecture from its code - the overall style and shape, what each major component is responsible for, the load-bearing boundaries and contracts between them, dependency direction and where it is violated, how parts communicate at runtime, and which architectural migrations are visibly in progress. Use whenever the user asks how a codebase is structured or organized, wants an architecture overview/diagram input/onboarding map, asks what depends on what, whether the architecture is clean or eroding, where a new feature should live, or wants Sokrates' component decomposition explained and judged. Works best with a Sokrates analysis (_sokrates folder).
+description: Infers the implemented architecture: style and shape, component responsibilities, load-bearing boundaries and contracts, dependency direction and its violations, runtime communication, migrations in progress, and security boundaries (trust map, sandboxing, escape hatches). Use for how a codebase is structured, what depends on what, whether the architecture is eroding, where a feature should live, or to judge Sokrates' component decomposition.
 ---
 
 # Architecture scan

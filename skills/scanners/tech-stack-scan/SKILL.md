@@ -1,6 +1,6 @@
 ---
 name: tech-stack-scan
-description: Deep technology-stack scan of a codebase with (or without) a Sokrates analysis - identifies languages, frameworks, libraries, build tooling, CI/CD, infrastructure, databases, external services and protocols, each backed by file/line evidence, and writes a validated findings report into _sokrates/reports/ai-insights/. Use whenever the user asks what technologies/libraries/frameworks/infra a codebase uses, asks for a tech inventory, tech radar input, dependency overview, or a "deep tech scan", or when another analysis needs a reliable picture of the stack first.
+description: Deep technology-stack inventory: languages, frameworks, libraries, build tooling, CI/CD, infrastructure, databases, external services and protocols, each with file/line evidence, written as validated findings. Use for what technologies a codebase uses, a tech inventory or radar input, a dependency overview, or when another analysis needs a reliable picture of the stack first.
 ---
 
 # Tech stack deep scan

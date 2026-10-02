@@ -1,6 +1,6 @@
 ---
 name: risk-synthesis-scan
-description: Turns Sokrates' quantitative risk signals into explained, actionable findings - reads the codebase's actual hotspot files and says what each one does, why its metrics (complexity, churn, single ownership, change coupling) make it risky, and what to do about it. Use whenever the user asks where the risks in a codebase are, which files need refactoring first, about maintainability, technical debt hotspots, bus factor / knowledge risk, "what should we be worried about", or wants Sokrates results explained or prioritized. Requires a _sokrates analysis.
+description: Turns Sokrates' quantitative risk signals into explained, actionable findings: what each hotspot file does, why its metrics (complexity, churn, single ownership, change coupling) make it risky, and what to do. Use for where the risks are, which files to refactor first, debt hotspots, bus factor or knowledge risk, "what should we worry about", or to have Sokrates results explained and prioritized. Requires a _sokrates analysis.
 ---
 
 # Risk synthesis scan

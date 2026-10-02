@@ -1,6 +1,6 @@
 ---
 name: sokrates-decompositions
-description: Designs meaningful logical decompositions (component structures) for a Sokrates repository analysis - decides what the components of a codebase should be and writes them as logicalDecompositions in _sokrates/config.json - folder-depth, mixed-depth for monorepos with one dominant folder, build-system modules (Cargo, Maven, Gradle, npm workspaces, Bazel, Go, Python, .NET), CODEOWNERS ownership, architectural layers, technology, and several decompositions side by side. Includes a proposal script that measures each candidate on the real tree and emits ready-to-paste config. Use when the user asks for better components, says the Sokrates component view is one big blob or hundreds of fragments, wants components that match teams or modules or layers, or wants dependency/duplication views that mean something.
+description: Designs meaningful logical decompositions (components) for a Sokrates analysis and writes them as logicalDecompositions in _sokrates/config.json: folder depth, mixed depth for monorepos, build-system modules (Cargo, Maven, Gradle, npm workspaces, Bazel, Go, Python, .NET), CODEOWNERS ownership, layers, technology, several side by side, with a script that measures each candidate on the real tree. Use when the component view is one blob or hundreds of fragments, or components should match teams, modules or layers.
 ---
 
 # Sokrates logical decompositions

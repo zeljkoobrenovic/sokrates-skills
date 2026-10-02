@@ -1,6 +1,6 @@
 ---
 name: evolution-scan
-description: Explains how a codebase evolved over time from its git history - the eras of development and what each was about, how the codebase grew and where the code came from, how the center of activity shifted between areas, who arrived and who left, which parts were born, rewritten or abandoned, what kind of work dominates now (features vs fixes vs refactoring), and where the trajectory points. Use when the user asks about a project's history, timeline, how it got here, growth, momentum, whether it is accelerating or stagnating, contributor turnover, "what changed in the last year", legacy vs. active areas, or wants the story behind the Sokrates churn/age/contributor numbers. Requires a _sokrates analysis with git history (git-history.txt export).
+description: Explains how a codebase evolved from its git history: eras and what each was about, growth and origin of the code, the shift of activity between areas, who arrived and left, parts born, rewritten or abandoned, the work mix now, and the trajectory. Use for a project's history or timeline, momentum, stagnation, contributor turnover, "what changed last year", or the story behind Sokrates' churn and age numbers. Needs git-history.txt.
 ---
 
 # Evolution scan

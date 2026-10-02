@@ -1,6 +1,6 @@
 ---
 name: sokrates-landscape-config
-description: Creates and tunes a Sokrates landscape - the _sokrates_landscape/config.json (plus config-tags.json, config-teams.json, config-people.json) that combines many repository analyses into one landscape report - covering folder layout and discovery, repository filters and thresholds, virtual sub-landscapes by repository-name patterns, repository tags, contributor identity merging, bots and ignored accounts, teams, and report embeds. Includes a checker that previews discovery, tag/virtual-landscape/team matching and the contributor pipeline before running updateLandscape. Use when the user wants to set up or fix a Sokrates landscape, organise many repositories into groups, define teams, merge contributor identities, tag repositories, or asks why a repository or contributor is missing from a landscape.
+description: Creates and tunes a Sokrates landscape: _sokrates_landscape/config.json plus config-tags, config-teams and config-people.json, covering folder layout and discovery, repository filters and thresholds, virtual sub-landscapes, repository tags, contributor identity merging, bots, teams and embeds, with a checker that previews discovery and matching before updateLandscape runs. Use to set up or fix a landscape, group repositories, define teams, tag repositories, or find out why a repository or contributor is missing.
 ---
 
 # Sokrates landscape configuration

@@ -54,6 +54,12 @@ Every finding carries file + line + verbatim snippet evidence that a script veri
 
 The field references under `skills/config/*/references/` were read from the Sokrates Java source, including the places where the documentation and the code disagree.
 
+### Improvement skills (`skills/improve/`)
+
+| skill | does |
+| --- | --- |
+| `sokrates-improve` | acts on what the analysis found and proves it with the same numbers: ranks targets from the Sokrates data (the most complex units, the costliest duplicated blocks, churn x complexity hotspot files, AI findings with a recommendation), makes one behaviour-preserving change per branch, re-runs Sokrates and reports before/after (and whether a finding is resolved); `select_targets.py` + `measure.py snapshot/compare` |
+
 ### Illustrations (`skills/illustrators/`)
 
 `generate_summary_visuals.py` turns each scanner's summary into one calm, mostly visual illustration that tells its story with a few key words — a pipeline for CI/CD, a landscape with glowing hotspots for risks, growth rings for evolution. It uses Google's Gemini image model (`GEMINI_API_KEY`), saves the images in `ai-insights/visuals/`, records them in the findings JSON (`summary_visual`) and re-renders the explorer, which shows each image at the end of the foldable summary block. Optional: without it the explorer looks exactly as before.

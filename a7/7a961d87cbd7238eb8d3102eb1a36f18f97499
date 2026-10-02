@@ -1,0 +1,31 @@
+README.md
+  s_40c0e74316fcc6::t_7657d6b8c50ffe 57-62
+install.sh
+  s_40c0e74316fcc6::t_9a349a7e8b76aa 23
+skills/improve/sokrates-improve/SKILL.md
+  s_40c0e74316fcc6::t_88d3fd79de29d7 1-51
+skills/improve/sokrates-improve/references/what-moves-the-numbers.md
+  s_40c0e74316fcc6::t_790ad18566eb82 1-44
+skills/improve/sokrates-improve/scripts/measure.py
+  s_40c0e74316fcc6::t_1a03f0539fff46 1-206
+skills/improve/sokrates-improve/scripts/select_targets.py
+  s_40c0e74316fcc6::t_97aa1b195874a4 1-146
+skills/improve/sokrates-improve/scripts/sokrates_data.py
+  s_40c0e74316fcc6::t_c03a0a6eaf350b 1-121
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a77a961d87cbd7238eb8d3102eb1a36f18f97499",
+  "prompts": {},
+  "sessions": {
+    "s_40c0e74316fcc6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a859e40-f6c6-4dfa-8fdb-6c295588cf73",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

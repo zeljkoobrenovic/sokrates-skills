@@ -204,3 +204,61 @@ class SummarizeFindingsTest(FixtureTest):
         empty = self.tmp / "empty"
         empty.mkdir()
         self.assertEqual(run("summarize", empty).returncode, 1)
+
+
+class RecheckFindingsTest(FixtureTest):
+    """recheck_findings.py: intact / moved / gone evidence after the code changed, without re-running a scanner."""
+
+    def changed_repo(self):
+        """A copy of alpha where main.tf gained a comment line (evidence moves) and the Dockerfile's USER line is gone."""
+        repo = self.copy_of(ALPHA)
+        tf = repo / "infra" / "main.tf"
+        tf.write_text("# managed by terraform\n" + tf.read_text())
+        docker = repo / "Dockerfile"
+        docker.write_text(docker.read_text().replace("USER root\n", "USER app\n"))
+        return repo
+
+    def test_unchanged_tree_is_all_intact(self):
+        result = run("recheck", ALPHA_INSIGHTS)
+        self.assert_ok(result)
+        self.assertIn("security-scan.json: 3 findings — 3 intact, 0 moved, 0 gone, 0 without evidence", result.stdout)
+        self.assertIn("reliability-scan.json: 3 findings — 2 intact, 0 moved, 0 gone, 1 without evidence", result.stdout)
+
+    def test_moved_and_gone_evidence(self):
+        repo = self.changed_repo()
+        out = self.tmp / "recheck.json"
+        result = run("recheck", repo / "_sokrates" / "reports" / "ai-insights" / "security-scan.json", "--json", out)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("1 intact, 1 moved, 1 gone", result.stdout)
+        self.assertIn("moved  security-scan/infrastructure/public-cache-bucket", result.stdout)
+        self.assertIn("infra/main.tf: 18-18 -> 19-19", result.stdout)
+        self.assertIn("gone   security-scan/containers/runs-as-root", result.stdout)
+        self.assertIn("1 finding(s) cite code that changed", result.stdout)
+        states = {r["id"]: r["state"] for r in read_json(out)[0]["results"]}
+        self.assertEqual(states["security-scan/secrets/token-from-environment"], "intact")
+
+    def test_fix_lines_rewrites_moved_evidence_so_the_validator_passes_again(self):
+        repo = self.changed_repo()
+        findings = repo / "_sokrates" / "reports" / "ai-insights" / "security-scan.json"
+        self.assertEqual(run("validate", findings).returncode, 1, "before the fix the moved snippet fails validation")
+        result = run("recheck", findings, "--ids", "security-scan/infrastructure/public-cache-bucket", "--fix-lines")
+        self.assert_ok(result, "only the moved finding was selected, nothing is gone")
+        self.assertIn("1 evidence line ranges rewritten", result.stdout)
+        doc = read_json(findings)
+        bucket = next(f for f in doc["findings"] if f["id"].endswith("public-cache-bucket"))
+        self.assertEqual((bucket["evidence"][0]["start_line"], bucket["evidence"][0]["end_line"]), (19, 19))
+        validated = run("validate", findings)
+        self.assertIn("snippet does not match Dockerfile", validated.stdout, "the gone one still fails, as it should")
+        self.assertNotIn("infra/main.tf", validated.stdout)
+
+    def test_prompt_names_only_the_gone_findings(self):
+        repo = self.changed_repo()
+        result = run("recheck", repo / "_sokrates" / "reports" / "ai-insights", "--prompt")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Re-check mode (sokrates-scan-core)", result.stdout)
+        self.assertIn("  - security-scan/containers/runs-as-root", result.stdout)
+        self.assertNotIn("  - security-scan/infrastructure/public-cache-bucket", result.stdout)
+        self.assertNotIn("  - reliability-scan/", result.stdout)
+
+    def test_missing_target(self):
+        self.assertEqual(run("recheck", self.tmp / "nope.json").returncode, 2)

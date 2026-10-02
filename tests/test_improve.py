@@ -140,7 +140,7 @@ class MeasureTest(FixtureTest):
         self.assertEqual(result.returncode, 2)
         result, out = self.snapshot("finding:security-scan/containers/runs-as-root", "f.json")
         self.assert_ok(result)
-        self.assertEqual(read_json(out)["measured"], {"found": True, "present": True, "severity": "medium", "confidence": "certain", "title": "Container runs as root"})
+        self.assertEqual(read_json(out)["measured"], {"found": True, "present": True, "severity": "medium", "confidence": "certain", "title": "Container runs as root", "evidence": "intact"})
 
     def test_bad_target_and_out_of_range_duplicate(self):
         result, _ = self.snapshot("thing:x", "x.json")
@@ -156,3 +156,32 @@ class MeasureTest(FixtureTest):
         self.assertTrue(measure.same_file("src/app/service.py", "src/app/service.py"))
         self.assertFalse(measure.same_file("src/app/service.py", "src/app/legacy.py"))
         self.assertFalse(measure.same_file("xservice.py", "service.py"))
+
+
+class FindingEvidenceStateTest(FixtureTest):
+    """measure.py: a finding target reports whether its cited code changed, and asks for the re-check when it did."""
+
+    def test_intact_finding_is_unchanged_and_gone_evidence_needs_a_recheck(self):
+        repo = self.copy_of(ALPHA)
+        sokrates = repo / "_sokrates"
+        target = "finding:security-scan/containers/runs-as-root"
+        before = self.tmp / "before.json"
+        self.assert_ok(run("measure", "snapshot", "--sokrates", sokrates, "--target", target, "-o", before))
+        self.assertEqual(read_json(before)["measured"]["evidence"], "intact")
+        after = self.tmp / "after.json"
+        self.assert_ok(run("measure", "snapshot", "--sokrates", sokrates, "--like", before, "-o", after))
+        write_json(after, {**read_json(after), "analysisAt": "later"})
+        result = run("measure", "compare", before, after, "--markdown")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("**unchanged**", result.stdout)
+        self.assertIn("| evidence | intact | intact |", result.stdout)
+        # the fix: the Dockerfile no longer runs as root, but nobody re-checked the finding yet
+        docker = repo / "Dockerfile"
+        docker.write_text(docker.read_text().replace("USER root\n", "USER app\n"))
+        self.assert_ok(run("measure", "snapshot", "--sokrates", sokrates, "--like", before, "-o", after))
+        write_json(after, {**read_json(after), "analysisAt": "later"})
+        result = run("measure", "compare", before, after, "--markdown")
+        self.assertEqual(result.returncode, 3)
+        self.assertIn("**needs re-check**", result.stdout)
+        self.assertIn("| evidence | intact | gone |", result.stdout)
+        self.assertIn("recheck_findings.py --prompt", result.stderr)

@@ -71,6 +71,11 @@ Two more scripts operate on finished findings files; run them when asked for a c
   python3 <core-skill-path>/scripts/summarize_findings.py _sokrates/reports/ai-insights/ [--top 10] [-o summary.md]
   python3 <core-skill-path>/scripts/summarize_findings.py _sokrates/reports/ai-insights/ --badge    # one line: "AI insights: 2 high · 5 low (10 informational) from 3 scanners"
   ```
+- **Re-check mode** — after code changed, decide which findings still stand without re-running the scanner:
+  ```bash
+  python3 <core-skill-path>/scripts/recheck_findings.py _sokrates/reports/ai-insights/ [--ids <id> ...] [--fix-lines] [--prompt]
+  ```
+  Per finding: `intact` (every snippet still at its lines — the finding stands, no judgment needed), `moved` (line numbers drifted; `--fix-lines` rewrites them), `gone` (the cited code changed). Only the `gone` ones need judgment: `--prompt` prints the brief for a scoped agent run that re-verifies exactly those ids, removes or downgrades or keeps each, and refreshes `summary`, `stats` and `analyzed_at`. Exit 1 while any finding is `gone`. This is what the improve skill uses for `finding:` targets, and what to run before a re-scan to see whether one is needed at all.
 - **After editing a findings file by hand or re-verifying part of it** (a few findings removed or downgraded after a fix), refresh its `summary` and `stats` too: the validator warns when a `stats` count (`findings_total`, `findings_above_info`, …) disagrees with the findings list. Include the diff summary when reporting to the user — "2 new, 1 resolved since 2026-08-24" is often the headline.
 
 ## Findings format

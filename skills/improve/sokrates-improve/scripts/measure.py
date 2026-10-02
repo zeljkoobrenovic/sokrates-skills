@@ -7,8 +7,10 @@
             --like before.json to reuse the target definition (a duplicate:<index> changes index
             between runs; --like keeps the files it referred to).
   compare   before.json after.json [--markdown]
-            the before/after table and the verdict: improved / unchanged / worse / not found.
-            Exit code 0 = improved, 1 = unchanged or worse, 2 = target not found after the change.
+            the before/after table and the verdict: improved / unchanged / worse / not found, or for a
+            finding whose cited code changed without a re-check yet: needs re-check.
+            Exit code 0 = improved, 1 = unchanged or worse, 2 = target not found after the change,
+            3 = needs re-check (run scan-core's recheck_findings.py --prompt, then the scoped agent re-check).
 
 Target ids come from select_targets.py: unit:<file>#<name>, duplicate:<index>, hotspot:<path>,
 finding:<finding id>.
@@ -21,7 +23,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sokrates_data import SokratesData, severity_rank  # noqa: E402
+from sokrates_data import SokratesData, evidence_state, severity_rank  # noqa: E402
 
 
 def totals(data):
@@ -77,7 +79,8 @@ def measure_hotspot(data, path):
 def measure_finding(data, finding_id):
     for f in data.findings():
         if f.get("id") == finding_id:
-            return {"found": True, "present": True, "severity": f.get("severity"), "confidence": f.get("confidence"), "title": f.get("title", "")}
+            return {"found": True, "present": True, "severity": f.get("severity"), "confidence": f.get("confidence"), "title": f.get("title", ""),
+                    "evidence": evidence_state(f, data.root.parent)}
     return {"found": True, "present": False}
 
 
@@ -151,7 +154,11 @@ def verdict(kind, b, a):
             return "unchanged"
         if not a.get("present"):
             return "improved"
-        return "improved" if severity_rank(a.get("severity")) > severity_rank(b.get("severity")) else "unchanged"
+        if severity_rank(a.get("severity")) > severity_rank(b.get("severity")):
+            return "improved"
+        if a.get("evidence") == "gone":
+            return "needs re-check"     # the cited code changed but nobody has judged the finding yet
+        return "unchanged"
     return "unchanged"
 
 
@@ -162,7 +169,7 @@ def compare(args):
     result = verdict(kind, b, a)
     rows = []
     keys = {"unit": ["mcCabe", "loc", "lines"], "duplicate": ["duplicatedLines", "duplicateBlocks"],
-            "hotspot": ["loc", "maxMcCabe", "longestUnit", "units"], "finding": ["present", "severity"]}[kind]
+            "hotspot": ["loc", "maxMcCabe", "longestUnit", "units"], "finding": ["present", "severity", "evidence"]}[kind]
     for k in keys:
         rows.append((k, b.get(k, "-"), a.get(k, "-")))
     for k in ["mainLinesOfCode", "duplicatedLines", "unitsMcCabeOver25", "unitsMcCabeOver10", "unitsOver100Lines"]:
@@ -184,7 +191,10 @@ def compare(args):
     if b_loc and a_loc and abs(a_loc - b_loc) > 0.1 * b_loc:
         print(f"\nWARNING: the analysis scope changed between the snapshots (main lines of code {b_loc} -> {a_loc}); the totals are not comparable."
               " Check _sokrates/config.json (is _sokrates/ itself ignored?) and re-run both analyses with the same configuration.", file=sys.stderr)
-    return 0 if result == "improved" else (2 if result == "not found" else 1)
+    if result == "needs re-check":
+        print("\nThe finding is still in the file but its cited code changed: run scan-core's recheck_findings.py --prompt on the"
+              " findings file and let the scoped agent re-check decide resolved / partly / unresolved, then compare again.", file=sys.stderr)
+    return 0 if result == "improved" else (2 if result == "not found" else (3 if result == "needs re-check" else 1))
 
 
 def main():

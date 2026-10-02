@@ -110,6 +110,36 @@ class SokratesData:
         return found
 
 
+def _norm(text):
+    return re.sub(r"\s+", " ", str(text)).strip()
+
+
+def evidence_state(finding, src_root):
+    """intact (every snippet still at its lines), moved (still in the file, other lines), gone (a snippet or file
+    is no longer there — the cited code changed) or no-evidence. Mirrors scan-core's recheck_findings.py."""
+    states = []
+    for ev in finding.get("evidence") or []:
+        if not isinstance(ev, dict) or any(k not in ev for k in ("file", "start_line", "end_line", "snippet")):
+            continue
+        try:
+            lines = [ln.rstrip("\r") for ln in (Path(src_root) / ev["file"]).read_text(errors="replace").split("\n")]
+        except OSError:
+            states.append("gone")
+            continue
+        wanted = _norm(ev["snippet"])
+        start, end = int(ev["start_line"]), int(ev["end_line"])
+        if 1 <= start <= end <= len(lines) and wanted in _norm(" ".join(lines[start - 1:end])):
+            states.append("intact")
+            continue
+        first = _norm(str(ev["snippet"]).strip().splitlines()[0]) if str(ev["snippet"]).strip() else ""
+        span = max(0, end - start)
+        moved = any(first and first in _norm(line) and wanted in _norm(" ".join(lines[n - 1:n + span])) for n, line in enumerate(lines, 1))
+        states.append("moved" if moved else "gone")
+    if not states:
+        return "no-evidence"
+    return "gone" if "gone" in states else ("moved" if "moved" in states else "intact")
+
+
 SEVERITY_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
 
 

@@ -134,6 +134,13 @@ java -jar sokrates.jar generateReports
 
 Requirements: Python 3.9+ (standard library only) for the scripts; a Sokrates analysis (`sokrates init` → `sokrates generateReports`) for the scanners; `git-history.txt` (`sokrates extractGitHistory`) for history-based skills.
 
+## In CI
+
+`examples/ci/github-actions-ai-insights.yml` is a complete workflow: Sokrates analysis with `-dataOnly`, a basic scan
+by an agent CLI, validation, the Markdown summary into the job summary, a diff against the previous run's findings
+(kept as an artifact) and a failing job when a finding of severity medium or above is new. Resolved and persisting
+findings never fail the build - the stable-id contract is what makes the diff meaningful.
+
 ## Development
 
 The scripts have a test suite, standard library only like the scripts themselves:

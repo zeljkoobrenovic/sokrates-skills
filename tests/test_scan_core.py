@@ -2,7 +2,7 @@
 import json
 import shutil
 
-from tests.support import ALPHA, ALPHA_INSIGHTS, FixtureTest, read_json, run, write_json
+from tests.support import ALPHA, ALPHA_INSIGHTS, LANDSCAPE, FixtureTest, read_json, run, write_json
 
 
 class ValidateFindingsTest(FixtureTest):
@@ -262,3 +262,36 @@ class RecheckFindingsTest(FixtureTest):
 
     def test_missing_target(self):
         self.assertEqual(run("recheck", self.tmp / "nope.json").returncode, 2)
+
+
+class ScannerMetadataTest(FixtureTest):
+
+    def test_every_scanner_skill_has_display_metadata(self):
+        from tests.support import SKILLS
+        doc = read_json(SKILLS / "scanners/sokrates-scan-core/templates/scanners.json")
+        ids = [s["id"] for s in doc["scanners"]]
+        self.assertEqual(len(ids), len(set(ids)), "no duplicate scanner ids")
+        for entry in doc["scanners"]:
+            for key in ("id", "name", "emoji", "tier", "description", "groups"):
+                self.assertIn(key, entry, entry.get("id"))
+            self.assertIn(entry["tier"], ("basic", "deep-dive"))
+        skill_dirs = sorted(p.name for p in (SKILLS / "scanners").iterdir() if (p / "SKILL.md").is_file() and p.name.endswith("-scan") and p.name != "full-scan")
+        self.assertEqual(sorted(ids), skill_dirs, "every scanner that writes findings is listed (full-scan only orchestrates), and nothing else")
+
+    def test_a_landscape_level_findings_file_validates_and_renders(self):
+        root = self.copy_of(LANDSCAPE)
+        folder = root / "_sokrates_landscape" / "ai-insights"
+        folder.mkdir()
+        write_json(folder / "landscape-synthesis-scan.json", {
+            "scanner": "landscape-synthesis-scan", "scanner_version": "1.0", "analyzed_at": "2025-10-01T00:00:00Z",
+            "target": {"name": "Acme landscape", "src_root": "../.."}, "summary": "two repositories, one recurring finding",
+            "findings": [{"id": "landscape-synthesis-scan/recurring/runs-as-root", "group": "recurring", "title": "Containers run as root in 2 repositories",
+                          "severity": "medium", "confidence": "certain", "description": "Both Dockerfiles switch to root before the entrypoint.",
+                          "recommendation": "One base image with a non-root user, used by both.",
+                          "sokrates_refs": ["landscape:Alpha#security-scan/containers/runs-as-root", "landscape:Beta#security-scan/containers/runs-as-root"],
+                          "evidence": []}]})
+        validated = run("validate", folder / "landscape-synthesis-scan.json", "--src-root", root)
+        self.assert_ok(validated, "landscape findings have no file evidence; sokrates_refs ground them")
+        rendered = run("render", folder)
+        self.assert_ok(rendered)
+        self.assertIn("Landscape synthesis", (folder / "index.html").read_text())

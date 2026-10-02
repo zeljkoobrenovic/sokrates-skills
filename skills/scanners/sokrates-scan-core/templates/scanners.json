@@ -274,6 +274,20 @@
         "flags-and-runtime": "Feature flags, experiments and kill switches, and dynamic behaviour: reload, file watching, and which settings need a restart.",
         "configuration-posture": "The synthesis: the configuration model, how an operator discovers it, the riskiest default, and what to change first."
       }
+    },
+    {
+      "id": "landscape-synthesis-scan",
+      "name": "Landscape synthesis",
+      "emoji": "🗺",
+      "tier": "deep-dive",
+      "description": "The portfolio story over a whole landscape's AI findings: where attention concentrates, which findings recur across repositories so that one fix pattern resolves many, which repositories or scanners are uncovered, and what to do first across the estate. Rests on the per-repository scanners' findings, never on code it read itself.",
+      "groups": {
+        "concentration": "Where attention concentrates: the repositories that carry most of the findings above info, and whether that is size, age, a team or neglect.",
+        "recurring": "One finding per pattern that recurs across repositories (the same finding id in two or more): which repositories, the common cause, the single fix that would resolve it everywhere.",
+        "coverage": "What the picture cannot show: repositories without findings, scanners that never ran, scans far behind the latest commit.",
+        "priorities": "What to do first across the estate, each item naming the repositories it touches and the finding ids it resolves.",
+        "posture": "The landscape-wide numbers in one place."
+      }
     }
   ]
 }

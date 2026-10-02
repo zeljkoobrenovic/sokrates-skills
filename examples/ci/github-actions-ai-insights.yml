@@ -1,0 +1,67 @@
+# AI insights in CI: analyze with Sokrates, scan with an agent, validate, diff against the previous run,
+# publish the summary, and fail the job on a new finding above "low".
+#
+# Needs: a secret with the agent's API key (ANTHROPIC_API_KEY for Claude Code below; OPENAI_API_KEY for Codex,
+# GEMINI_API_KEY for Gemini CLI), and the agent CLI installed on the runner. The scan takes minutes to an hour
+# per repository depending on size and bundle, so run it on a schedule or on main, not on every pull request.
+name: AI insights
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"      # Mondays 03:00
+  workflow_dispatch:
+
+jobs:
+  insights:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0       # the git history feeds Sokrates' contributor and churn numbers
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the agent CLI and the sokrates skills
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          docker run --rm -v "$HOME:/root" ghcr.io/zeljkoobrenovic/sokrates installSkills -copy -target /root/.claude/skills
+          # (installSkills clones the skills repository; -copy writes real folders into the mounted home)
+
+      - name: Previous findings (for the diff)
+        uses: actions/download-artifact@v4
+        with:
+          name: ai-insights
+          path: previous
+        continue-on-error: true
+
+      - name: Sokrates analysis (data only - all the skills need)
+        run: docker run --rm -v "$(pwd):/code" ghcr.io/zeljkoobrenovic/sokrates analyze -dataOnly
+
+      - name: Scan
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude -p "Use the sokrates skill: run a basic scan of this repository, validate and render the findings" \
+            --permission-mode acceptEdits --allowedTools "Bash,Read,Write,Edit,Glob,Grep"
+
+      - name: Validate, summarize, diff
+        id: findings
+        run: |
+          CORE=$HOME/.claude/skills/sokrates-scan-core/scripts
+          for f in _sokrates/reports/ai-insights/*-scan.json; do python3 $CORE/validate_findings.py "$f"; done
+          python3 $CORE/summarize_findings.py _sokrates/reports/ai-insights >> "$GITHUB_STEP_SUMMARY"
+          python3 $CORE/merge_findings.py _sokrates/reports/ai-insights -o _sokrates/reports/ai-insights/combined-report.json
+          if [ -f previous/combined-report.json ]; then
+            python3 $CORE/diff_findings.py previous/combined-report.json _sokrates/reports/ai-insights/combined-report.json -o diff.md || true
+            cat diff.md >> "$GITHUB_STEP_SUMMARY"
+            # fail on a NEW finding of severity medium or above (resolved and persisting ones never fail the job)
+            if grep -E "^\+.*(🔴|🟠|🟡)" diff.md; then echo "new findings above low" && exit 1; fi
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-insights
+          path: _sokrates/reports/ai-insights

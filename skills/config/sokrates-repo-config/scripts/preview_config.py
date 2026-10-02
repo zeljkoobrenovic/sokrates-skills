@@ -166,6 +166,7 @@ def main():
     ap.add_argument("--samples", type=int, default=5)
     ap.add_argument("--max-files", type=int, default=200000)
     ap.add_argument("--no-content", action="store_true", help="skip content-pattern matching (fast, but content rules are treated as non-matching)")
+    ap.add_argument("--brief", action="store_true", help="print only the scope counts, errors and warnings (what an agent needs mid-task)")
     args = ap.parse_args()
 
     errors, warnings, notes = [], [], []
@@ -479,6 +480,16 @@ def main():
         Path(args.json).write_text(json.dumps(out, indent=2))
 
     # ---- text report
+    if args.brief:
+        scopes_line = ", ".join(f"{name} {s['files']} files/{s['loc']} LOC" for name, s in out["scopes"].items())
+        print(f"Sokrates config preview — {config_path}: {scopes_line}")
+        for e in out["errors"]:
+            print(f"ERROR: {e}")
+        for w in out["warnings"]:
+            print(f"warning: {w}")
+        if args.json:
+            Path(args.json).write_text(json.dumps(out, indent=2))
+        return 1 if out["errors"] else 0
     print(f"Sokrates config preview — {config_path}")
     print(f"srcRoot: {src_root_str}   extensions: {', '.join(extensions)}")
     tr = out["tree"]

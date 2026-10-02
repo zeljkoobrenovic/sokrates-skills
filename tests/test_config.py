@@ -181,3 +181,15 @@ class BuildPeopleConfigTest(FixtureTest):
         people = read_json(repo / "_sokrates" / "config-people.json")["people"]
         self.assertEqual([p["email"] for p in people], ["ada@example.com", "linus@example.com"])
         self.assertEqual(people[1], gone)
+
+
+class PreviewBriefTest(FixtureTest):
+
+    def test_brief_prints_counts_errors_and_warnings_only(self):
+        result = run("preview_config", self.copy_of(ALPHA) / "_sokrates" / "config.json", "--brief")
+        self.assert_ok(result)
+        lines = [l for l in result.stdout.splitlines() if l.strip()]
+        self.assertTrue(lines[0].startswith("Sokrates config preview — "))
+        self.assertIn("main 5 files/138 LOC, test 2 files/18 LOC", lines[0])
+        self.assertTrue(all(l.startswith("warning: ") for l in lines[1:]), lines)
+        self.assertNotIn("Scopes:", result.stdout)

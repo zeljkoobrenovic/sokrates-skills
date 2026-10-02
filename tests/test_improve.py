@@ -185,3 +185,35 @@ class FindingEvidenceStateTest(FixtureTest):
         self.assertIn("**needs re-check**", result.stdout)
         self.assertIn("| evidence | intact | gone |", result.stdout)
         self.assertIn("recheck_findings.py --prompt", result.stderr)
+
+
+class EffortAndPriorityTest(FixtureTest):
+    """select_targets.py: every target carries an effort; findings are ordered by severity-for-the-smallest-change."""
+
+    def test_effort_and_priority(self):
+        out = self.tmp / "targets.json"
+        self.assert_ok(run("select_targets", "--sokrates", ALPHA_SOKRATES, "--json", out))
+        doc = read_json(out)
+        self.assertEqual(doc["units"][0]["effort"], "medium", "48 lines in one file")
+        self.assertEqual(doc["units"][1]["effort"], "small")
+        self.assertEqual(doc["duplicates"][0]["effort"], "small", "13 lines x 2 copies in 2 files")
+        self.assertIn("; effort medium", doc["units"][0]["why"])
+        findings = doc["findings"]
+        self.assertEqual([f["effort"] for f in findings], ["small", "small", "small"])
+        self.assertEqual(findings[0]["id"], "finding:security-scan/infrastructure/public-cache-bucket", "high severity, one line: first either way")
+
+    def test_priority_prefers_a_small_medium_over_a_large_high(self):
+        sokrates = self.copy_of(ALPHA) / "_sokrates"
+        insights = sokrates / "reports" / "ai-insights"
+        doc = read_json(insights / "security-scan.json")
+        bucket = next(f for f in doc["findings"] if f["id"].endswith("public-cache-bucket"))
+        bucket["evidence"] = []           # a design-level high finding with nothing concrete to change at: large effort
+        write_json(insights / "security-scan.json", doc)
+        out = self.tmp / "targets.json"
+        self.assert_ok(run("select_targets", "--sokrates", sokrates, "--kind", "findings", "--json", out))
+        ids = [f["id"] for f in read_json(out)["findings"]]
+        self.assertEqual(ids[0], "finding:reliability-scan/error-handling/swallowed-cache-write-error", "medium + small beats high + large")
+        self.assertEqual(ids[1], "finding:security-scan/infrastructure/public-cache-bucket", "high + large ties with low + small; severity breaks the tie")
+        self.assertEqual(ids[2], "finding:reliability-scan/retries/fixed-sleep-retry")
+        self.assert_ok(run("select_targets", "--sokrates", sokrates, "--kind", "findings", "--order", "severity", "--json", out))
+        self.assertEqual(read_json(out)["findings"][0]["id"], "finding:security-scan/infrastructure/public-cache-bucket", "strict severity order on request")

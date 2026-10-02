@@ -48,6 +48,7 @@ Ask for what you need: "run a basic scan" (orientation), "run a security deep di
 | `domain-language-scan` | ✅ | The domain language: code-anchored concept glossary, bounded contexts and canonical definitions, concepts per capability family, language drift (synonyms, homonyms, renames mid-flight) |
 | `maintainability-scan` | ✅ | Maintainability grades — modularity, reusability, analysability, modifiability, testability — per sub-characteristic and per component, rolled up from Sokrates numbers and the other scanners' findings (runs last) |
 | `evolution-scan` | ✅ | The codebase's history as a story: eras of development, growth and where the code came from, how the center of activity shifted between areas, contributor arrivals and departures, module births/rewrites/deaths, and the velocity and work-mix trajectory |
+| `landscape-synthesis-scan` | ✅ | The portfolio story over a whole landscape's AI findings: where attention concentrates, findings that recur across repositories (one fix resolving many), scanner coverage gaps, and the priorities across the estate; a deterministic digest script over the landscape's aggregated ai-insights.json |
 
 ## Usage
 

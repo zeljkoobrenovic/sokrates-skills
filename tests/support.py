@@ -47,6 +47,7 @@ SCRIPTS = {
     "capabilities": SKILLS / "sokrates/scripts/capabilities.py",
     "summarize": SKILLS / "scanners/sokrates-scan-core/scripts/summarize_findings.py",
     "recheck": SKILLS / "scanners/sokrates-scan-core/scripts/recheck_findings.py",
+    "landscape_digest": SKILLS / "scanners/landscape-synthesis-scan/scripts/landscape_digest.py",
 }
 
 

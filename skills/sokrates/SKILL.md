@@ -81,6 +81,7 @@ missing, say so and use the older form (`extractGitHistory` + `init` + `generate
 | make the code better where the numbers say so, and prove it | `sokrates-improve` |
 | a landscape: what gets aggregated, tags, teams | `sokrates-landscape-config` |
 | sub-landscapes by naming, technology, team, activity | `sokrates-virtual-landscapes` |
+| the portfolio story over a scanned landscape: concentration, recurring findings, coverage, priorities | `landscape-synthesis-scan` |
 
 ## 5. Rules shared by every skill
 

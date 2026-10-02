@@ -56,6 +56,7 @@ skills/
 | `maintainability-scan` | maintainability grades: modularity, reusability, analysability, modifiability, testability — per component, rolled up from Sokrates numbers and sibling findings |
 | `risk-synthesis-scan` | Sokrates hotspots explained: what each risky file does, knowledge risk, change coupling |
 | `evolution-scan` | the history as a story: eras, growth, focus shift, people, module lifecycle, trajectory |
+| `landscape-synthesis-scan` | the portfolio story over a whole landscape: where attention concentrates, findings that recur across repositories (one fix resolving many), scanner coverage gaps, priorities across the estate |
 
 Every finding carries file + line + verbatim snippet evidence that a script verifies against the tree — a scan is not finished until validation passes. Results land in `<project>/_sokrates/reports/ai-insights/` as JSON plus `index.html`, the **AI Insights Explorer**: overview, per-scanner pages, cross-scanner attention list, filters, search, evidence citations, deep links.
 

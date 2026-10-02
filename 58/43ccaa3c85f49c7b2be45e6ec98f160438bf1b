@@ -1,0 +1,19 @@
+skills/config/sokrates-repo-config/scripts/preview_config.py
+  s_40c0e74316fcc6::t_d598b87187f0fe 162-163,168,171,181,184-186,188-189,198,207-209,212-214,234,237-238,242-255,257-259,263,268,271-272,283,286,289-421,424-425,427-428,431-432,434-441,449,467,470-479,481,488,493,497,504,506,509-511,514-515,517-576
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5843ccaa3c85f49c7b2be45e6ec98f160438bf1b",
+  "prompts": {},
+  "sessions": {
+    "s_40c0e74316fcc6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a859e40-f6c6-4dfa-8fdb-6c295588cf73",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

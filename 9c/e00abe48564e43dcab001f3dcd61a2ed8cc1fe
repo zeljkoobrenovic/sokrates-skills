@@ -1,0 +1,107 @@
+.github/workflows/tests.yml
+  s_40c0e74316fcc6::t_7de0389c9202ec 1-20
+README.md
+  s_40c0e74316fcc6::t_ca19556b7401c5 110-120
+skills/config/sokrates-people-config/scripts/build_people_config.py
+  s_40c0e74316fcc6::t_651dde2ea476c2 385,388-390,397-402
+tests/fixtures/README.md
+  s_40c0e74316fcc6::t_71b8b09285c011 1-18
+tests/fixtures/alpha/.github/workflows/ci.yml
+  s_40c0e74316fcc6::t_83cb1b1fc266cf 1-9
+tests/fixtures/alpha/CODEOWNERS
+  s_40c0e74316fcc6::t_86b661d0f7bc6c 1-3
+tests/fixtures/alpha/Dockerfile
+  s_40c0e74316fcc6::t_2db479b0385f0b 1-7
+tests/fixtures/alpha/README.md
+  s_40c0e74316fcc6::t_4d9e1e380365d1 1-4
+tests/fixtures/alpha/_sokrates/config.json
+  s_40c0e74316fcc6::t_e3887702b38dd7 1-427
+tests/fixtures/alpha/_sokrates/reports/ai-insights/reliability-scan.json
+  s_40c0e74316fcc6::t_110ff466237448 1-62
+tests/fixtures/alpha/_sokrates/reports/ai-insights/security-scan.json
+  s_40c0e74316fcc6::t_343f2e5c9c0d02 1-68
+tests/fixtures/alpha/docs/architecture.md
+  s_40c0e74316fcc6::t_6acd5baa2792f4 1-3
+tests/fixtures/alpha/git-commit-trailers.txt
+  s_40c0e74316fcc6::t_8c2b1740e189fb 1
+tests/fixtures/alpha/git-commits.txt
+  s_40c0e74316fcc6::t_351327885b8cf1 1-6
+tests/fixtures/alpha/git-history.txt
+  s_40c0e74316fcc6::t_ab631638f9bb3b 1-16
+tests/fixtures/alpha/infra/main.tf
+  s_40c0e74316fcc6::t_064ebc08794954 1-23
+tests/fixtures/alpha/pyproject.toml
+  s_40c0e74316fcc6::t_9e1a49ac72b0a8 1-4
+tests/fixtures/alpha/requirements.txt
+  s_40c0e74316fcc6::t_b73ea6d81ff95c 1
+tests/fixtures/alpha/src/app/__init__.py
+  s_40c0e74316fcc6::t_4e1ca85ddf2f7a 1
+tests/fixtures/alpha/src/app/legacy.py
+  s_40c0e74316fcc6::t_9f51e7494545d5 1-26
+tests/fixtures/alpha/src/app/repo.py
+  s_40c0e74316fcc6::t_ba3eaef2fa7ffb 1-34
+tests/fixtures/alpha/src/app/service.py
+  s_40c0e74316fcc6::t_f831772692816c 1-78
+tests/fixtures/alpha/tests/test_repo.py
+  s_40c0e74316fcc6::t_1c5f2103ee590e 1-5
+tests/fixtures/alpha/tests/test_service.py
+  s_40c0e74316fcc6::t_fdaedf6b5a866d 1-21
+tests/fixtures/alpha/web/client.js
+  s_40c0e74316fcc6::t_81ac14cb1b7b41 1-22
+tests/fixtures/beta/README.md
+  s_40c0e74316fcc6::t_0061281af09108 1-3
+tests/fixtures/beta/_sokrates/config.json
+  s_40c0e74316fcc6::t_d204f3a56dacd0 1-402
+tests/fixtures/beta/git-commits.txt
+  s_40c0e74316fcc6::t_318cf811626489 1
+tests/fixtures/beta/git-history.txt
+  s_40c0e74316fcc6::t_b0a59675d31965 1-2
+tests/fixtures/beta/pom.xml
+  s_40c0e74316fcc6::t_5e1a43b6bc5eed 1-6
+tests/fixtures/beta/src/main/java/acme/beta/Calculator.java
+  s_40c0e74316fcc6::t_1b9b20fa14bad4 1-21
+tests/fixtures/beta/src/main/java/acme/beta/Parser.java
+  s_40c0e74316fcc6::t_b527bd47c47a18 1-7
+tests/fixtures/beta/src/test/java/acme/beta/CalculatorTest.java
+  s_40c0e74316fcc6::t_401b17b3c40aee 1-12
+tests/fixtures/landscape/_sokrates_landscape/config.json
+  s_40c0e74316fcc6::t_31c578e05b850d 1-55
+tests/fixtures/landscape/acme/alpha/config.json
+  s_40c0e74316fcc6::t_0be53121f0f5b9 1-427
+tests/fixtures/landscape/acme/beta/config.json
+  s_40c0e74316fcc6::t_a115bed3a3c1d3 1-402
+tests/fixtures/make_fixtures.sh
+  s_40c0e74316fcc6::t_15ebc7fe98d086 1-92
+tests/support.py
+  s_40c0e74316fcc6::t_4e5ff23f363e59 1-101
+tests/test_config.py
+  s_40c0e74316fcc6::t_9a9d5681a610a0 1-183
+tests/test_counters.py
+  s_40c0e74316fcc6::t_53ed8174fe456c 1-74
+tests/test_fixtures.py
+  s_40c0e74316fcc6::t_e0b3f630c7ed98 1-44
+tests/test_illustrator.py
+  s_40c0e74316fcc6::t_8eaf4c5d50907c 1-21
+tests/test_improve.py
+  s_40c0e74316fcc6::t_29e36db864eaf1 1-158
+tests/test_scan_core.py
+  s_40c0e74316fcc6::t_10e25ea205ddc3 1-165
+tests/test_synthesis.py
+  s_40c0e74316fcc6::t_d9fb412886fc0b 1-83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "9ce00abe48564e43dcab001f3dcd61a2ed8cc1fe",
+  "prompts": {},
+  "sessions": {
+    "s_40c0e74316fcc6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a859e40-f6c6-4dfa-8fdb-6c295588cf73",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

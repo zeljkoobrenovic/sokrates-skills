@@ -19,7 +19,11 @@ McCabe counts decision points: each `if`, `else if`, loop, `case`, `catch`, `&&`
 
 What does not: renaming, reordering, comments, splitting a long straight-line function without branches (that lowers unit *size*, which may be the goal for a `unit:` target chosen by size).
 
-Matching after a change: units are matched by file and name, not by line numbers (those shift). A renamed unit is reported as "not found"; mention the rename in the report and re-run `select_targets.py` to see the new names.
+Matching after a change: units are matched by file and name, not by line numbers (those shift); a leading folder on the exported path (it depends on how Sokrates was invoked) is tolerated. A renamed unit is reported as "not found"; mention the rename in the report and re-run `select_targets.py` to see the new names. `units.json` holds at most 10,000 units, so in a very large analysis a small unit can fall out of the export - that is also a sign the scope is too wide.
+
+## Same scope, or no comparison
+
+`measure.py compare` warns when the main lines of code moved by more than 10% between the snapshots: the two analyses did not see the same files, and nothing in the table is comparable. The usual causes are a `config.json` that does not ignore `_sokrates/` itself (the second run then analyzes the first run's reports), or Sokrates started from a different folder or with a different `-confFile` path. Take both snapshots with the same command run from the same folder - `sokrates analyze -skipGitHistory` in the repository root is the safe choice.
 
 ## Duplication
 

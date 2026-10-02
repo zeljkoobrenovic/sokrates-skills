@@ -38,8 +38,13 @@ def totals(data):
     }
 
 
+def same_file(exported, wanted):
+    """Exported paths may carry a leading folder (e.g. the repository folder) depending on how Sokrates was invoked."""
+    return exported == wanted or exported.endswith("/" + wanted) or wanted.endswith("/" + exported)
+
+
 def measure_unit(data, file, name):
-    candidates = [u for u in data.units() if u.get("relativeFileName") == file and u.get("shortName") == name]
+    candidates = [u for u in data.units() if same_file(u.get("relativeFileName", ""), file) and u.get("shortName") == name]
     if not candidates:
         return {"found": False}
     u = max(candidates, key=lambda x: (int(x.get("mcCabeIndex", 0)), int(x.get("linesOfCode", 0))))
@@ -175,6 +180,10 @@ def compare(args):
         print(f"\nverdict: {result}")
     if before.get("analysisAt") == after.get("analysisAt"):
         print("\nWARNING: both snapshots come from the same analysis — run `sokrates generateReports` after the change before the second snapshot.", file=sys.stderr)
+    b_loc, a_loc = before["totals"].get("mainLinesOfCode") or 0, after["totals"].get("mainLinesOfCode") or 0
+    if b_loc and a_loc and abs(a_loc - b_loc) > 0.1 * b_loc:
+        print(f"\nWARNING: the analysis scope changed between the snapshots (main lines of code {b_loc} -> {a_loc}); the totals are not comparable."
+              " Check _sokrates/config.json (is _sokrates/ itself ignored?) and re-run both analyses with the same configuration.", file=sys.stderr)
     return 0 if result == "improved" else (2 if result == "not found" else 1)
 
 

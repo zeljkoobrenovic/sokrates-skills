@@ -29,7 +29,7 @@ What moves which number, and what does not (renaming variables does not remove d
    - `finding:` - do exactly what the finding's `recommendation` says, at the cited evidence. Read the whole finding first (`ai-insights/<scanner>.json`).
    Respect the repository's conventions and formatter. Do not reformat unrelated code; the diff must read as one change.
 6. **Verify behaviour:** run the project's tests (and build, lint, type check) the way its CI does. Red means fix or revert - never report a metric improvement on a broken build.
-7. **Re-measure:** `sokrates generateReports` (same configuration; history is unchanged, so no extraction is needed), then
+7. **Re-measure:** re-run Sokrates exactly as for the first snapshot, from the same folder (`sokrates analyze -skipGitHistory` in the repository root: same configuration, the history is unchanged), then
    ```bash
    python3 <this-skill-path>/scripts/measure.py snapshot --target <id> -o <scratch>/after.json
    python3 <this-skill-path>/scripts/measure.py compare <scratch>/before.json <scratch>/after.json --markdown

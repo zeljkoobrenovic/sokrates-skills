@@ -20,7 +20,7 @@ Usage:
                                     [--max-files 200000] [--min-loc-share 0.5]
 
 Component filters follow Sokrates semantics: pathPattern is a Java regex matched against the
-ENTIRE path including the srcRoot prefix (hence the leading `.*`), `exception: true` vetoes.
+ENTIRE path below the source root, with a leading `/` (hence the leading `.*`), `exception: true` vetoes.
 The AI running the skill chooses, merges and names the proposals; this script only measures.
 """
 
@@ -162,12 +162,13 @@ def main():
             if ext not in extensions:
                 continue
             full = os.path.join(src_root_str, rel)
-            if any(r.path_matches(full) for r in ignore):
+            matched = "/" + rel       # what Sokrates matches: the path below the source root, with a leading separator
+            if any(r.path_matches(matched) for r in ignore):
                 continue
             scoped_out = False
             for rules in non_main.values():
-                inc = any(r.path_matches(full) and not r.exception for r in rules)
-                exc = any(r.path_matches(full) and r.exception for r in rules)
+                inc = any(r.path_matches(matched) and not r.exception for r in rules)
+                exc = any(r.path_matches(matched) and r.exception for r in rules)
                 if inc and not exc:
                     scoped_out = True; break
             if scoped_out:

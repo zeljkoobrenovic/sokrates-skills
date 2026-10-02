@@ -18,8 +18,10 @@ Usage:
                             [--max-files 200000] [--no-content]
 
 Exit code: 0 ok, 1 when errors were found (malformed regex, missing srcRoot, invalid JSON).
-Semantics notes: path patterns must match the ENTIRE path as Sokrates loads it (srcRoot prefix
-included); content patterns must match an ENTIRE line. Both are Java regexes; Python's `re` is
+Semantics notes: path patterns must match the ENTIRE path below the source root, with a leading
+`/` (`/src/app/service.py` — the folders above the repository never take part; Sokrates builds
+since 2026-10-02, earlier ones matched the whole path as loaded); content patterns must match an
+ENTIRE line. Both are Java regexes; Python's `re` is
 close enough for the patterns Sokrates uses, differences are reported as warnings.
 """
 
@@ -102,7 +104,7 @@ def compile_rules(config, errors, warnings):
             if r.error:
                 errors.append(f"{r.label()}: regex does not compile ({r.error}) — Sokrates would silently treat it as matching nothing")
             elif r.path_pattern and not re.match(r"^(\.\*|\(|\[|\^|\\)", r.path_pattern.strip()):
-                warnings.append(f"{r.label()}: pathPattern does not start with `.*` — it must match the whole path including the srcRoot prefix, so it will probably never match")
+                warnings.append(f"{r.label()}: pathPattern does not start with `.*` — it must match the whole path below the source root (`/src/app/x.py`), so it will probably never match")
             out.append(r)
         return out
     rules["ignore"] = add("ignore", config.get("ignore"))
@@ -235,7 +237,7 @@ def main():
         return line_cache[rel]
 
     def full_path_of(rel):
-        return os.path.join(src_root_str, rel)
+        return "/" + rel          # what Sokrates matches: the path below the source root, with a leading separator
 
     # ---- size limits + ignore (SourceCodeFiles.createBroadScope order)
     broad = []

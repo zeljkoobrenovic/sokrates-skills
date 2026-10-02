@@ -35,7 +35,7 @@ When the same rules apply to a whole organisation, do not hand-edit each config:
 
 ## Rules of thumb
 
-- Every regex is anchored: path patterns match the **entire path including the srcRoot prefix** (start them with `.*`), content patterns match an **entire line**. Test a doubtful pattern with the preview rather than reasoning about it.
+- Every regex is anchored: path patterns match the **entire path below the source root, with a leading `/`** (start them with `.*`), content patterns match an **entire line**. Test a doubtful pattern with the preview rather than reasoning about it.
 - Prefer classifying over ignoring: ignored files disappear from every report; a `generated` or `other` file still counts in the inventory and can be reasoned about.
 - Do not touch `srcRoot` unless the config lives outside the repository; the default `..` is right for `<repo>/_sokrates/config.json`.
 - Keys not in the reference do nothing. In particular `trendAnalysis`, `compareResultsWith`, `excludeFiles`, `maxFileSize` are documentation ghosts.

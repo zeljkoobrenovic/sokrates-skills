@@ -12,7 +12,7 @@ assert on comes from these trees and the scripted git history in `make_fixtures.
 Rebuild after a Sokrates change with `SOKRATES_JAR=<cli jar> tests/fixtures/make_fixtures.sh`; the findings files
 are not touched by the rebuild (their line numbers follow the sources, which the script does not change).
 
-One trap, pinned by `tests/test_config.py`: Sokrates matches scope patterns against the whole path of a file as it
-was loaded, source root included, and the configuration scripts mirror that. Because this folder lives under
-`tests/`, running them on the fixture in place makes `.*/[Tt]ests/.*` claim every file; the tests therefore copy a
-fixture into a temporary folder first.
+One rule, pinned by `tests/test_config.py`: Sokrates matches scope patterns against a file's path below the source
+root, with a leading `/`, and the configuration scripts mirror that. This folder lives under `tests/`, and
+`.*/[Tt]ests/.*` must not claim its files because of that (with Sokrates builds before 2026-10-02, which matched the
+whole path as loaded, it did).

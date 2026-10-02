@@ -13,7 +13,7 @@ main files for candidate cross-cutting concerns, each defined by Sokrates-style 
 
 For every candidate: files matched, LOC of those files, number of matching lines, sample file:line
 hits, and a ready `concern` object (path/content filters with Sokrates semantics: contentPattern must
-match an ENTIRE line, hence the `.*…*` wrapping; pathPattern matches the entire path incl. srcRoot).
+match an ENTIRE line, hence the `.*…*` wrapping; pathPattern matches the entire path below the source root, with a leading `/`).
 
 Usage:
   python3 propose_concerns.py <path/to/_sokrates/config.json> [-o proposals.json] [--min-files 3]
@@ -136,10 +136,11 @@ def main():
             if ext not in extensions:
                 continue
             full = os.path.join(src_root_str, rel)
-            if any(r.path_matches(full) for r in ignore):
+            matched = "/" + rel       # what Sokrates matches: the path below the source root, with a leading separator
+            if any(r.path_matches(matched) for r in ignore):
                 continue
-            inc = any(r.path_matches(full) and not r.exception for r in non_main)
-            exc = any(r.path_matches(full) and r.exception for r in non_main)
+            inc = any(r.path_matches(matched) and not r.exception for r in non_main)
+            exc = any(r.path_matches(matched) and r.exception for r in non_main)
             if inc and not exc:
                 continue
             try:
@@ -172,7 +173,7 @@ def main():
         tokens = Counter()
         first_hit = {}
         for rel, lines in files.items():
-            if path_re is not None and not path_re.fullmatch(os.path.join(src_root_str, rel)):
+            if path_re is not None and not path_re.fullmatch("/" + rel):
                 continue
             tstart = test_region_start.get(rel, 10**9)
             for i, ln in enumerate(lines, 1):

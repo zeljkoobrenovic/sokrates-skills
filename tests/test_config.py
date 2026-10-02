@@ -33,15 +33,15 @@ class PreviewConfigTest(FixtureTest):
         self.assertEqual(result.returncode, 1, result.stdout)
         self.assertIn("does not compile", result.stdout)
 
-    def test_patterns_match_the_whole_path_like_sokrates_does(self):
-        """Sokrates matches scope patterns against the full path as loaded (srcRoot prefix included), and the preview
-        mirrors that: the fixture's own location under tests/ makes `.*/[Tt]ests/.*` claim every file. This is why
-        the other tests run the config scripts on a copy in a neutral temporary folder."""
+    def test_folders_above_the_source_root_never_classify_files(self):
+        """Sokrates matches scope patterns against the path below the source root (with a leading `/`), and the
+        preview mirrors that: the fixture's own location under tests/ must not make `.*/[Tt]ests/.*` claim its files
+        (it did before Sokrates matched the whole path as loaded)."""
         out = self.tmp / "preview.json"
         self.assert_ok(run("preview_config", ALPHA_SOKRATES / "config.json", "--json", out))
         doc = read_json(out)
-        self.assertEqual(doc["scopes"]["main"]["files"], 0)
-        self.assertEqual(doc["scopes"]["test"]["files"], 10, "everything but the two files `other` claims first")
+        self.assertEqual(doc["scopes"]["main"]["files"], 5)
+        self.assertEqual(doc["scopes"]["test"]["files"], 2)
 
     def test_missing_src_root_is_an_error(self):
         sokrates = self.tmp / "_sokrates"

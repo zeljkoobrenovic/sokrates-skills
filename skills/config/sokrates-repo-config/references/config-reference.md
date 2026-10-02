@@ -28,7 +28,7 @@ Keys that **do not exist** (docs mention some): `trendAnalysis`, `compareResults
 
 `{ "pathPattern": "", "contentPattern": "", "exception": false, "note": "" }`
 
-- `pathPattern` — Java regex that must match the **entire** path (anchored). The path tested is the file's path *as loaded, including the srcRoot prefix* — so patterns almost always start with `.*`. Separator-agnostic (`/` and `\` variants are tried). Blank = matches everything.
+- `pathPattern` — Java regex that must match the **entire** path (anchored). The path tested is the file's path *below the source root, with a leading `/`* (`/src/app/service.py`; the folders above the repository never take part — Sokrates builds since 2026-10-02, earlier ones matched the whole path as loaded) — so patterns almost always start with `.*`. Separator-agnostic (`/` and `\` variants are tried). Blank = matches everything.
 - `contentPattern` — Java regex that must match an **entire line**, for at least one line. To find a substring write `.*TODO.*`. Blank = no content constraint. (`maxLinesForContentSearch` exists in code but is `@JsonIgnore` — not settable via JSON.)
 - A filter matches when path matches AND (content blank OR content matches).
 - **A malformed regex is swallowed and matches nothing** — no error, the rule is silently dead. Always compile-check patterns.

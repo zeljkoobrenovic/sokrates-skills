@@ -1,0 +1,19 @@
+skills/config/sokrates-people-config/scripts/build_people_config.py
+  s_40c0e74316fcc6::t_cedfd794bcc811 157-158,165-169,186-190,198-201,210-214,233-236,247-254,264-269,271-278,292,294-298,320-337
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8d94d03054d300ff6d26cdeb74dea2e0c9b68c76",
+  "prompts": {},
+  "sessions": {
+    "s_40c0e74316fcc6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a859e40-f6c6-4dfa-8fdb-6c295588cf73",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

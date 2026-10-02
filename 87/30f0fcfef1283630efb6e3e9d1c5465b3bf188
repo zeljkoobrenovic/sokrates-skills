@@ -1,0 +1,21 @@
+skills/sokrates/SKILL.md
+  s_40c0e74316fcc6::t_83483e43a1d7c7 80,86-107
+tests/test_skill_pages.py
+  s_40c0e74316fcc6::t_1c6edcd0230d94 1-76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8730f0fcfef1283630efb6e3e9d1c5465b3bf188",
+  "prompts": {},
+  "sessions": {
+    "s_40c0e74316fcc6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a859e40-f6c6-4dfa-8fdb-6c295588cf73",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

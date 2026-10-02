@@ -20,7 +20,7 @@ fi
 for target in $TARGETS; do
   mkdir -p "$target"
   n=0
-  for skill in "$HERE"/skills/scanners/*/ "$HERE"/skills/config/*/ "$HERE"/skills/improve/*/; do
+  for skill in "$HERE"/skills/sokrates/ "$HERE"/skills/scanners/*/ "$HERE"/skills/config/*/ "$HERE"/skills/improve/*/; do
     name="$(basename "$skill")"
     [ -f "$skill/SKILL.md" ] || continue
     ln -sfn "${skill%/}" "$target/$name"

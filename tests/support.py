@@ -43,6 +43,7 @@ SCRIPTS = {
     "propose_virtual_landscapes": SKILLS / "config/sokrates-virtual-landscapes/scripts/propose_virtual_landscapes.py",
     "people": SKILLS / "config/sokrates-people-config/scripts/build_people_config.py",
     "visuals": SKILLS / "illustrators/generate_summary_visuals.py",
+    "situation": SKILLS / "sokrates/scripts/situation.py",
 }
 
 

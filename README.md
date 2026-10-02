@@ -4,10 +4,25 @@ Skills for AI coding tools (Claude Code and similar) that work with [Sokrates](h
 
 Sokrates measures: size, complexity, duplication, churn, coupling, contributors. These skills add what the numbers cannot say — what the code *is*, what it depends on, where the real risks are, how it got here — and they make Sokrates itself more useful by configuring it well: meaningful components, features of interest, merged contributor identities, sensible landscapes.
 
+## Start here
+
+One skill, `sokrates`, is the entry point. Ask your agent anything Sokrates-related - "analyze this
+repository", "what is this codebase", "is it well tested", "set up a landscape of our repos", "improve the
+code where it matters" - and it works out where you are and which skill applies:
+
+```bash
+python3 skills/sokrates/scripts/situation.py          # where am I, and what is the next step?
+```
+
+prints whether the folder is a repository or a landscape, whether an analysis exists and how old it is,
+whether the configuration was tuned, which AI findings exist, how Sokrates can be run on this machine, and
+a ranked list of next steps that name the skill or command for each. The other skills are what it routes to.
+
 ## What is in here
 
 ```
 skills/
+├── sokrates/    the entry skill: finds out where you are and routes to the skill that applies
 ├── scanners/    analysis skills — read a finished _sokrates/ analysis, write verifiable findings,
 │                render the AI Insights Explorer (one interactive HTML page per project)
 ├── config/      configuration skills — create and tune _sokrates/config.json and

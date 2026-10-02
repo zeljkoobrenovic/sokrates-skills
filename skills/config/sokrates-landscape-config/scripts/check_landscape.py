@@ -169,25 +169,7 @@ def repo_summary(data_dir: Path, root: Path):
             "contributors": contributors, "contributors_count": len(contributors), "latest_commit": latest, "file_paths": paths}
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("analysis_root")
-    ap.add_argument("--conf", help="landscape config.json (default <root>/_sokrates_landscape/config.json)")
-    ap.add_argument("--json")
-    args = ap.parse_args()
-    errors, warnings, notes = [], [], []
-    root = Path(args.analysis_root).resolve()
-    if not root.is_dir():
-        print(f"ERROR: {root} is not a directory"); return 1
-    conf_path = Path(args.conf) if args.conf else root / "_sokrates_landscape" / "config.json"
-    folder = conf_path.parent
-    config, exists = load_json(conf_path, errors, {})
-    if not exists:
-        notes.append(f"{conf_path} does not exist yet — updateLandscape will create it with defaults; previewing defaults")
-    tags_doc, _ = load_json(folder / "config-tags.json", errors, [])
-    teams_doc, _ = load_json(folder / "config-teams.json", errors, {"teams": []})
-    people_doc, _ = load_json(folder / "config-people.json", errors, {"people": []})
-
+def lint_config_keys(config, warnings, notes):
     for k in config:
         if k in LEGACY_KEYS:
             warnings.append(f"config.json: `{k}` is a legacy alias — Sokrates rewrites it as `{LEGACY_KEYS[k]}`")
@@ -195,10 +177,28 @@ def main():
             warnings.append(f"config.json: `{k}` is not a landscape field — silently ignored and dropped on rewrite")
         if k in DEAD_KEYS:
             notes.append(f"config.json: `{k}` has no effect ({DEAD_KEYS[k]})")
+
+
+def config_reader(config):
+    """cfg(key, default): a landscape setting by its current name, or by its legacy alias when that is what the file uses."""
     def cfg(key, default):
         return config.get(key, config.get({v: k for k, v in LEGACY_KEYS.items()}.get(key, ""), default))
+    return cfg
 
-    # regex sanity
+
+def check_virtual_patterns(vl, errors, warnings, prefix=""):
+    for v in (vl or {}).get("landscapes") or []:
+        name = (v.get("metadata") or {}).get("name", "?")
+        for key in ("includeRepoNamePatterns", "excludeRepoNamePatterns"):
+            for p in v.get(key) or []:
+                rx(p, f"virtual landscape `{prefix}{name}` {key}", errors)
+        if not v.get("includeRepoNamePatterns"):
+            warnings.append(f"virtual landscape `{prefix}{name}` has no includeRepoNamePatterns — it will be empty")
+        check_virtual_patterns(v.get("virtualLandscapes"), errors, warnings, prefix + name + "/")
+
+
+def check_regexes(cfg, tags_doc, teams_doc, people_doc, errors, warnings):
+    """Every regex in the four config files compiles (Sokrates treats a bad one as matching nothing, without any error)."""
     for k in ("ignoreContributors", "bots"):
         for p in cfg(k, []) or []:
             rx(p, f"config.json {k}", errors)
@@ -210,16 +210,7 @@ def main():
             for key in ("patterns", "excludePatterns", "pathPatterns", "excludePathPatterns"):
                 for p in t.get(key) or []:
                     rx(p, f"config-tags `{grp.get('name')}/{t.get('tag')}` {key}", errors)
-    def walk_virtual(vl, prefix=""):
-        for v in (vl or {}).get("landscapes") or []:
-            name = (v.get("metadata") or {}).get("name", "?")
-            for key in ("includeRepoNamePatterns", "excludeRepoNamePatterns"):
-                for p in v.get(key) or []:
-                    rx(p, f"virtual landscape `{prefix}{name}` {key}", errors)
-            if not v.get("includeRepoNamePatterns"):
-                warnings.append(f"virtual landscape `{prefix}{name}` has no includeRepoNamePatterns — it will be empty")
-            walk_virtual(v.get("virtualLandscapes"), prefix + name + "/")
-    walk_virtual(cfg("virtualLandscapes", {}))
+    check_virtual_patterns(cfg("virtualLandscapes", {}), errors, warnings)
     for t in (teams_doc or {}).get("teams") or []:
         for key in ("emailPatterns", "userNamePatterns"):
             for p in t.get(key) or []:
@@ -231,7 +222,9 @@ def main():
         if "name" in p_ or "link" in p_:
             warnings.append(f"config-people: person `{p_.get('email')}` uses legacy `name`/`link` — rewrite as `userName`/`links` (lost on save)")
 
-    # ---------- discovery ----------
+
+def discover_repositories(root, cfg, errors, warnings):
+    """The repository analyses under the root, with the duplicate-name rule applied; and the folder sub-landscapes."""
     repo_dirs, subs = discover(root)
     repos = [r for r in (repo_summary(d, root) for d in sorted(repo_dirs)) if r]
     if not repos:
@@ -251,8 +244,11 @@ def main():
     for n, c in names.items():
         if c > 1 and n:
             warnings.append(f"{c} repositories share metadata.name `{n}` — only the first found is analysed")
+    return repos, subs
 
-    # ---------- thresholds ----------
+
+def apply_thresholds(repos, cfg):
+    """Marks every repository with why the landscape excludes it (empty = included); returns the included ones."""
     th_loc = int(cfg("repositoryThresholdLocMain", 0) or 0)
     th_contrib = int(cfg("repositoryThresholdContributors", 1) or 1)
     th_date = str(cfg("ignoreRepositoriesLastUpdatedBefore", "") or "")
@@ -267,29 +263,35 @@ def main():
         if th_date and r["latest_commit"] and r["latest_commit"] < th_date:
             reasons.append(f"latest commit {r['latest_commit']} < {th_date}")
         r["excluded_by"] = reasons
-    included = [r for r in repos if not r["excluded_by"]]
+    return [r for r in repos if not r["excluded_by"]]
 
-    # ---------- tags ----------
+
+def tag_matches(t, r):
+    dominant, name = r["dominant_extension"], r["name"]
+    if any(dominant.lower() == e.lower() for e in t.get("excludeExtensions") or []):
+        return False
+    if matches_any(name, t.get("excludePatterns") or []):
+        return False
+    hit = matches_any(name, t.get("patterns") or []) \
+        or any(dominant.lower() == e.lower() for e in t.get("mainExtensions") or []) \
+        or any(any(x.lower() == e.lower() for x in r["extensions"]) for e in t.get("anyExtensions") or [])
+    if not hit and t.get("pathPatterns"):
+        ex = t.get("excludePathPatterns") or []
+        hit = any(matches_any(p, t["pathPatterns"]) and not matches_any(p, ex) for p in r["file_paths"])
+    return hit
+
+
+def assign_tags(included, tags_doc, notes):
+    """The tag rules applied as TagMap / RepositoryTag do; every repository gets its `tags`; returns the hits per tag."""
     tag_groups = tags_doc if isinstance(tags_doc, list) else []
     if not tag_groups:
         notes.append("config-tags.json absent/empty — updateLandscape will write the default CI/CD, build-tools and tech groups")
     tag_hits = Counter()
     for r in included:
         r["tags"] = []
-        dominant, name = r["dominant_extension"], r["name"]
         for grp in tag_groups:
             for t in grp.get("repositoryTags") or grp.get("projectTags") or []:
-                if any(dominant.lower() == e.lower() for e in t.get("excludeExtensions") or []):
-                    continue
-                if matches_any(name, t.get("excludePatterns") or []):
-                    continue
-                hit = matches_any(name, t.get("patterns") or []) \
-                    or any(dominant.lower() == e.lower() for e in t.get("mainExtensions") or []) \
-                    or any(any(x.lower() == e.lower() for x in r["extensions"]) for e in t.get("anyExtensions") or [])
-                if not hit and t.get("pathPatterns"):
-                    ex = t.get("excludePathPatterns") or []
-                    hit = any(matches_any(p, t["pathPatterns"]) and not matches_any(p, ex) for p in r["file_paths"])
-                if hit:
+                if tag_matches(t, r):
                     key = f"{grp.get('name')} / {t.get('tag')}"
                     r["tags"].append(key); tag_hits[key] += 1
     for grp in tag_groups:
@@ -297,49 +299,54 @@ def main():
             key = f"{grp.get('name')} / {t.get('tag')}"
             if included and tag_hits[key] == 0:
                 notes.append(f"tag `{key}` matches no repository")
+    return tag_hits
 
-    # ---------- virtual landscapes ----------
-    def assign_virtual(vl, repos_in, prefix=""):
-        out = []
-        matched_any = set()
-        for v in (vl or {}).get("landscapes") or []:
-            name = prefix + (v.get("metadata") or {}).get("name", "?")
-            inc, exc = v.get("includeRepoNamePatterns") or [], v.get("excludeRepoNamePatterns") or []
-            members = [r for r in repos_in if inc and matches_any(r["name"], inc) and not matches_any(r["name"], exc)]
-            matched_any.update(id(r) for r in members)
-            out.append({"landscape": name, "repositories": len(members), "names": [r["name"] for r in members][:12]})
-            if not members:
-                warnings.append(f"virtual landscape `{name}` matches no repository (name matching is case-sensitive, full-string)")
-            out.extend(assign_virtual(v.get("virtualLandscapes"), members, name + "/"))
-        if (vl or {}).get("landscapes"):
-            rest = [r for r in repos_in if id(r) not in matched_any]
-            out.append({"landscape": prefix + ((vl.get("remainderLandscapeMetadata") or {}).get("name") or "Remainder"),
-                        "repositories": len(rest), "names": [r["name"] for r in rest][:12]})
-        return out
-    virtual = assign_virtual(cfg("virtualLandscapes", {}), included)
 
-    # ---------- contributors pipeline ----------
+def assign_virtual(vl, repos_in, warnings, prefix=""):
+    """The virtual landscapes as VirtualLandscapeBuilder partitions them, nested, each level with its remainder."""
+    out = []
+    matched_any = set()
+    for v in (vl or {}).get("landscapes") or []:
+        name = prefix + (v.get("metadata") or {}).get("name", "?")
+        inc, exc = v.get("includeRepoNamePatterns") or [], v.get("excludeRepoNamePatterns") or []
+        members = [r for r in repos_in if inc and matches_any(r["name"], inc) and not matches_any(r["name"], exc)]
+        matched_any.update(id(r) for r in members)
+        out.append({"landscape": name, "repositories": len(members), "names": [r["name"] for r in members][:12]})
+        if not members:
+            warnings.append(f"virtual landscape `{name}` matches no repository (name matching is case-sensitive, full-string)")
+        out.extend(assign_virtual(v.get("virtualLandscapes"), members, warnings, name + "/"))
+    if (vl or {}).get("landscapes"):
+        rest = [r for r in repos_in if id(r) not in matched_any]
+        out.append({"landscape": prefix + ((vl.get("remainderLandscapeMetadata") or {}).get("name") or "Remainder"),
+                    "repositories": len(rest), "names": [r["name"] for r in rest][:12]})
+    return out
+
+
+def person_for(people, cid, user_name):
+    """The config-people entry a contributor id resolves to, by e-mail, e-mail pattern, user-name key or user-name pattern."""
+    for p in people:
+        if cid.lower() == str(p.get("email", "")).lower():
+            return p
+        if matches_any(cid, p.get("emailPatterns") or [], re.I):
+            return p
+        if user_name:
+            key = re.sub(r"\s+", "", user_name).lower()
+            if key and key == re.sub(r"\s+", "", str(p.get("userName", "") or "")).lower():
+                return p
+            if matches_any(user_name, p.get("userNamePatterns") or [], re.I):
+                return p
+    return None
+
+
+def contributor_pipeline(included, cfg, people_doc, teams_doc, warnings, notes):
+    """Contributors as the landscape sees them: ignore patterns, e-mail transformations, config-people merges, the commit
+    threshold, bots, teams, and the user names that still map to several ids."""
     ignore_pats = [p.lower() for p in cfg("ignoreContributors", []) or []]
     bot_pats = cfg("bots", [".*\\[bot\\].*", ".*[-]bot[@].*"]) or []
     ops = cfg("transformContributorEmails", []) or []
     people = (people_doc or {}).get("people") or []
     teams = (teams_doc or {}).get("teams") or []
     th_commits = int(cfg("contributorThresholdCommits", 1) or 1)
-
-    def person_for(cid, user_name):
-        for p in people:
-            if cid.lower() == str(p.get("email", "")).lower():
-                return p
-            if matches_any(cid, p.get("emailPatterns") or [], re.I):
-                return p
-            if user_name:
-                key = re.sub(r"\s+", "", user_name).lower()
-                if key and key == re.sub(r"\s+", "", str(p.get("userName", "") or "")).lower():
-                    return p
-                if matches_any(user_name, p.get("userNamePatterns") or [], re.I):
-                    return p
-        return None
-
     canon = defaultdict(lambda: {"commits": 0, "repos": set(), "latest": "", "userName": "", "sources": set()})
     ignored, people_used = Counter(), Counter()
     for r in included:
@@ -348,7 +355,7 @@ def main():
             if matches_any(cid, ignore_pats, re.I):
                 ignored[cid] += 1; continue
             cid2 = apply_ops(cid, ops)
-            p = person_for(cid2, c["userName"])
+            p = person_for(people, cid2, c["userName"])
             if p:
                 people_used[str(p.get("email"))] += 1
                 cid2 = str(p.get("email")) or str(p.get("userName")) or cid2
@@ -368,7 +375,6 @@ def main():
     for p in people:
         if people_used[str(p.get("email"))] == 0:
             notes.append(f"config-people: `{p.get('email')}` matches no contributor")
-    # teams
     today = date.today()
     team_members = defaultdict(list)
     undefined_active, undefined_inactive = [], []
@@ -395,20 +401,14 @@ def main():
     if alias_candidates:
         notes.append(f"{len(alias_candidates)} user names map to several contributor ids — run `sokrates updateLandscapePeopleConfigByUserName` to merge them: "
                      + "; ".join(f"{k}: {', '.join(v[:3])}" for k, v in list(alias_candidates.items())[:4]))
+    return {"canonical": len(contributors), "bots": len(bots), "ignored": sum(ignored.values()),
+            "merged_identities": merged[:50], "teams": {k: len(v) for k, v in team_members.items()},
+            "undefined_team_active": len(undefined_active), "alias_candidates": alias_candidates}
 
-    # ---------- output ----------
-    out = {"analysis_root": str(root), "config": str(conf_path), "config_exists": exists,
-           "sub_landscapes": [str(s.relative_to(root)) for s in subs],
-           "repositories": [{k: v for k, v in r.items() if k not in ("contributors", "file_paths", "extensions")} for r in repos],
-           "included": len(included), "excluded": len(repos) - len(included),
-           "tags": dict(tag_hits.most_common()), "virtual_landscapes": virtual,
-           "contributors": {"canonical": len(contributors), "bots": len(bots), "ignored": sum(ignored.values()),
-                            "merged_identities": merged[:50], "teams": {k: len(v) for k, v in team_members.items()},
-                            "undefined_team_active": len(undefined_active), "alias_candidates": alias_candidates},
-           "errors": errors, "warnings": warnings, "notes": notes}
-    if args.json:
-        Path(args.json).write_text(json.dumps(out, indent=2))
 
+def print_report(out, repos, included, cfg, conf_path, exists, subs, tag_hits):
+    root, errors, warnings, notes = out["analysis_root"], out["errors"], out["warnings"], out["notes"]
+    people = out["contributors"]
     print(f"Sokrates landscape check — {root}")
     print(f"config: {conf_path} ({'exists' if exists else 'MISSING — defaults previewed'})   name: {(cfg('metadata', {}) or {}).get('name', '')!r}")
     print(f"sub-landscapes: {len(subs)}   repositories found: {len(repos)}   included: {len(included)}   excluded: {len(repos) - len(included)}")
@@ -420,18 +420,56 @@ def main():
         print(f"  … {len(repos) - 60} more")
     if tag_hits:
         print("\nTags: " + ", ".join(f"{k} ({n})" for k, n in tag_hits.most_common(20)))
-    if virtual:
+    if out["virtual_landscapes"]:
         print("\nVirtual landscapes:")
-        for v in virtual:
+        for v in out["virtual_landscapes"]:
             print(f"  {v['landscape']:<40} {v['repositories']:>4} repos   {', '.join(v['names'][:6])}")
-    print(f"\nContributors: {len(contributors)} canonical, {len(bots)} bots, {sum(ignored.values())} ignored, {len(merged)} identities merged by config"
-          + (", teams: " + ", ".join(f"{k} ({len(v)})" for k, v in sorted(team_members.items(), key=lambda kv: -len(kv[1]))[:10]) if team_members else ", no teams configured"))
+    teams = people["teams"]
+    print(f"\nContributors: {people['canonical']} canonical, {people['bots']} bots, {people['ignored']} ignored, {len(people['merged_identities'])} identities merged by config"
+          + (", teams: " + ", ".join(f"{k} ({v})" for k, v in sorted(teams.items(), key=lambda kv: -kv[1])[:10]) if teams else ", no teams configured"))
     for level, items in (("ERROR", errors), ("WARNING", warnings), ("note", notes)):
         for it in items:
             print(f"{level}: {it}")
     print(f"\n{'FAILED' if errors else 'OK'}: {len(errors)} errors, {len(warnings)} warnings")
-    return 1 if errors else 0
 
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("analysis_root")
+    ap.add_argument("--conf", help="landscape config.json (default <root>/_sokrates_landscape/config.json)")
+    ap.add_argument("--json")
+    args = ap.parse_args()
+    errors, warnings, notes = [], [], []
+    root = Path(args.analysis_root).resolve()
+    if not root.is_dir():
+        print(f"ERROR: {root} is not a directory"); return 1
+    conf_path = Path(args.conf) if args.conf else root / "_sokrates_landscape" / "config.json"
+    folder = conf_path.parent
+    config, exists = load_json(conf_path, errors, {})
+    if not exists:
+        notes.append(f"{conf_path} does not exist yet — updateLandscape will create it with defaults; previewing defaults")
+    tags_doc, _ = load_json(folder / "config-tags.json", errors, [])
+    teams_doc, _ = load_json(folder / "config-teams.json", errors, {"teams": []})
+    people_doc, _ = load_json(folder / "config-people.json", errors, {"people": []})
+    lint_config_keys(config, warnings, notes)
+    cfg = config_reader(config)
+    check_regexes(cfg, tags_doc, teams_doc, people_doc, errors, warnings)
+    repos, subs = discover_repositories(root, cfg, errors, warnings)
+    included = apply_thresholds(repos, cfg)
+    tag_hits = assign_tags(included, tags_doc, notes)
+    virtual = assign_virtual(cfg("virtualLandscapes", {}), included, warnings)
+    people = contributor_pipeline(included, cfg, people_doc, teams_doc, warnings, notes)
+    out = {"analysis_root": str(root), "config": str(conf_path), "config_exists": exists,
+           "sub_landscapes": [str(s.relative_to(root)) for s in subs],
+           "repositories": [{k: v for k, v in r.items() if k not in ("contributors", "file_paths", "extensions")} for r in repos],
+           "included": len(included), "excluded": len(repos) - len(included),
+           "tags": dict(tag_hits.most_common()), "virtual_landscapes": virtual,
+           "contributors": people,
+           "errors": errors, "warnings": warnings, "notes": notes}
+    if args.json:
+        Path(args.json).write_text(json.dumps(out, indent=2))
+    print_report(out, repos, included, cfg, conf_path, exists, subs, tag_hits)
+    return 1 if errors else 0
 
 if __name__ == "__main__":
     sys.exit(main())

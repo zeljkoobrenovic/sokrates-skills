@@ -295,3 +295,29 @@ class ScannerMetadataTest(FixtureTest):
         rendered = run("render", folder)
         self.assert_ok(rendered)
         self.assertIn("Landscape synthesis", (folder / "index.html").read_text())
+
+
+class DiffGateTest(FixtureTest):
+
+    def test_fail_on_trips_only_for_new_or_escalated_findings_at_the_threshold(self):
+        old = read_json(ALPHA_INSIGHTS / "security-scan.json")
+        new = dict(old)
+        new["findings"] = [f for f in old["findings"] if not f["id"].endswith("public-cache-bucket")]   # a high one resolved
+        new["findings"].append({**old["findings"][2], "id": "security-scan/secrets/new-low", "severity": "low", "title": "new low"})
+        new_path = self.tmp / "new.json"
+        write_json(new_path, new)
+        result = run("diff", ALPHA_INSIGHTS / "security-scan.json", new_path, "--fail-on", "medium")
+        self.assertEqual(result.returncode, 1, "changed, but nothing new at medium or above")
+        self.assertNotIn("GATE", result.stderr)
+        result = run("diff", ALPHA_INSIGHTS / "security-scan.json", new_path, "--fail-on", "low")
+        self.assertEqual(result.returncode, 3)
+        self.assertIn("new low: security-scan/secrets/new-low", result.stderr)
+        # a persisting finding whose severity rose to the threshold trips it too
+        escalated = dict(old)
+        escalated["findings"] = [dict(f, severity="high") if f["id"].endswith("runs-as-root") else f for f in old["findings"]]
+        write_json(new_path, escalated)
+        result = run("diff", ALPHA_INSIGHTS / "security-scan.json", new_path, "--fail-on", "high")
+        self.assertEqual(result.returncode, 3)
+        self.assertIn("medium -> high: security-scan/containers/runs-as-root", result.stderr)
+        result = run("diff", ALPHA_INSIGHTS / "security-scan.json", ALPHA_INSIGHTS / "security-scan.json", "--fail-on", "low")
+        self.assertEqual(result.returncode, 0, "identical runs never trip the gate")

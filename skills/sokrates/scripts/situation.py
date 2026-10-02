@@ -138,17 +138,25 @@ def tooling():
             "docker": bool(docker), "run": run, "agents": agents}
 
 
-def repository_situation(folder):
-    sokrates_dir = folder / "_sokrates"
+def repository_situation(folder, sokrates_dir=None):
+    """A repository with its analysis under _sokrates/, or (sokrates_dir given) an analysis kept without its source,
+    the layout analyzeGitRepo leaves: config.json next to reports/."""
+    analysis_only = sokrates_dir is not None
+    sokrates_dir = sokrates_dir or folder / "_sokrates"
     config = read_json(sokrates_dir / "config.json") if (sokrates_dir / "config.json").is_file() else None
     data_zip = sokrates_dir / "reports" / "data" / "data.zip"
     insights = sokrates_dir / "reports" / "ai-insights"
-    s = {"kind": "repository", "folder": str(folder), "git": (folder / ".git").exists(),
+    s = {"kind": "analysis" if analysis_only else "repository", "folder": str(folder), "git": (folder / ".git").exists(),
          "config": config is not None, "analysis": data_zip.is_file(), "analysis_stale": None,
          "findings": {}, "findings_total": 0, "findings_attention": 0, "findings_with_recommendation": 0,
          "people_config": (sokrates_dir / "config-people.json").is_file(), "post_analysis": None,
          "metrics": {}, "largest_component_share": None, "components": None, "decompositions": [],
-         "concerns": [], "contributors": None, "explorer": (insights / "index.html").is_file(), "has_sources": has_source_files(folder)}
+         "concerns": [], "contributors": None, "explorer": (insights / "index.html").is_file(),
+         "has_sources": False if analysis_only else has_source_files(folder), "source_url": None}
+    if analysis_only:
+        marker = read_json(sokrates_dir / "source.json")
+        if isinstance(marker, dict):
+            s["source_url"] = marker.get("url")
     if config:
         s["decompositions"] = [{"name": d.get("name"), "depth": d.get("componentsFolderDepth"), "explicit": len(d.get("components") or [])}
                                for d in config.get("logicalDecompositions") or []]
@@ -234,6 +242,8 @@ def landscape_situation(folder):
 def classify(folder):
     if (folder / "_sokrates_landscape").is_dir():
         return landscape_situation(folder)
+    if (folder / "config.json").is_file() and (folder / "reports" / "data" / "data.zip").is_file() and not (folder / "_sokrates").is_dir():
+        return repository_situation(folder, sokrates_dir=folder)
     if (folder / "_sokrates").is_dir() or (folder / ".git").exists():
         return repository_situation(folder)
     repos = find_repository_analyses(folder, max_depth=2)
@@ -248,6 +258,19 @@ def classify(folder):
 
 def step(skill, why, command=None):
     return {"skill": skill, "why": why, "command": command}
+
+
+def analysis_steps(s, tools):
+    """An analysis kept without its source: everything that needs the tree happens where the source is."""
+    run = tools["run"] or "sokrates"
+    url = s.get("source_url")
+    where = f"`{run} analyzeGitRepo -url {url}`" if url else f"`{run} analyzeGitRepo -url <git url>`"
+    steps = [step("analyzeGitRepo", "this folder holds an analysis but no source code (the layout analyzeGitRepo keeps): scans, configuration previews "
+                  "and improvements need the tree — re-run " + where + " (it reuses this config.json) with -ai <agent> to scan, or clone the repository and work there")]
+    if s["findings"]:
+        steps.append(step("sokrates-scan-core", f"{s['findings_total']} findings from {len(s['findings'])} scanners are here to read, summarize or diff: "
+                          "summarize_findings.py / diff_findings.py on reports/ai-insights"))
+    return steps
 
 
 def repository_steps(s, tools):
@@ -322,9 +345,12 @@ def describe(s, tools):
     lines = []
     if s["kind"] == "empty":
         lines.append(f"{s['folder']}: no source files, no Sokrates analysis, no landscape.")
-    elif s["kind"] == "repository":
+    elif s["kind"] in ("repository", "analysis"):
         name = s.get("name") or Path(s["folder"]).name
-        lines.append(f"Repository {name} ({s['folder']})" + ("" if s["git"] else ", no .git"))
+        if s["kind"] == "analysis":
+            lines.append(f"Analysis of {name} ({s['folder']}), without the source" + (f"; from {s['source_url']}" if s.get("source_url") else ""))
+        else:
+            lines.append(f"Repository {name} ({s['folder']})" + ("" if s["git"] else ", no .git"))
         if s["analysis"]:
             m = s["metrics"]
             parts = [f"analysis {s.get('analysis_age_days')} days old" + (" — STALE, older than the last commit" if s["analysis_stale"] else "")]
@@ -371,7 +397,7 @@ def main():
         return 2
     tools = tooling()
     s = classify(folder)
-    steps = {"repository": repository_steps, "landscape": landscape_steps}.get(s["kind"], lambda s, t: [
+    steps = {"repository": repository_steps, "analysis": analysis_steps, "landscape": landscape_steps}.get(s["kind"], lambda s, t: [
         step("none", "nothing to do here — give a repository folder, a git URL (`sokrates analyzeGitRepo -url …`) or a folder of analyses")])(s, tools)
     for line in describe(s, tools):
         print(line)

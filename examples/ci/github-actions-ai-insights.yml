@@ -54,10 +54,11 @@ jobs:
           python3 $CORE/summarize_findings.py _sokrates/reports/ai-insights >> "$GITHUB_STEP_SUMMARY"
           python3 $CORE/merge_findings.py _sokrates/reports/ai-insights -o _sokrates/reports/ai-insights/combined-report.json
           if [ -f previous/combined-report.json ]; then
-            python3 $CORE/diff_findings.py previous/combined-report.json _sokrates/reports/ai-insights/combined-report.json -o diff.md || true
+            # exit 3 = a NEW finding (or an escalated one) at medium or above; resolved and persisting ones never fail the job
+            python3 $CORE/diff_findings.py previous/combined-report.json _sokrates/reports/ai-insights/combined-report.json -o diff.md --fail-on medium
+            status=$?
             cat diff.md >> "$GITHUB_STEP_SUMMARY"
-            # fail on a NEW finding of severity medium or above (resolved and persisting ones never fail the job)
-            if grep -E "^\+.*(🔴|🟠|🟡)" diff.md; then echo "new findings above low" && exit 1; fi
+            [ "$status" -eq 3 ] && exit 1 || true
           fi
 
       - uses: actions/upload-artifact@v4

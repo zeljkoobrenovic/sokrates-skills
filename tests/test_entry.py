@@ -2,7 +2,7 @@
 import json
 import os
 
-from tests.support import ALPHA, ALPHA_DATA_ZIP, BETA, FIXTURES, LANDSCAPE, FixtureTest, read_json, run
+from tests.support import ALPHA, ALPHA_DATA_ZIP, BETA, FIXTURES, LANDSCAPE, FixtureTest, read_json, run, write_json
 
 def situation(self, *args, env=None):
     out = self.tmp / "situation.json"
@@ -187,3 +187,26 @@ class StalenessTest(FixtureTest):
         self.assertTrue(doc["situation"]["analysis_stale"])
         self.assertIn("STALE", result.stdout)
         self.assertEqual(doc["steps"][0]["skill"], "analyze")
+
+
+class AnalysisWithoutSourceTest(FixtureTest):
+    """An analyzeGitRepo output (config.json next to reports/, no source) is recognized and routed to where the source is."""
+
+    def test_analysis_only_folder(self):
+        doc, result = situation(self, LANDSCAPE / "acme" / "alpha")
+        s = doc["situation"]
+        self.assertEqual(s["kind"], "analysis")
+        self.assertFalse(s["has_sources"])
+        self.assertEqual(s["metrics"]["LINES_OF_CODE_MAIN"], 131)
+        self.assertEqual(doc["steps"][0]["skill"], "analyzeGitRepo")
+        self.assertIn("analyzeGitRepo -url <git url>", doc["steps"][0]["why"])
+        self.assertIn("Analysis of Alpha", result.stdout)
+        self.assertIn("without the source", result.stdout)
+
+    def test_source_marker_gives_the_url(self):
+        folder = self.copy_of(LANDSCAPE / "acme" / "alpha", "alpha-analysis")
+        write_json(folder / "source.json", {"url": "https://github.com/acme/alpha.git", "command": "analyzeLandscape", "analyzedOn": "2025-09-01"})
+        doc, result = situation(self, folder)
+        self.assertEqual(doc["situation"]["source_url"], "https://github.com/acme/alpha.git")
+        self.assertIn("analyzeGitRepo -url https://github.com/acme/alpha.git", doc["steps"][0]["why"])
+        self.assertIn("from https://github.com/acme/alpha.git", result.stdout)

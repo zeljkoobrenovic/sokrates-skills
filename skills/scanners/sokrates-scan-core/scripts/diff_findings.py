@@ -7,9 +7,11 @@ disappeared, persisted, and — among persisting ones — severity or confidence
 changes. Exits 1 if anything changed (usable as a CI signal), 0 if identical.
 
 Usage:
-  python3 diff_findings.py <old.json> <new.json> [-o diff.txt]
+  python3 diff_findings.py <old.json> <new.json> [-o diff.txt] [--fail-on low|medium|high|critical]
 
-Without -o, prints the diff to stdout.
+Without -o, prints the diff to stdout. --fail-on <severity> is the CI gate: exit 3 when a NEW
+finding, or a persisting one whose severity rose, is at that severity or above; resolved and
+unchanged findings never fail a build. Exit codes: 0 identical, 1 changed, 2 bad input, 3 gate fired.
 """
 
 import argparse
@@ -99,12 +101,30 @@ def render(old_doc, new_doc) -> tuple[str, bool]:
     return "\n".join(out), has_changes
 
 
+def gate(old_doc, new_doc, threshold_name):
+    """The findings that trip a --fail-on gate: new at or above the threshold, or persisting with a severity that rose to it."""
+    threshold = SEVERITY_ORDER[threshold_name]
+    old_by, new_by = by_id(old_doc), by_id(new_doc)
+    tripped = []
+    for fid, f in new_by.items():
+        sev = SEVERITY_ORDER.get(str(f.get("severity", "info")).lower(), 4)
+        if sev > threshold:
+            continue
+        if fid not in old_by:
+            tripped.append(f"new {f.get('severity')}: {fid}")
+        elif SEVERITY_ORDER.get(str(old_by[fid].get("severity", "info")).lower(), 4) > sev:
+            tripped.append(f"{old_by[fid].get('severity')} -> {f.get('severity')}: {fid}")
+    return tripped
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("old")
     ap.add_argument("new")
     ap.add_argument("-o", "--output", help="Write the (markdown-formatted) text here instead of stdout")
+    ap.add_argument("--fail-on", choices=["low", "medium", "high", "critical"],
+                    help="exit 3 when a new finding, or a persisting one whose severity rose, is at this severity or above (a CI gate)")
     args = ap.parse_args()
     try:
         old_doc, new_doc = load(Path(args.old)), load(Path(args.new))
@@ -117,6 +137,13 @@ def main():
         print(f"wrote {args.output}")
     else:
         print(text)
+    if args.fail_on:
+        tripped = gate(old_doc, new_doc, args.fail_on)
+        if tripped:
+            print(f"\nGATE: {len(tripped)} finding(s) at {args.fail_on} or above are new or escalated:", file=sys.stderr)
+            for t in tripped:
+                print(f"  {t}", file=sys.stderr)
+            return 3
     return 1 if has_changes else 0
 
 

@@ -65,7 +65,7 @@ Two more scripts operate on finished findings files; run them when asked for a c
   ```bash
   python3 <core-skill-path>/scripts/diff_findings.py old.json new.json [-o diff.txt]
   ```
-  Reports new / resolved / persisting findings and severity/confidence changes; exit code 1 when anything changed (usable as a CI gate), 0 when identical.
+  Reports new / resolved / persisting findings and severity/confidence changes; exit code 1 when anything changed, 0 when identical. `--fail-on medium` (or `low`/`high`/`critical`) is the CI gate: exit 3 when a new finding, or a persisting one whose severity rose, is at that level or above — resolved and unchanged findings never fail a build.
 - **Summarize** — the text to paste into a pull request, a wiki page or a chat (the explorer is for browsing):
   ```bash
   python3 <core-skill-path>/scripts/summarize_findings.py _sokrates/reports/ai-insights/ [--top 10] [-o summary.md]

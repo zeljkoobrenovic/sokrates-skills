@@ -1,0 +1,41 @@
+README.md
+  s_40c0e74316fcc6::t_5c1cf2bc72c0af 59
+skills/config/sokrates-repo-config/scripts/preview_config.py
+  s_40c0e74316fcc6::t_10e05e97dd1057 169,483-492
+skills/improve/sokrates-improve/scripts/select_targets.py
+  s_40c0e74316fcc6::t_9c4f23e23c4370 11-13,28-45,51,55-56,74,77-78,101,105-106,110-123,125-130,135,138,147-148,167
+skills/scanners/README.md
+  s_40c0e74316fcc6::t_1e1ef9ea416607 51
+skills/scanners/landscape-synthesis-scan/SKILL.md
+  s_40c0e74316fcc6::t_aa7cd4c26b4b2e 1-68
+skills/scanners/landscape-synthesis-scan/scripts/landscape_digest.py
+  s_40c0e74316fcc6::t_0525efbeda7089 1-204
+skills/sokrates/SKILL.md
+  s_40c0e74316fcc6::t_0a6b5f096796b9 84
+skills/sokrates/scripts/situation.py
+  s_40c0e74316fcc6::t_6e2e4daf53f6b3 311-313
+tests/support.py
+  s_40c0e74316fcc6::t_234569581aadb7 50
+tests/test_config.py
+  s_40c0e74316fcc6::t_f52b597320df3f 184-195
+tests/test_improve.py
+  s_40c0e74316fcc6::t_17aa4dee2cc475 188-219
+tests/test_landscape_synthesis.py
+  s_40c0e74316fcc6::t_cb81d617ec6740 1-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "91bcebda6aad325a3eb1fd943887caee5657a4b3",
+  "prompts": {},
+  "sessions": {
+    "s_40c0e74316fcc6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a859e40-f6c6-4dfa-8fdb-6c295588cf73",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

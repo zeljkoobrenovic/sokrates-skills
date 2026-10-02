@@ -193,26 +193,9 @@ def pct(a, b):
     return round(100.0 * a / b, 1) if b else 0.0
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--src-root", required=True, help="Analyzed source root (where git-history.txt lives)")
-    ap.add_argument("--data", help="Extracted Sokrates data directory (fallback history + current file inventory)")
-    ap.add_argument("--period", default="auto", choices=["auto", "month", "quarter"])
-    ap.add_argument("--depth", type=int, default=2, help="Path depth that defines an 'area' (default 2)")
-    ap.add_argument("--top", type=int, default=8, help="List sizes (default 8)")
-    ap.add_argument("-o", "--output")
-    args = ap.parse_args()
-
-    src_root = Path(args.src_root)
-    data_dir = data_folder(args.data) if args.data else None
-    history, messages, source = load_history(src_root, data_dir)
-    if not history:
-        print("error: no git history found (git-history.txt in src root, or zips/git-history.zip in data)",
-              file=sys.stderr)
-        return 3
-
-    # Identity merge: several e-mails with the same (normalized) author name are one person.
-    # The canonical id is the e-mail with the most history lines; merges are reported in stats.
+def merge_identities(history):
+    """Several e-mails with the same (normalized) author name are one person; the canonical id is the e-mail with
+    the most history lines. Returns the rewritten history and the merges for the stats."""
     name_emails = defaultdict(Counter)
     for d, email, sha, path, name, added, removed in history:
         key = re.sub(r"[^a-z0-9]", "", (name or "").lower())
@@ -231,15 +214,11 @@ def main():
     if alias:
         history = [(d, alias.get(email, email), sha, path, name, added, removed)
                    for d, email, sha, path, name, added, removed in history]
+    return history, identity_merges
 
-    history.sort(key=lambda r: (r[0], r[2]))
-    first, last = history[0][0], history[-1][0]
-    span_days = (last - first).days or 1
-    mode = args.period if args.period != "auto" else ("month" if span_days < 730 else "quarter")
-    current = load_current_files(data_dir)
-    depth = args.depth
 
-    # ---- aggregate per commit
+def aggregate_commits(history, messages, depth):
+    """One record per commit: size, signal churn, areas touched, sample paths, message and theme."""
     commits = {}
     for d, email, sha, path, name, added, removed in history:
         c = commits.setdefault(sha, {"sha": sha, "date": d, "author": email, "name": name,
@@ -257,67 +236,69 @@ def main():
     for c in commits.values():
         c["message"] = messages.get(c["sha"], "")
         c["theme"] = classify(c["message"])
+    return commits
 
-    # ---- per period
-    periods = {}
-    first_seen_file, last_seen_file = {}, {}
-    file_commits = Counter()
-    file_added, file_removed = Counter(), Counter()
-    author_first, author_last, author_commits = {}, {}, Counter()
-    author_areas = defaultdict(Counter)
-    area_first, area_last = {}, {}
-    area_commits, area_commits_90, area_commits_365 = Counter(), Counter(), Counter()
-    area_authors = defaultdict(set)
-    area_added, area_removed = Counter(), Counter()
-    d90, d365, d180 = last - timedelta(days=90), last - timedelta(days=365), last - timedelta(days=180)
 
+def file_and_area_stats(history, depth):
+    """Per file and per area: commits, lines, first and last touch, authors."""
+    f = {"file_commits": Counter(), "file_added": Counter(), "file_removed": Counter(), "first_seen_file": {}, "last_seen_file": {},
+         "area_first": {}, "area_last": {}, "area_authors": defaultdict(set), "area_added": Counter(), "area_removed": Counter()}
     for d, email, sha, path, name, added, removed in history:
         area = area_of(path, depth)
-        file_commits[path] += 1
-        file_added[path] += added
-        file_removed[path] += removed
-        first_seen_file.setdefault(path, d)
-        last_seen_file[path] = max(last_seen_file.get(path, d), d)
-        area_first.setdefault(area, d)
-        area_last[area] = max(area_last.get(area, d), d)
-        area_authors[area].add(email)
-        area_added[area] += added
-        area_removed[area] += removed
+        f["file_commits"][path] += 1
+        f["file_added"][path] += added
+        f["file_removed"][path] += removed
+        f["first_seen_file"].setdefault(path, d)
+        f["last_seen_file"][path] = max(f["last_seen_file"].get(path, d), d)
+        f["area_first"].setdefault(area, d)
+        f["area_last"][area] = max(f["area_last"].get(area, d), d)
+        f["area_authors"][area].add(email)
+        f["area_added"][area] += added
+        f["area_removed"][area] += removed
+    return f
 
+
+def period_and_author_stats(commits, mode, d90, d365):
+    """Commits folded into periods, areas (all / 365d / 90d) and authors."""
+    a = {"periods": {}, "area_commits": Counter(), "area_commits_90": Counter(), "area_commits_365": Counter(),
+         "author_commits": Counter(), "author_first": {}, "author_last": {}, "author_areas": defaultdict(Counter)}
     for c in commits.values():
         d, email = c["date"], c["author"]
         pk = period_key(d, mode)
-        p = periods.setdefault(pk, {"period": pk, "commits": 0, "authors": set(), "files_touched": 0,
-                                    "added": 0, "removed": 0, "areas": Counter(), "themes": Counter(),
-                                    "new_authors": [], "notable": []})
+        p = a["periods"].setdefault(pk, {"period": pk, "commits": 0, "authors": set(), "files_touched": 0,
+                                         "added": 0, "removed": 0, "areas": Counter(), "themes": Counter(),
+                                         "new_authors": [], "notable": []})
         p["commits"] += 1
         p["authors"].add(email)
         p["files_touched"] += c["files"]
         p["added"] += c["added"]
         p["removed"] += c["removed"]
         p["themes"][c["theme"]] += 1
-        for a, n in c["areas"].items():
-            p["areas"][a] += 1
-            area_commits[a] += 1
+        for ar, n in c["areas"].items():
+            p["areas"][ar] += 1
+            a["area_commits"][ar] += 1
             if d >= d90:
-                area_commits_90[a] += 1
+                a["area_commits_90"][ar] += 1
             if d >= d365:
-                area_commits_365[a] += 1
-        author_commits[email] += 1
-        author_first.setdefault(email, d)
-        author_last[email] = max(author_last.get(email, d), d)
-        for a in c["areas"]:
-            author_areas[email][a] += 1
+                a["area_commits_365"][ar] += 1
+        a["author_commits"][email] += 1
+        a["author_first"].setdefault(email, d)
+        a["author_last"][email] = max(a["author_last"].get(email, d), d)
+        for ar in c["areas"]:
+            a["author_areas"][email][ar] += 1
         p["notable"].append(c)
+    return a
 
-    # new files / deleted files per period
+
+def file_events(history, f, current, periods, mode):
+    """New, moved and deleted files per period. A vanished file whose last commit also introduced a file with the same
+    basename counts as moved, not deleted (cheap heuristic; exact renames need git itself). Returns (deleted, moved)."""
+    first_seen_file, last_seen_file = f["first_seen_file"], f["last_seen_file"]
     for path, d in first_seen_file.items():
         pk = period_key(d, mode)
         periods[pk].setdefault("new_files", 0)
         periods[pk]["new_files"] += 1
     deleted = [p for p in first_seen_file if current and p not in current]
-    # Rename/move detection: a vanished file whose last commit also introduced a file with the same
-    # basename is counted as moved, not deleted (cheap heuristic; exact renames need git itself).
     first_commit_of_file = {}
     for d, email, sha, path, name, added, removed in history:
         first_commit_of_file.setdefault(path, sha)
@@ -338,22 +319,31 @@ def main():
         pk = period_key(last_seen_file[path], mode)
         periods[pk].setdefault("files_last_seen_now_gone", 0)
         periods[pk]["files_last_seen_now_gone"] += 1
-    for email, d in author_first.items():
-        periods[period_key(d, mode)]["new_authors"].append(email)
+    return deleted, moved
 
-    total_commits = len(commits)
-    period_list = []
+
+def commit_row(c, with_churn):
+    row = {"sha": c["sha"][:10], "date": c["date"].isoformat(), "author": c["name"] or c["author"],
+           "message": c["message"], "files": c["files"]}
+    if with_churn:
+        row["added"], row["removed"] = c["added"], c["removed"]
+    row["sample_paths"] = c["paths"][:4]
+    return row
+
+
+def period_rows(periods, author_commits, total_commits, top):
+    rows = []
     for pk in sorted(periods):
         p = periods[pk]
         non_merge = [c for c in p["notable"] if not re.match(r"^\s*merge\b", c["message"] or "", re.I)] or p["notable"]
-        notable = sorted(non_merge, key=lambda c: -c["signal_churn"])[:args.top]
-        notable_files = sorted(non_merge, key=lambda c: -c["files"])[:max(3, args.top // 2)]
-        top_areas = p["areas"].most_common(args.top)
+        notable = sorted(non_merge, key=lambda c: -c["signal_churn"])[:top]
+        notable_files = sorted(non_merge, key=lambda c: -c["files"])[:max(3, top // 2)]
+        top_areas = p["areas"].most_common(top)
         per_author = Counter(c["author"] for c in p["notable"])
         top3 = sum(n for _, n in per_author.most_common(3))
         domains = Counter((c["author"].rsplit("@", 1)[-1] if "@" in c["author"] else "?") for c in p["notable"])
         new_auth = sorted(p["new_authors"], key=lambda e: -author_commits[e])
-        period_list.append({
+        rows.append({
             "period": pk,
             "commits": p["commits"],
             "low_sample": p["commits"] < 10,
@@ -371,71 +361,78 @@ def main():
             "lines_removed": p["removed"],
             "top_areas": [{"area": a, "commits": n, "pct_of_period_commits_touching": pct(n, p["commits"])} for a, n in top_areas],
             "themes": dict(p["themes"].most_common()),
-            "notable_commits": [{
-                "sha": c["sha"][:10], "date": c["date"].isoformat(), "author": c["name"] or c["author"],
-                "message": c["message"], "files": c["files"], "added": c["added"], "removed": c["removed"],
-                "sample_paths": c["paths"][:4]
-            } for c in notable],
-            "notable_by_files_touched": [{
-                "sha": c["sha"][:10], "date": c["date"].isoformat(), "author": c["name"] or c["author"],
-                "message": c["message"], "files": c["files"], "sample_paths": c["paths"][:4]
-            } for c in notable_files],
+            "notable_commits": [commit_row(c, True) for c in notable],
+            "notable_by_files_touched": [commit_row(c, False) for c in notable_files],
         })
+    return rows
 
-    # ---- areas
-    area_list = []
+
+def area_flags(c_all, c90, c365, top_share, current, current_files, first, last, d90, d180, d365):
+    flags = []
+    if c365 >= 8 and top_share >= 70:
+        flags.append("single-owner")
+    if current and current_files == 0 and last is not None and last >= d90:
+        flags.append("not-inventoried")  # still committed to, but absent from Sokrates' inventory (ignored by config?)
+    if first is not None and first >= d180:
+        flags.append("emerging")
+    if current_files >= 5 and last is not None and last < d365:
+        flags.append("dormant")
+    if c365 >= 8 and c90 * 4 > c365 * 1.6:
+        flags.append("accelerating")
+    if c365 >= 8 and c90 * 4 < c365 * 0.4:
+        flags.append("cooling")
+    if c_all == 0 and current_files:
+        flags.append("no-history")
+    if "not-inventoried" in flags and "cooling" in flags:
+        flags.remove("cooling")  # size 0 is an inventory artifact, not a trend
+    return flags
+
+
+def area_rows(commits, current, f, a, depth, total_commits, d90, d180, d365):
     area_current_files, area_current_loc = Counter(), Counter()
     for path, info in current.items():
-        a = area_of(path, depth)
-        area_current_files[a] += 1
-        area_current_loc[a] += info.get("loc", 0)
+        ar = area_of(path, depth)
+        area_current_files[ar] += 1
+        area_current_loc[ar] += info.get("loc", 0)
     area_author_commits = defaultdict(Counter)
     for c in commits.values():
-        for a in c["areas"]:
-            area_author_commits[a][c["author"]] += 1
-    for a in sorted(set(area_commits) | set(area_current_files), key=lambda x: -area_commits.get(x, 0)):
-        c_all, c90, c365 = area_commits.get(a, 0), area_commits_90.get(a, 0), area_commits_365.get(a, 0)
-        flags = []
-        top_author, top_n = (area_author_commits[a].most_common(1) or [(None, 0)])[0]
+        for ar in c["areas"]:
+            area_author_commits[ar][c["author"]] += 1
+    area_commits = a["area_commits"]
+    rows = []
+    for ar in sorted(set(area_commits) | set(area_current_files), key=lambda x: -area_commits.get(x, 0)):
+        c_all, c90, c365 = area_commits.get(ar, 0), a["area_commits_90"].get(ar, 0), a["area_commits_365"].get(ar, 0)
+        top_author, top_n = (area_author_commits[ar].most_common(1) or [(None, 0)])[0]
         top_share = pct(top_n, c_all)
-        if c365 >= 8 and top_share >= 70:
-            flags.append("single-owner")
-        if current and area_current_files.get(a, 0) == 0 and a in area_last and area_last[a] >= d90:
-            flags.append("not-inventoried")  # still committed to, but absent from Sokrates' inventory (ignored by config?)
-        if a in area_first and area_first[a] >= d180:
-            flags.append("emerging")
-        if area_current_files.get(a, 0) >= 5 and a in area_last and area_last[a] < d365:
-            flags.append("dormant")
-        if c365 >= 8 and c90 * 4 > c365 * 1.6:
-            flags.append("accelerating")
-        if c365 >= 8 and c90 * 4 < c365 * 0.4:
-            flags.append("cooling")
-        if c_all == 0 and area_current_files.get(a, 0):
-            flags.append("no-history")
-        if "not-inventoried" in flags and "cooling" in flags:
-            flags.remove("cooling")  # size 0 is an inventory artifact, not a trend
-        area_list.append({
-            "area": a, "commits": c_all, "commits_365d": c365, "commits_90d": c90,
+        flags = area_flags(c_all, c90, c365, top_share, current, area_current_files.get(ar, 0),
+                           f["area_first"].get(ar), f["area_last"].get(ar), d90, d180, d365)
+        rows.append({
+            "area": ar, "commits": c_all, "commits_365d": c365, "commits_90d": c90,
             "share_of_all_commits_pct": pct(c_all, total_commits),
-            "authors": len(area_authors.get(a, ())), "top_author": top_author, "top_author_share_pct": top_share,
-            "first_commit": area_first[a].isoformat() if a in area_first else None,
-            "last_commit": area_last[a].isoformat() if a in area_last else None,
-            "lines_added": area_added.get(a, 0), "lines_removed": area_removed.get(a, 0),
-            "current_files": area_current_files.get(a, 0), "current_loc": area_current_loc.get(a, 0),
+            "authors": len(f["area_authors"].get(ar, ())), "top_author": top_author, "top_author_share_pct": top_share,
+            "first_commit": f["area_first"][ar].isoformat() if ar in f["area_first"] else None,
+            "last_commit": f["area_last"][ar].isoformat() if ar in f["area_last"] else None,
+            "lines_added": f["area_added"].get(ar, 0), "lines_removed": f["area_removed"].get(ar, 0),
+            "current_files": area_current_files.get(ar, 0), "current_loc": area_current_loc.get(ar, 0),
             "flags": flags,
         })
+    return rows
 
-    # focus shift: area share per period for the overall top areas
-    top_area_names = [a["area"] for a in area_list[:args.top]]
+
+def focus_shift(area_list, period_list, top):
+    top_area_names = [ar["area"] for ar in area_list[:top]]
     focus = []
     for p in period_list:
-        shares = {a: 0.0 for a in top_area_names}
+        shares = {ar: 0.0 for ar in top_area_names}
         for ta in p["top_areas"]:
             if ta["area"] in shares:
                 shares[ta["area"]] = ta["pct_of_period_commits_touching"]
         focus.append({"period": p["period"], "commits": p["commits"], "pct_of_period_commits_touching": shares})
+    return {"areas": top_area_names, "by_period": focus}
 
-    # ---- people
+
+def people_rows(commits, a, total_commits, span_days, last, d90, d365):
+    """Every author with status and trend, plus the arrivals, departures, fading and rising lists."""
     gone_after = max(180, span_days // 4)   # "gone" = silent for 180 days, or a quarter of a long history
     d_gone = last - timedelta(days=gone_after)
     d_prev90 = d90 - timedelta(days=90)
@@ -445,6 +442,7 @@ def main():
             a90[c["author"]] += 1
         elif c["date"] >= d_prev90:
             aprev[c["author"]] += 1
+    author_commits, author_first, author_last = a["author_commits"], a["author_first"], a["author_last"]
     people = []
     for email in sorted(author_commits, key=lambda e: -author_commits[e]):
         last_d = author_last[email]
@@ -454,7 +452,7 @@ def main():
             "commits_90d": a90[email], "commits_prev_90d": aprev[email],
             "first_commit": author_first[email].isoformat(), "last_commit": last_d.isoformat(),
             "tenure_days": (last_d - author_first[email]).days, "status": status,
-            "top_areas": [a for a, _ in author_areas[email].most_common(3)],
+            "top_areas": [ar for ar, _ in a["author_areas"][email].most_common(3)],
         })
     significant = max(5, total_commits * 0.01)
     arrivals = [p for p in people if parse_date(p["first_commit"]) >= d365]
@@ -466,50 +464,95 @@ def main():
                     key=lambda p: -(p["commits_90d"] - p["commits_prev_90d"]))
     active_now = [p for p in people if p["status"] == "active"]
     drive_by = sum(1 for e in author_commits if author_commits[e] == 1)
+    return {"people": people, "arrivals": arrivals, "departures": departures, "fading": fading, "rising": rising,
+            "active_now": active_now, "drive_by": drive_by, "gone_after": gone_after}
 
-    # ---- lifecycle
+
+def lifecycle_summary(f, current, deleted, moved, last, depth, top):
+    first_seen_file, last_seen_file, file_commits = f["first_seen_file"], f["last_seen_file"], f["file_commits"]
     ages = sorted(((last - d).days for d in first_seen_file.values()))
     def quantile(xs, q):
         return xs[int(q * (len(xs) - 1))] if xs else 0
-    oldest_current = sorted(((first_seen_file[p], p) for p in first_seen_file if not current or p in current))[:args.top]
-    most_rewritten = sorted(((file_removed[p], p) for p in file_commits if (not current or p in current)
-                             and file_commits[p] >= 5), reverse=True)[:args.top]
-    most_committed = file_commits.most_common(args.top)
-    deleted_areas = Counter(area_of(p, depth) for p in deleted).most_common(args.top)
-    lifecycle = {
+    oldest_current = sorted(((first_seen_file[p], p) for p in first_seen_file if not current or p in current))[:top]
+    most_rewritten = sorted(((f["file_removed"][p], p) for p in file_commits if (not current or p in current)
+                             and file_commits[p] >= 5), reverse=True)[:top]
+    most_committed = file_commits.most_common(top)
+    deleted_areas = Counter(area_of(p, depth) for p in deleted).most_common(top)
+    return {
         "files_seen_in_history": len(first_seen_file),
         "files_current": len(current) if current else None,
         "files_deleted": len(deleted) if current else None,
         "files_moved_estimate": len(moved) if current else None,
-        "deleted_by_area": [{"area": a, "files": n} for a, n in deleted_areas],
+        "deleted_by_area": [{"area": ar, "files": n} for ar, n in deleted_areas],
         "file_age_days_quantiles": {"p10": quantile(ages, 0.1), "p50": quantile(ages, 0.5), "p90": quantile(ages, 0.9)},
         "oldest_surviving_files": [{"path": p, "since": d.isoformat(), "commits": file_commits[p]} for d, p in oldest_current],
         "most_committed_files": [{"path": p, "commits": n, "since": first_seen_file[p].isoformat(),
                                   "last": last_seen_file[p].isoformat()} for p, n in most_committed],
-        "most_rewritten_files": [{"path": p, "lines_removed": r, "lines_added": file_added[p],
+        "most_rewritten_files": [{"path": p, "lines_removed": r, "lines_added": f["file_added"][p],
                                   "commits": file_commits[p]} for r, p in most_rewritten],
     }
 
-    # ---- themes overall + trend (first half vs second half of the last 365d)
-    themes_all = Counter(c["theme"] for c in commits.values())
+
+def theme_trend(commits, last, d365):
+    """Theme shares in the older and the recent half of the last 365 days."""
     recent = [c for c in commits.values() if c["date"] >= d365]
     mid = last - timedelta(days=182)
     t_old = Counter(c["theme"] for c in recent if c["date"] < mid)
     t_new = Counter(c["theme"] for c in recent if c["date"] >= mid)
-    theme_trend = {t: {"older_half_pct": pct(t_old[t], sum(t_old.values())),
-                       "recent_half_pct": pct(t_new[t], sum(t_new.values()))}
-                   for t in sorted(set(t_old) | set(t_new))}
+    return {t: {"older_half_pct": pct(t_old[t], sum(t_old.values())),
+                "recent_half_pct": pct(t_new[t], sum(t_new.values()))}
+            for t in sorted(set(t_old) | set(t_new))}
 
-    # ---- activity trend
+
+def activity_trend(commits, last, d90, d365):
     def commits_between(a, b):
         return sum(1 for c in commits.values() if a <= c["date"] < b)
-    trend = {
+    return {
         "commits_last_90d": commits_between(d90, last + timedelta(days=1)),
         "commits_prev_90d": commits_between(d90 - timedelta(days=90), d90),
         "commits_last_365d": commits_between(d365, last + timedelta(days=1)),
         "authors_last_90d": len({c["author"] for c in commits.values() if c["date"] >= d90}),
         "authors_prev_90d": len({c["author"] for c in commits.values() if d90 - timedelta(days=90) <= c["date"] < d90}),
     }
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--src-root", required=True, help="Analyzed source root (where git-history.txt lives)")
+    ap.add_argument("--data", help="Extracted Sokrates data directory (fallback history + current file inventory)")
+    ap.add_argument("--period", default="auto", choices=["auto", "month", "quarter"])
+    ap.add_argument("--depth", type=int, default=2, help="Path depth that defines an 'area' (default 2)")
+    ap.add_argument("--top", type=int, default=8, help="List sizes (default 8)")
+    ap.add_argument("-o", "--output")
+    args = ap.parse_args()
+
+    src_root = Path(args.src_root)
+    data_dir = data_folder(args.data) if args.data else None
+    history, messages, source = load_history(src_root, data_dir)
+    if not history:
+        print("error: no git history found (git-history.txt in src root, or zips/git-history.zip in data)",
+              file=sys.stderr)
+        return 3
+    history, identity_merges = merge_identities(history)
+    history.sort(key=lambda r: (r[0], r[2]))
+    first, last = history[0][0], history[-1][0]
+    span_days = (last - first).days or 1
+    mode = args.period if args.period != "auto" else ("month" if span_days < 730 else "quarter")
+    current = load_current_files(data_dir)
+    depth, top = args.depth, args.top
+    d90, d365, d180 = last - timedelta(days=90), last - timedelta(days=365), last - timedelta(days=180)
+
+    commits = aggregate_commits(history, messages, depth)
+    f = file_and_area_stats(history, depth)
+    a = period_and_author_stats(commits, mode, d90, d365)
+    deleted, moved = file_events(history, f, current, a["periods"], mode)
+    for email, d in a["author_first"].items():
+        a["periods"][period_key(d, mode)]["new_authors"].append(email)
+    total_commits = len(commits)
+    period_list = period_rows(a["periods"], a["author_commits"], total_commits, top)
+    area_list = area_rows(commits, current, f, a, depth, total_commits, d90, d180, d365)
+    people = people_rows(commits, a, total_commits, span_days, last, d90, d365)
+    themes_all = Counter(c["theme"] for c in commits.values())
     busiest = max(period_list, key=lambda p: p["commits"]) if period_list else None
 
     out = {
@@ -518,40 +561,39 @@ def main():
             "history_source": source,
             "history_span": {"first_commit": first.isoformat(), "last_commit": last.isoformat(), "days": span_days},
             "period_mode": mode, "area_depth": depth,
-            "commits": total_commits, "authors": len(author_commits),
+            "commits": total_commits, "authors": len(a["author_commits"]),
             "identity_merges": identity_merges,
-            "files_seen_in_history": len(first_seen_file),
+            "files_seen_in_history": len(f["first_seen_file"]),
             "busiest_period": {"period": busiest["period"], "commits": busiest["commits"]} if busiest else None,
             "messages_available": bool(messages),
             "current_inventory_available": bool(current),
             "themes_overall": dict(themes_all.most_common()),
             "theme_other_pct": pct(themes_all.get("other", 0), total_commits),
             "theme_trend_reliable": pct(themes_all.get("other", 0), total_commits) < 30,
-            "theme_trend_last_year": theme_trend,
-            "activity_trend": trend,
-            "active_authors_now": len(active_now),
-            "drive_by_authors_single_commit": drive_by,
-            "arrivals_last_365d": len(arrivals),
-            "departures": len(departures),
-            "fading_major_contributors": len(fading),
+            "theme_trend_last_year": theme_trend(commits, last, d365),
+            "activity_trend": activity_trend(commits, last, d90, d365),
+            "active_authors_now": len(people["active_now"]),
+            "drive_by_authors_single_commit": people["drive_by"],
+            "arrivals_last_365d": len(people["arrivals"]),
+            "departures": len(people["departures"]),
+            "fading_major_contributors": len(people["fading"]),
         },
         "periods": period_list,
-        "focus_shift": {"areas": top_area_names, "by_period": focus},
-        "areas": [a for a in area_list if a["commits"] >= 5 or a["flags"]][:120],
-        "people": {"top": people[:args.top * 2], "arrivals_last_365d": arrivals[:args.top],
-                   "departures": departures[:args.top], "fading": fading[:args.top], "rising": rising[:args.top],
-                   "gone_threshold_days": gone_after},
-        "lifecycle": lifecycle,
+        "focus_shift": focus_shift(area_list, period_list, top),
+        "areas": [ar for ar in area_list if ar["commits"] >= 5 or ar["flags"]][:120],
+        "people": {"top": people["people"][:top * 2], "arrivals_last_365d": people["arrivals"][:top],
+                   "departures": people["departures"][:top], "fading": people["fading"][:top], "rising": people["rising"][:top],
+                   "gone_threshold_days": people["gone_after"]},
+        "lifecycle": lifecycle_summary(f, current, deleted, moved, last, depth, top),
     }
     text = json.dumps(out, indent=2)
     if args.output:
         Path(args.output).write_text(text)
-        print(f"wrote {args.output}: {total_commits} commits, {len(author_commits)} authors, "
+        print(f"wrote {args.output}: {total_commits} commits, {len(a['author_commits'])} authors, "
               f"{first} → {last}, {len(period_list)} {mode}s", file=sys.stderr)
     else:
         print(text)
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

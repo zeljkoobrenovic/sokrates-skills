@@ -90,6 +90,16 @@ The field references under `skills/config/*/references/` were read from the Sokr
 
 Every skill is a folder with a `SKILL.md` (the open [Agent Skills](https://agentskills.io) format), so the same folders work in any tool that supports skills. `install.sh` symlinks all of them into the right places; `git pull` then updates every tool at once.
 
+The shortest way is Sokrates itself (builds since 2026-10-02): it clones this repository into `~/.sokrates/skills/` and
+links every skill, and re-running updates.
+
+```bash
+sokrates installSkills            # → ~/.claude/skills (Claude Code) and ~/.agents/skills (Codex, Gemini CLI, Cursor, Copilot, …)
+sokrates installSkills -project   # → ./.claude/skills and ./.agents/skills of the current project instead (shareable via git)
+```
+
+Or from a clone of this repository:
+
 ```bash
 git clone https://github.com/zeljkoobrenovic/sokrates-skills.git
 cd sokrates-skills

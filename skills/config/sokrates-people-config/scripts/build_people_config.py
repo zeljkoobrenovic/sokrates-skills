@@ -154,19 +154,19 @@ class UnionFind:
             self.parent[rb] = ra
 
 
-def resolve(identities, existing_groups, min_conf):
-    """identities: list of dicts (email, userName, commits, first, last, repos). Returns groups + low-confidence candidates."""
-    # collapse to (email, userName) identity records, aggregate commits
+def collapse_identities(identities):
+    """(email, userName) records with aggregated commits and spans; bots dropped."""
     recs = {}
     for it in identities:
         key = (it["email"], it["userName"])
         r = recs.setdefault(key, {"email": it["email"], "userName": it["userName"], "commits": 0, "first": "", "last": "", "repos": set()})
         r["commits"] += len(it["commits"]) if isinstance(it["commits"], set) else int(it["commits"])
         r["first"] = min([x for x in (r["first"], it["first"]) if x] or [""]); r["last"] = max(r["last"], it["last"]); r["repos"] |= set(it["repos"])
-    recs = {k: v for k, v in recs.items() if not is_bot(v["email"], v["userName"])}
-    uf = UnionFind()
-    for k in recs:
-        uf.find(k)
+    return {k: v for k, v in recs.items() if not is_bot(v["email"], v["userName"])}
+
+
+def index_records(recs):
+    """The records by e-mail, by user-name key and by local part (GitHub noreply logins decoded)."""
     by_email = defaultdict(list)
     by_namekey = defaultdict(list)
     by_local = defaultdict(list)
@@ -183,16 +183,22 @@ def resolve(identities, existing_groups, min_conf):
             by_local[m.group(1)].append(k)
         else:
             by_local[local].append(k)
-    # R1 same email
+    return by_email, by_namekey, by_local, login_of
+
+
+def link_same_email_and_existing(uf, by_email, existing_groups):
+    """R1 same e-mail; R0 the groups an existing config-people.json already declares."""
     for email, ks in by_email.items():
         for other in ks[1:]:
             uf.union(ks[0], other, "R1", "certain", "same e-mail")
-    # existing config: seed certain groups
     for emails in existing_groups:
         ks = [k for e in emails for k in by_email.get(e, [])]
         for other in ks[1:]:
             uf.union(ks[0], other, "R0", "certain", "existing config-people entry")
-    # R2 same name key
+
+
+def link_same_name(uf, by_namekey):
+    """R2 same user-name key (Sokrates' own rule); generic or very short names are reported, not merged."""
     generic_hits = []
     for nk, ks in by_namekey.items():
         if len(ks) < 2:
@@ -201,7 +207,11 @@ def resolve(identities, existing_groups, min_conf):
             generic_hits.append((nk, ks)); continue
         for other in ks[1:]:
             uf.union(ks[0], other, "R2", "high", f"same user-name key `{nk}`")
-    # R3/R4 GitHub logins and local parts
+    return generic_hits
+
+
+def link_logins_and_local_parts(uf, recs, by_local, login_of):
+    """R3 GitHub noreply forms of one login; R4 a login equal to a local part or a user-name key; R5 the same local part on different domains."""
     namekey_index = {name_key(r["userName"]): k for k, r in recs.items() if name_key(r["userName"])}
     for local, ks in by_local.items():
         if len(local) < 3 or local in GENERIC_KEYS:
@@ -214,15 +224,16 @@ def resolve(identities, existing_groups, min_conf):
                     uf.union(a, b, "R3", "high", f"GitHub noreply forms of login `{local}`")
             for b in others:
                 uf.union(a, b, "R4", "high", f"local part `{local}` equals GitHub login")
-        # R4b: login equals someone's name key
         if noreply and local in namekey_index:
             uf.union(noreply[0], namekey_index[local], "R4", "high", f"GitHub login `{local}` equals user-name key")
-        # R5 same local part, different domains
         domains = {recs[k]["email"].split("@")[-1] for k in others}
         if len(others) >= 2 and len(domains) >= 2:
             for b in others[1:]:
                 uf.union(others[0], b, "R5", "medium", f"same local part `{local}` on different domains")
-    # R6 local part derived from a user name (first.last, flast, firstl)
+
+
+def link_derived_local_parts(uf, recs, by_local):
+    """R6 a local part derived from a user name (first.last, flast, firstl, ...)."""
     for k, r in recs.items():
         toks = name_tokens(r["userName"])
         if len(toks) < 2:
@@ -233,9 +244,15 @@ def resolve(identities, existing_groups, min_conf):
             for other in by_local.get(form, []):
                 if other != k and name_key(recs[other]["userName"]) != name_key(r["userName"]):
                     uf.union(k, other, "R6", "medium", f"local part `{form}` derived from `{r['userName']}`")
-    # R7 similar names (not merged)
+
+
+def identity_brief(r):
+    return {"email": r["email"], "userName": r["userName"], "commits": r["commits"]}
+
+
+def similar_name_candidates(uf, recs):
+    """R7 similar user names: reported for a human, never merged. Compared within buckets by the first two characters."""
     low = []
-    # bucket by the first two characters and compare only within a bucket (keeps large landscapes fast)
     buckets = defaultdict(list)
     for k, r in recs.items():
         nk = name_key(r["userName"])
@@ -244,19 +261,21 @@ def resolve(identities, existing_groups, min_conf):
     seen = set()
     pairs = ((a, b) for bucket in buckets.values() if len(bucket) <= 400 for i, a in enumerate(bucket) for b in bucket[i + 1:])
     for (nk1, k1), (nk2, k2) in pairs:
-        if True:
-            if nk1 == nk2 or uf.find(k1) == uf.find(k2) or abs(len(nk1) - len(nk2)) > 3:
+        if nk1 == nk2 or uf.find(k1) == uf.find(k2) or abs(len(nk1) - len(nk2)) > 3:
+            continue
+        sm = difflib.SequenceMatcher(None, nk1, nk2)
+        if sm.quick_ratio() >= 0.9 and sm.ratio() >= 0.9:
+            pair = tuple(sorted((uf.find(k1), uf.find(k2))))
+            if pair in seen:
                 continue
-            sm = difflib.SequenceMatcher(None, nk1, nk2)
-            if sm.quick_ratio() >= 0.9 and sm.ratio() >= 0.9:
-                pair = tuple(sorted((uf.find(k1), uf.find(k2))))
-                if pair in seen:
-                    continue
-                seen.add(pair)
-                low.append({"a": {"email": recs[k1]["email"], "userName": recs[k1]["userName"], "commits": recs[k1]["commits"]},
-                            "b": {"email": recs[k2]["email"], "userName": recs[k2]["userName"], "commits": recs[k2]["commits"]},
-                            "rule": "R7", "confidence": "low", "note": "similar user names — verify before merging"})
-    # apply min confidence: rebuild groups using only edges at or above the threshold
+            seen.add(pair)
+            low.append({"a": identity_brief(recs[k1]), "b": identity_brief(recs[k2]),
+                        "rule": "R7", "confidence": "low", "note": "similar user names — verify before merging"})
+    return low
+
+
+def apply_min_confidence(uf, recs, min_conf):
+    """Groups rebuilt from the edges at or above the threshold; the edges below it as not-applied candidates."""
     allowed = {c for c, rank in CONF_RANK.items() if rank <= CONF_RANK[min_conf]}
     uf2 = UnionFind()
     for k in recs:
@@ -270,9 +289,13 @@ def resolve(identities, existing_groups, min_conf):
     skipped = []
     for (a, b), rs in uf.reasons.items():
         if not any(c in allowed for _, c, _ in rs) and uf2.find(a) != uf2.find(b):
-            skipped.append({"a": {"email": recs[a]["email"], "userName": recs[a]["userName"], "commits": recs[a]["commits"]},
-                            "b": {"email": recs[b]["email"], "userName": recs[b]["userName"], "commits": recs[b]["commits"]},
+            skipped.append({"a": identity_brief(recs[a]), "b": identity_brief(recs[b]),
                             "rule": rs[0][0], "confidence": rs[0][1], "note": rs[0][2] + " — below --min-confidence, not applied"})
+    return groups, skipped, allowed
+
+
+def group_rows(groups, recs, uf, allowed):
+    """One row per merged person: canonical e-mail, display name, identities, the rules that fired, the worst confidence."""
     result = []
     for root, ks in groups.items():
         members = sorted((recs[k] for k in ks), key=lambda r: -r["commits"])
@@ -294,10 +317,26 @@ def resolve(identities, existing_groups, min_conf):
                                        "repos": sorted(r["repos"])[:8]} for r in members],
                        "commits": sum(r["commits"] for r in members), "confidence": worst, "rules": sorted(set(rules))})
     result.sort(key=lambda g: -g["commits"])
-    generic = [{"name_key": nk, "identities": [{"email": recs[k]["email"], "userName": recs[k]["userName"], "commits": recs[k]["commits"]} for k in ks],
+    return result
+
+
+def resolve(identities, existing_groups, min_conf):
+    """identities: list of dicts (email, userName, commits, first, last, repos). Returns groups + low-confidence candidates."""
+    recs = collapse_identities(identities)
+    uf = UnionFind()
+    for k in recs:
+        uf.find(k)
+    by_email, by_namekey, by_local, login_of = index_records(recs)
+    link_same_email_and_existing(uf, by_email, existing_groups)
+    generic_hits = link_same_name(uf, by_namekey)
+    link_logins_and_local_parts(uf, recs, by_local, login_of)
+    link_derived_local_parts(uf, recs, by_local)
+    low = similar_name_candidates(uf, recs)
+    groups, skipped, allowed = apply_min_confidence(uf, recs, min_conf)
+    result = group_rows(groups, recs, uf, allowed)
+    generic = [{"name_key": nk, "identities": [identity_brief(recs[k]) for k in ks],
                 "note": "generic user name shared by several e-mails — NOT merged"} for nk, ks in generic_hits]
     return result, skipped + low, generic
-
 
 def review_flags(group):
     flags = []

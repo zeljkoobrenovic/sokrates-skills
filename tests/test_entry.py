@@ -2,7 +2,7 @@
 import json
 import os
 
-from tests.support import ALPHA, ALPHA_DATA_ZIP, BETA, FIXTURES, LANDSCAPE, FixtureTest, read_json, run, write_json
+from tests.support import ALPHA, ALPHA_DATA_ZIP, BETA, FIXTURES, LANDSCAPE, SKILLS, FixtureTest, read_json, run, write_json
 
 def situation(self, *args, env=None):
     out = self.tmp / "situation.json"
@@ -210,3 +210,28 @@ class AnalysisWithoutSourceTest(FixtureTest):
         self.assertEqual(doc["situation"]["source_url"], "https://github.com/acme/alpha.git")
         self.assertIn("analyzeGitRepo -url https://github.com/acme/alpha.git", doc["steps"][0]["why"])
         self.assertIn("from https://github.com/acme/alpha.git", result.stdout)
+
+
+class InstalledSkillsTest(FixtureTest):
+    """capabilities.py --skills: which skills an agent folder holds, and which the source gained since the last install."""
+
+    def test_missing_skills_since_the_last_install_are_named(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("capabilities", SKILLS / "sokrates/scripts/capabilities.py")
+        import sys
+        sys.path.insert(0, str(SKILLS / "sokrates/scripts"))
+        capabilities = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(capabilities)
+        source = self.tmp / "source"
+        for skill in ("skills/sokrates", "skills/scanners/a-scan", "skills/scanners/b-scan"):
+            (source / skill).mkdir(parents=True)
+            (source / skill / "SKILL.md").write_text("---\nname: x\n---\n")
+        folder = self.tmp / "agent-skills"
+        folder.mkdir()
+        (folder / "sokrates").symlink_to(source / "skills/sokrates")
+        (folder / "a-scan").symlink_to(source / "skills/scanners/a-scan")
+        info = capabilities.installed_skills(folder)
+        self.assertEqual(info["installed"], ["a-scan", "sokrates"])
+        self.assertEqual(info["missing"], ["b-scan"], "b-scan exists in the source but was added after the last install")
+        self.assertEqual(info["source"], str(source.resolve()))
+        self.assertEqual(capabilities.installed_skills(self.tmp / "nowhere")["present"], False)

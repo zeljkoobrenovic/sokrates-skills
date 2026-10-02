@@ -22,7 +22,7 @@ class ValidateFindingsTest(FixtureTest):
 
     def test_a_finding_without_evidence_is_only_a_warning_when_possible(self):
         result = run("validate", ALPHA_INSIGHTS / "reliability-scan.json")
-        self.assertIn("WARNING reliability-scan/overview/single-upstream: no file/line evidence", result.stdout)
+        self.assertIn("WARNING reliability-scan/overview/single-upstream: no file/line evidence attached (confidence 'possible')", result.stdout)
 
     def test_wrong_snippet_fails_with_a_drift_hint(self):
         folder = self.copy_of(ALPHA_INSIGHTS)
@@ -292,6 +292,7 @@ class ScannerMetadataTest(FixtureTest):
                           "evidence": []}]})
         validated = run("validate", folder / "landscape-synthesis-scan.json", "--src-root", root)
         self.assert_ok(validated, "landscape findings have no file evidence; sokrates_refs ground them")
+        self.assertNotIn("WARNING", validated.stdout, "a finding grounded in sokrates_refs is not warned about")
         rendered = run("render", folder)
         self.assert_ok(rendered)
         self.assertIn("Landscape synthesis", (folder / "index.html").read_text())

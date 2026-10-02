@@ -163,9 +163,8 @@ def verify_evidence(findings, src_root: Path, errors, warnings):
                 hint = f" (snippet found near line {hit} instead)" if hit else " (snippet not found anywhere in file)"
                 errors.append(f"{where}: snippet does not match {rel}:{sl}-{el}{hint}")
                 finding_ok = False
-        if not f.get("evidence"):
-            basis = "sokrates_refs-grounded" if f.get("sokrates_refs") else "confidence 'possible'"
-            warnings.append(f"{fid}: no file/line evidence attached ({basis})")
+        if not f.get("evidence") and not f.get("sokrates_refs"):
+            warnings.append(f"{fid}: no file/line evidence attached (confidence 'possible')")
         results.append({"id": fid, "verified": finding_ok, "evidence_count": len(f.get("evidence") or [])})
     return results
 

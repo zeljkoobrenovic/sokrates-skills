@@ -119,10 +119,37 @@ def data_features(path):
             **{feature: entry in names for feature, entry in DATA_FEATURES.items()}}
 
 
+def installed_skills(folder):
+    """The skills an agent folder holds, and the ones its source has that are not linked there (added after the last install).
+    Every entry is a link or a copy of a skill folder; the source is where the `sokrates` entry skill's link points."""
+    folder = Path(folder)
+    if not folder.is_dir():
+        return {"folder": str(folder), "present": False, "installed": [], "missing": [], "source": None}
+    installed = sorted(p.name for p in folder.iterdir() if (p / "SKILL.md").is_file())
+    source, missing = None, []
+    entry = folder / "sokrates"
+    if entry.is_symlink():
+        try:
+            root = entry.resolve().parent.parent          # <source>/skills/sokrates -> <source>
+            if (root / "skills").is_dir():
+                source = str(root)
+                available = {p.parent.name for p in (root / "skills").glob("*/SKILL.md")} | {p.parent.name for p in (root / "skills").glob("*/*/SKILL.md")}
+                missing = sorted(available - set(installed))
+        except OSError:
+            pass
+    return {"folder": str(folder), "present": True, "installed": installed, "missing": missing, "source": source}
+
+
+def agent_skill_folders():
+    home = Path.home()
+    return {"claude": home / ".claude" / "skills", "codex, gemini, cursor, copilot": home / ".agents" / "skills"}
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--run", help="the command prefix that runs Sokrates (default: detected)")
     ap.add_argument("--data", help="a data.zip (or a folder holding one) whose exports to report")
+    ap.add_argument("--skills", action="store_true", help="also report which sokrates-skills the agents' skills folders hold, and which are missing since the last install")
     ap.add_argument("--json", help="write the result as JSON here")
     args = ap.parse_args()
     tools = tooling()
@@ -143,6 +170,8 @@ def main():
             result["capabilities"] = capabilities_of(result["commands"])
     if args.data:
         result["data"] = data_features(args.data)
+    if args.skills:
+        result["skills"] = {agents: installed_skills(folder) for agents, folder in agent_skill_folders().items()}
     if result["error"]:
         print(f"Sokrates: {result['error']}")
     else:
@@ -158,6 +187,14 @@ def main():
         print(f"  data: {d['zip']} (written {d['written']}); " + ", ".join(f"{k}={'yes' if v else 'no'}" for k, v in d.items() if k not in ("zip", "written")))
     elif args.data:
         print(f"  data: no data.zip at {args.data}")
+    for agents, info in (result.get("skills") or {}).items():
+        if not info["present"]:
+            print(f"  skills for {agents}: none ({info['folder']} does not exist) — run `sokrates installSkills`")
+        elif info["missing"]:
+            print(f"  skills for {agents}: {len(info['installed'])} installed, {len(info['missing'])} added since the last install and not linked: "
+                  f"{', '.join(info['missing'])} — run `sokrates installSkills` (or install.sh) again")
+        else:
+            print(f"  skills for {agents}: {len(info['installed'])} installed" + (" (sokrates entry skill missing)" if "sokrates" not in info["installed"] else ""))
     if args.json:
         Path(args.json).write_text(json.dumps(result, indent=2))
     return 0 if not result["error"] else 1

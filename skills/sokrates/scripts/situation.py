@@ -386,6 +386,15 @@ def describe(s, tools):
     wrapped = f" (runs {jar}, built {time.strftime('%Y-%m-%d', time.localtime(Path(jar).stat().st_mtime))})" if jar and Path(jar).is_file() else ""
     lines.append("  Sokrates: " + (f"run as `{run}`{wrapped}" if run else "NOT FOUND (no sokrates, SOKRATES_JAR or docker)") +
                  (f"; agents on PATH: {', '.join(tools['agents'])}" if tools["agents"] else "; no agent CLI on PATH"))
+    try:
+        from capabilities import installed_skills, agent_skill_folders
+        for agents, folder in agent_skill_folders().items():
+            info = installed_skills(folder)
+            if info["present"] and info["missing"]:
+                lines.append(f"  skills for {agents}: {len(info['missing'])} added since the last install and not linked ({', '.join(info['missing'][:5])}"
+                             + (" …" if len(info["missing"]) > 5 else "") + ") — run `sokrates installSkills` again")
+    except ImportError:
+        pass
     return lines
 
 

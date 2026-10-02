@@ -75,7 +75,8 @@ def render(docs, top):
     lines = [f"# AI insights{' — ' + target if target else ''}", "",
              f"**{badge(counts, len(docs))}**" + (f", analyzed {latest[:10]}" if latest else ""), ""]
     attention = [f for f in findings if str(f.get("severity", "info")).lower() != "info"]
-    attention.sort(key=lambda f: (SEVERITY_ORDER.get(str(f.get("severity")).lower(), 4), CONFIDENCE_ORDER.get(str(f.get("confidence")).lower(), 2), f.get("_scanner", ""), f.get("id", "")))
+    # a stable sort: within one severity and confidence the scanner's own order is kept (scanners order findings deliberately)
+    attention.sort(key=lambda f: (SEVERITY_ORDER.get(str(f.get("severity")).lower(), 4), CONFIDENCE_ORDER.get(str(f.get("confidence")).lower(), 2)))
     if attention:
         lines.append(f"## Needs attention ({min(top, len(attention))} of {len(attention)})")
         lines.append("")

@@ -183,29 +183,18 @@ def measure_tree(vl, repos, total_loc, prefix="", warnings=None):
     return rows
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("analysis_root")
-    ap.add_argument("--groups", help="JSON file {landscape name: [name regex or plain name, ...]} — your own grouping to measure")
-    ap.add_argument("-o", "--output")
-    ap.add_argument("--min-members", type=int, default=2)
-    ap.add_argument("--depth", type=int, default=1, help="folder depth for the folders proposal")
-    args = ap.parse_args()
-    root = Path(args.analysis_root).resolve()
-    if not root.is_dir():
-        print(f"error: {root} is not a directory", file=sys.stderr); return 2
-    repos = [r for r in (repo_info(d, root) for d in sorted(discover(root))) if r]
-    if not repos:
-        print(f"error: no repository analyses under {root}", file=sys.stderr); return 2
-    warnings = []
-    # apply the landscape's own filters so counts match what Sokrates will show
+def load_landscape_config(root, warnings):
     lconf_path = root / "_sokrates_landscape" / "config.json"
-    lconf = {}
     if lconf_path.is_file():
         try:
-            lconf = json.loads(lconf_path.read_text())
+            return json.loads(lconf_path.read_text())
         except json.JSONDecodeError as e:
             warnings.append(f"{lconf_path}: invalid JSON ({e}) — thresholds not applied")
+    return {}
+
+
+def apply_thresholds(repos, lconf, warnings):
+    """The repositories the landscape itself keeps (its thresholds and duplicate-name rule), so counts match what Sokrates shows."""
     th_loc = int(lconf.get("repositoryThresholdLocMain", lconf.get("projectThresholdLocMain", 0)) or 0)
     th_contrib = int(lconf.get("repositoryThresholdContributors", lconf.get("projectThresholdContributors", 1)) or 1)
     th_date = str(lconf.get("ignoreRepositoriesLastUpdatedBefore", lconf.get("ignoreProjectsLastUpdatedBefore", "")) or "")
@@ -221,38 +210,71 @@ def main():
         (dropped if why else kept).append((r, why))
     if dropped:
         warnings.append(f"{len(dropped)} repositories are excluded by the landscape's thresholds and not counted here: " + ", ".join(f"{r['name']} ({'; '.join(w)})" for r, w in dropped[:6]) + (" …" if len(dropped) > 6 else ""))
-    repos = [r for r, _ in kept]
+    thresholds = {"repositoryThresholdLocMain": th_loc, "repositoryThresholdContributors": th_contrib, "ignoreRepositoriesLastUpdatedBefore": th_date}
+    return [r for r, _ in kept], thresholds
+
+
+def lint_landscape(repos, root, warnings):
+    """Existing folder sub-landscapes (virtual ones should add a different cut), and names Sokrates cannot tell apart."""
     existing_subs = sorted(str(p.parent.relative_to(root)) for p in root.rglob("_sokrates_landscape/index.html") if p.parent.parent != root and "/landscapes/" not in str(p))
     if existing_subs:
-        warnings.append(f"folder sub-landscapes already exist ({len(existing_subs)}: {', '.join(existing_subs[:8])}{' …' if len(existing_subs) > 8 else ''}) — virtual landscapes should add a *different* view, not repeat the folders")
-    existing_vl = (lconf.get("virtualLandscapes") or {}).get("landscapes") or []
+        warnings.append(f"folder sub-landscapes already exist ({len(existing_subs)}: {', '.join(existing_subs[:8])}{' …' if len(existing_subs) > 8 else ''}) — virtual landscapes should add a *different* cut (technology, activity, ownership), not repeat the folders")
     names = Counter(r["name"] for r in repos)
     dupes = [n for n, c in names.items() if c > 1]
     if dupes:
         warnings.append(f"{len(dupes)} repository names are not unique ({', '.join(dupes[:5])}) — Sokrates keeps the first found; name-based grouping cannot tell them apart")
     if any(not r["name"] for r in repos):
         warnings.append("some repositories have a blank metadata.name — set it in their _sokrates/config.json first")
-    total_loc = sum(r["main_loc"] for r in repos) or 1
-    last = max((r["latest_commit"] for r in repos), default="")
-    proposals = []
+    return existing_subs, names
 
-    def add(kind, landscapes, note=""):
-        rows, rest, coverage = measure(landscapes, repos, total_loc)
+
+class Proposals:
+    """Collects the proposals: a grouping is kept when at least two of its landscapes reach --min-members."""
+
+    def __init__(self, repos, total_loc, min_members):
+        self.repos, self.total_loc, self.min_members = repos, total_loc, min_members
+        self.items = []
+
+    def add(self, kind, landscapes, note=""):
+        rows, rest, coverage = measure(landscapes, self.repos, self.total_loc)
         rows = [r for r in rows if r["repositories"] >= 1]
-        if len([r for r in rows if r["repositories"] >= args.min_members]) < 2:
+        if len([r for r in rows if r["repositories"] >= self.min_members]) < 2:
             return
-        proposals.append({"kind": kind, "landscapes": len(rows), "coverage_pct": coverage, "remainder": len(rest),
-                          "remainder_names": [r["name"] for r in rest][:20], "rows": sorted(rows, key=lambda r: -r["loc"]), "note": note,
-                          "config": to_config(rows)})
+        self.items.append({"kind": kind, "landscapes": len(rows), "coverage_pct": coverage, "remainder": len(rest),
+                           "remainder_names": [r["name"] for r in rest][:20], "rows": sorted(rows, key=lambda r: -r["loc"]), "note": note,
+                           "config": to_config(rows)})
 
-    # ---- naming conventions
+    def add_tree(self, kind, tree, note, warnings, config):
+        """A nested virtualLandscapes object (the existing one, or the user's), measured level by level; returns its rows."""
+        rows = measure_tree(tree, self.repos, self.total_loc, "", warnings)
+        top = [r for r in rows if r["level"] == 0 and not r.get("is_remainder")]
+        rem = next((r for r in rows if r["level"] == 0 and r.get("is_remainder")), None)
+        item = {"kind": kind, "landscapes": len(top), "coverage_pct": rem["coverage_pct"] if rem else 100.0,
+                "remainder": rem["repositories"] if rem else 0, "remainder_names": rem["members_all"][:40] if rem else [],
+                "rows": rows, "note": note, "config": config}
+        self.items.insert(0, item)
+        return rows, top, item
+
+
+def by_key(repos, key):
+    groups = defaultdict(list)
+    for r in repos:
+        groups[key(r)].append(r)
+    return groups
+
+
+def listed(name, rs):
+    return (name, [rx_literal(r["name"]) for r in rs], [])
+
+
+def naming_conventions(repos, min_members):
+    """Shared prefixes, suffixes, tokens and extensions of the repository names, as regex patterns; the org prefix separately."""
     has_org = sum(1 for r in repos if " / " in r["name"]) > 0.5 * len(repos)
     def repo_part(name):
         return name.split(" / ", 1)[1] if has_org and " / " in name else name
+    orgs = None
     if has_org:
         orgs = Counter(r["name"].split(" / ", 1)[0] for r in repos if " / " in r["name"])
-        add("organisations", [(o, [f"{re.escape(o)} / .*"], []) for o, c in orgs.most_common() if c >= args.min_members],
-            "GitHub organisation prefix of `org / repo` names — usually the same as the folders; a starting point for nesting, not the map itself")
     tokens_of = {r["name"]: [t for t in re.split(r"[-_./ ]+", repo_part(r["name"]).lower()) if t] for r in repos}
     prefix_count, suffix_count, token_count = Counter(), Counter(), Counter()
     ext_count = Counter()
@@ -271,58 +293,33 @@ def main():
             conv.append((f"*.{ext}", [f"(?i).*[.]{re.escape(ext)}(-.*)?"], [])); used.add(ext)
     head = "(?i).* / " if has_org else "(?i)"   # with org / repo names, conventions apply to the repo part only
     for tok, c in prefix_count.most_common():
-        if c >= max(2, args.min_members) and tok not in STOP_TOKENS and c < 0.9 * len(repos):
+        if c >= max(2, min_members) and tok not in STOP_TOKENS and c < 0.9 * len(repos):
             conv.append((f"{tok}-*", [f"{head}{re.escape(tok)}[-_./ ].*"], [])); used.add(tok)
     for tok, c in suffix_count.most_common():
-        if c >= max(2, args.min_members) and tok not in STOP_TOKENS and tok not in used and c < 0.9 * len(repos):
+        if c >= max(2, min_members) and tok not in STOP_TOKENS and tok not in used and c < 0.9 * len(repos):
             conv.append((f"*-{tok}", [f"(?i).*[-_./ ]{re.escape(tok)}"], [])); used.add(tok)
     for tok, c in token_count.most_common():
-        if c >= max(3, args.min_members) and tok not in used and tok not in STOP_TOKENS and len(tok) >= 3 and c < 0.9 * len(repos):
+        if c >= max(3, min_members) and tok not in used and tok not in STOP_TOKENS and len(tok) >= 3 and c < 0.9 * len(repos):
             conv.append((f"*{tok}*", [f"(?i).*(^|[-_./ ]){re.escape(tok)}([-_./ ]|$).*"], [])); used.add(tok)
-    add("naming", conv[:30], "regex patterns on repository names (case-insensitive via (?i); org prefixes analysed separately); the only kind that classifies future repositories automatically — product families usually show up as suffix/extension conventions (*.gl, *-sdk, h3-*); drop token groups that are coincidences")
+    return orgs, conv[:30]
 
-    # ---- folders
-    by_folder = defaultdict(list)
+
+def activity_tiers(repos, last):
+    d_last = date.fromisoformat(last[:10]) if re.match(r"\d{4}-\d{2}-\d{2}", last) else date.today()
+    tiers = {"Active (commits in the last 180 days)": [], "Fading (180 days to 2 years)": [], "Dormant (no commits for 2+ years)": []}
     for r in repos:
-        parts = r["folder"].split("/")
-        by_folder["/".join(parts[:args.depth]) if r["folder"] != "." else "(root)"].append(r)
-    add("folders", [(f, [rx_literal(r["name"]) for r in rs], []) for f, rs in sorted(by_folder.items()) if len(rs) >= args.min_members],
-        "explicit name lists per folder — if the folder structure is meaningful, prefer real folder sub-landscapes (a _sokrates_landscape per folder) which need no maintenance")
+        lc = r["latest_commit"][:10]
+        if lc and lc >= (d_last - timedelta(days=180)).isoformat():
+            tiers["Active (commits in the last 180 days)"].append(r)
+        elif lc and lc >= (d_last - timedelta(days=730)).isoformat():
+            tiers["Fading (180 days to 2 years)"].append(r)
+        else:
+            tiers["Dormant (no commits for 2+ years)"].append(r)
+    return tiers
 
-    # ---- technology
-    by_tech = defaultdict(list)
-    for r in repos:
-        by_tech[r["tech"]].append(r)
-    add("technology", [(t, [rx_literal(r["name"]) for r in rs], []) for t, rs in sorted(by_tech.items(), key=lambda kv: -len(kv[1])) if len(rs) >= args.min_members],
-        "dominant language family; explicit lists (Sokrates cannot match on technology) — regenerate when repositories change")
 
-    # ---- activity and size
-    if last:
-        d_last = date.fromisoformat(last[:10]) if re.match(r"\d{4}-\d{2}-\d{2}", last) else date.today()
-        tiers = {"Active (commits in the last 180 days)": [], "Fading (180 days to 2 years)": [], "Dormant (no commits for 2+ years)": []}
-        for r in repos:
-            lc = r["latest_commit"][:10]
-            if lc and lc >= (d_last - timedelta(days=180)).isoformat():
-                tiers["Active (commits in the last 180 days)"].append(r)
-            elif lc and lc >= (d_last - timedelta(days=730)).isoformat():
-                tiers["Fading (180 days to 2 years)"].append(r)
-            else:
-                tiers["Dormant (no commits for 2+ years)"].append(r)
-        add("activity", [(t, [rx_literal(r["name"]) for r in rs], []) for t, rs in tiers.items() if len(rs) >= args.min_members],
-            "snapshot by latest commit — useful for a one-off 'what is alive' view; lists go stale, so regenerate or use ignoreRepositoriesLastUpdatedBefore instead")
-    sizes = {"Large (100k+ LOC)": [r for r in repos if r["main_loc"] >= 100000], "Medium (10k–100k LOC)": [r for r in repos if 10000 <= r["main_loc"] < 100000],
-             "Small (under 10k LOC)": [r for r in repos if r["main_loc"] < 10000]}
-    add("size", [(t, [rx_literal(r["name"]) for r in rs], []) for t, rs in sizes.items() if len(rs) >= args.min_members], "size tiers by main LOC (snapshot)")
-
-    # ---- organisation (dominant e-mail domain)
-    by_domain = defaultdict(list)
-    for r in repos:
-        if r["domains"]:
-            by_domain[r["domains"][0][0]].append(r)
-    add("organisation", [(d, [rx_literal(r["name"]) for r in rs], []) for d, rs in sorted(by_domain.items(), key=lambda kv: -len(kv[1])) if len(rs) >= args.min_members],
-        "dominant contributor e-mail domain per repository — separates in-house from community or one org unit from another when domains differ")
-
-    # ---- teams: greedy clusters of repositories sharing main committers
+def team_clusters(repos, min_members):
+    """Greedy clusters of repositories sharing main committers — a proxy for team ownership."""
     clusters = []
     remaining = [r for r in repos if r["top_committers"]]
     while remaining:
@@ -338,93 +335,103 @@ def main():
     team_ls = []
     team_names = Counter()
     for i, (members, people) in enumerate(sorted(clusters, key=lambda c: -len(c[0]))):
-        if len(members) >= max(2, args.min_members):
+        if len(members) >= max(2, min_members):
             leads = [e for e, _ in Counter(e for r in members for e in r["top_committers"][:3]).most_common(3)
                      if e.split("@")[0] not in ("git", "root", "admin", "noreply", "bot")]
             lead = (leads[0] if leads else "unknown").split("@")[0]
             team_names[lead] += 1
             name = f"Team around {lead}" + (f" ({team_names[lead]})" if team_names[lead] > 1 else "")
-            team_ls.append((name, [rx_literal(r["name"]) for r in members], []))
-    add("teams", team_ls[:15], "repositories whose top-3 committers overlap — a proxy for team ownership; name the groups after the real teams (config-teams.json gives the names when it exists)")
+            team_ls.append(listed(name, members))
+    return team_ls[:15]
 
-    # ---- tags
+
+def propose_all(proposals, repos, last, depth, min_members):
+    """Every grouping the analyses reveal, in the order they are printed."""
+    orgs, conv = naming_conventions(repos, min_members)
+    if orgs is not None:
+        proposals.add("organisations", [(o, [f"{re.escape(o)} / .*"], []) for o, c in orgs.most_common() if c >= min_members],
+                      "GitHub organisation prefix of `org / repo` names — usually the same as the folders; a starting point for nesting, not the map itself")
+    proposals.add("naming", conv, "regex patterns on repository names (case-insensitive via (?i); org prefixes analysed separately); the only kind that classifies future repositories automatically — prefer it when the names carry meaning")
+    by_folder = by_key(repos, lambda r: "/".join(r["folder"].split("/")[:depth]) if r["folder"] != "." else "(root)")
+    proposals.add("folders", [listed(f, rs) for f, rs in sorted(by_folder.items()) if len(rs) >= min_members],
+                  "explicit name lists per folder — if the folder structure is meaningful, prefer real folder sub-landscapes (a _sokrates_landscape per folder) which need no maintenance")
+    by_tech = by_key(repos, lambda r: r["tech"])
+    proposals.add("technology", [listed(t, rs) for t, rs in sorted(by_tech.items(), key=lambda kv: -len(kv[1])) if len(rs) >= min_members],
+                  "dominant language family; explicit lists (Sokrates cannot match on technology) — regenerate when repositories change")
+    if last:
+        proposals.add("activity", [listed(t, rs) for t, rs in activity_tiers(repos, last).items() if len(rs) >= min_members],
+                      "snapshot by latest commit — useful for a one-off 'what is alive' view; lists go stale, so regenerate or use ignoreRepositoriesLastUpdatedBefore instead")
+    sizes = {"Large (100k+ LOC)": [r for r in repos if r["main_loc"] >= 100000], "Medium (10k–100k LOC)": [r for r in repos if 10000 <= r["main_loc"] < 100000],
+             "Small (under 10k LOC)": [r for r in repos if r["main_loc"] < 10000]}
+    proposals.add("size", [listed(t, rs) for t, rs in sizes.items() if len(rs) >= min_members], "size tiers by main LOC (snapshot)")
+    by_domain = by_key([r for r in repos if r["domains"]], lambda r: r["domains"][0][0])
+    proposals.add("organisation", [listed(d, rs) for d, rs in sorted(by_domain.items(), key=lambda kv: -len(kv[1])) if len(rs) >= min_members],
+                  "dominant contributor e-mail domain per repository — separates in-house from community or one org unit from another when domains differ")
+    proposals.add("teams", team_clusters(repos, min_members), "repositories whose top-3 committers overlap — a proxy for team ownership; name the groups after the real teams (config-teams.json gives the names when it exists)")
     by_tag = defaultdict(list)
     for r in repos:
         for t in set(r["tags"]):
             by_tag[t].append(r)
-    add("tags", [(t, [rx_literal(r["name"]) for r in rs], []) for t, rs in sorted(by_tag.items(), key=lambda kv: -len(kv[1])) if len(rs) >= args.min_members][:12],
-        "tag rules that fired in each repository analysis (CI/CD, build tools, frameworks); overlapping by nature")
+    proposals.add("tags", [listed(t, rs) for t, rs in sorted(by_tag.items(), key=lambda kv: -len(kv[1])) if len(rs) >= min_members][:12],
+                  "tag rules that fired in each repository analysis (CI/CD, build tools, frameworks); overlapping by nature")
 
-    # ---- user grouping
-    if args.groups:
-        try:
-            groups = json.loads(Path(args.groups).read_text())
-        except (OSError, json.JSONDecodeError) as e:
-            print(f"error: cannot read --groups: {e}", file=sys.stderr); return 2
-        if isinstance(groups, dict) and "landscapes" in groups:
-            rows = measure_tree(groups, repos, total_loc, "", warnings)
-            top = [r for r in rows if r["level"] == 0 and not r.get("is_remainder")]
-            overlaps = Counter(n for r in top for n in r["members_all"])
-            multi = [n for n, c in overlaps.items() if c > 1]
-            rem = next((r for r in rows if r["level"] == 0 and r.get("is_remainder")), None)
-            proposals.insert(0, {"kind": "user", "landscapes": len(top), "coverage_pct": rem["coverage_pct"] if rem else 100.0,
-                                 "remainder": rem["repositories"] if rem else 0, "remainder_names": rem["members_all"][:40] if rem else [],
-                                 "rows": rows, "in_several": multi, "note": "your virtualLandscapes object, measured (nested rows indented; each level has its own remainder)",
-                                 "config": groups})
-            if multi:
-                warnings.append(f"{len(multi)} repositories fall into several top-level landscapes: {', '.join(multi[:6])}")
-            for r in rows:
-                if not r["repositories"] and not r.get("is_remainder"):
-                    warnings.append(f"landscape `{r['landscape']}` matches no repository — matching is case-sensitive and full-string")
-                if r.get("is_remainder") and r["repositories"] and "/" in r["landscape"]:
-                    warnings.append(f"nested remainder `{r['landscape']}` holds {r['repositories']} repositories — name it (remainderLandscapeMetadata) or extend the nested patterns")
-            groups = {}
-        user_ls = []
-        for gname, pats in groups.items():
-            inc = []
-            if isinstance(pats, dict):   # {"include": [...], "exclude": [...]}
-                exc_list = [str(x) for x in pats.get("exclude") or []]
-                pats = pats.get("include") or []
-            else:
-                exc_list = []
-            for p in pats if isinstance(pats, list) else [pats]:
-                p = str(p)
-                try:
-                    re.compile(p)
-                except re.error as e:
-                    warnings.append(f"group `{gname}`: pattern `{p}` does not compile ({e}) — Sokrates would silently match nothing"); continue
-                is_regex = any(ch in p for ch in ".*+?[](){}|^$\\")
-                if not is_regex and p not in names:
-                    warnings.append(f"group `{gname}`: `{p}` is not a repository name (names are case-sensitive metadata.name values)")
-                inc.append(p if is_regex else rx_literal(p))
-            user_ls.append((gname, inc, exc_list))
-        if not user_ls:
-            user_ls = None
-        rows, rest, coverage = measure(user_ls, repos, total_loc) if user_ls else ([], [], 0.0)
-        if user_ls:
-            overlaps = Counter(n for r in rows for n in r["members_all"])
-            multi = [n for n, c in overlaps.items() if c > 1]
-            proposals.insert(0, {"kind": "user", "landscapes": len(rows), "coverage_pct": coverage, "remainder": len(rest), "remainder_names": [r["name"] for r in rest][:40],
-                                 "rows": rows, "in_several": multi, "note": "your grouping, measured", "config": to_config(rows)})
-            if multi:
-                warnings.append(f"{len(multi)} repositories fall into several of your groups (allowed by Sokrates, but check it is intended): {', '.join(multi[:6])}")
-            for r in rows:
-                if not r["repositories"]:
-                    warnings.append(f"group `{r['landscape']}` matches no repository — remember matching is case-sensitive and full-string")
 
-    if existing_vl:
-        rows = measure_tree(lconf["virtualLandscapes"], repos, total_loc, "", warnings)
-        rem = next((r for r in rows if r["level"] == 0 and r.get("is_remainder")), None)
-        proposals.insert(0, {"kind": "existing", "landscapes": len([r for r in rows if r["level"] == 0 and not r.get("is_remainder")]),
-                             "coverage_pct": rem["coverage_pct"] if rem else 100.0, "remainder": rem["repositories"] if rem else 0,
-                             "remainder_names": rem["members_all"][:40] if rem else [], "rows": rows, "note": "the virtualLandscapes already in config.json, measured", "config": lconf["virtualLandscapes"]})
-    out = {"analysis_root": str(root), "repositories": len(repos), "total_main_loc": total_loc, "latest_commit": last,
-           "landscape_thresholds": {"repositoryThresholdLocMain": th_loc, "repositoryThresholdContributors": th_contrib, "ignoreRepositoriesLastUpdatedBefore": th_date},
-           "existing_folder_sublandscapes": existing_subs,
-           "repository_table": [{k: v for k, v in r.items() if k not in ("extensions",)} for r in repos],
-           "proposals": proposals, "warnings": warnings}
-    if args.output:
-        Path(args.output).write_text(json.dumps(out, indent=2))
+def user_landscapes(groups, names, warnings):
+    """The user's flat grouping {name: [pattern or name, ...] | {include, exclude}} as measurable landscapes; None when empty."""
+    user_ls = []
+    for gname, pats in groups.items():
+        inc = []
+        if isinstance(pats, dict):   # {"include": [...], "exclude": [...]}
+            exc_list = [str(x) for x in pats.get("exclude") or []]
+            pats = pats.get("include") or []
+        else:
+            exc_list = []
+        for p in pats if isinstance(pats, list) else [pats]:
+            p = str(p)
+            try:
+                re.compile(p)
+            except re.error as e:
+                warnings.append(f"group `{gname}`: pattern `{p}` does not compile ({e}) — Sokrates would silently match nothing"); continue
+            is_regex = any(ch in p for ch in ".*+?[](){}|^$\\")
+            if not is_regex and p not in names:
+                warnings.append(f"group `{gname}`: `{p}` is not a repository name (names are case-sensitive metadata.name values)")
+            inc.append(p if is_regex else rx_literal(p))
+        user_ls.append((gname, inc, exc_list))
+    return user_ls or None
+
+
+def measure_user_grouping(groups, proposals, names, warnings):
+    """--groups: a nested virtualLandscapes object, or a flat grouping; inserted first among the proposals."""
+    if isinstance(groups, dict) and "landscapes" in groups:
+        rows, top, item = proposals.add_tree("user", groups, "your virtualLandscapes object, measured (nested rows indented; each level has its own remainder)", warnings, groups)
+        overlaps = Counter(n for r in top for n in r["members_all"])
+        multi = [n for n, c in overlaps.items() if c > 1]
+        item["in_several"] = multi
+        if multi:
+            warnings.append(f"{len(multi)} repositories fall into several top-level landscapes: {', '.join(multi[:6])}")
+        for r in rows:
+            if not r["repositories"] and not r.get("is_remainder"):
+                warnings.append(f"landscape `{r['landscape']}` matches no repository — matching is case-sensitive and full-string")
+            if r.get("is_remainder") and r["repositories"] and "/" in r["landscape"]:
+                warnings.append(f"nested remainder `{r['landscape']}` holds {r['repositories']} repositories — name it (remainderLandscapeMetadata) or extend the nested patterns")
+        return
+    user_ls = user_landscapes(groups, names, warnings)
+    if not user_ls:
+        return
+    rows, rest, coverage = measure(user_ls, proposals.repos, proposals.total_loc)
+    overlaps = Counter(n for r in rows for n in r["members_all"])
+    multi = [n for n, c in overlaps.items() if c > 1]
+    proposals.items.insert(0, {"kind": "user", "landscapes": len(rows), "coverage_pct": coverage, "remainder": len(rest), "remainder_names": [r["name"] for r in rest][:40],
+                               "rows": rows, "in_several": multi, "note": "your grouping, measured", "config": to_config(rows)})
+    if multi:
+        warnings.append(f"{len(multi)} repositories fall into several of your groups (allowed by Sokrates, but check it is intended): {', '.join(multi[:6])}")
+    for r in rows:
+        if not r["repositories"]:
+            warnings.append(f"group `{r['landscape']}` matches no repository — remember matching is case-sensitive and full-string")
+
+
+def print_proposals(out, repos, root, output):
+    proposals, warnings, total_loc, last = out["proposals"], out["warnings"], out["total_main_loc"], out["latest_commit"]
     print(f"Virtual landscape proposals — {root}: {len(repos)} repositories, {total_loc} main LOC, latest commit {last[:10]}")
     for p in proposals:
         print(f"\n[{p['kind']}] {p['landscapes']} landscapes, coverage {p['coverage_pct']}%, remainder {p['remainder']}" + (f"  — {p['note']}" if p.get("note") else ""))
@@ -445,10 +452,52 @@ def main():
             print(f"  {n:<44} {r.get('tech', '?'):<12} {r.get('description', '') or '(no description)'}")
     for w in warnings:
         print(f"WARNING: {w}")
-    if args.output:
-        print(f"\nwrote {args.output}  (repository_table includes descriptions, links, tech, tags, top committers)")
-    return 0
+    if output:
+        print(f"\nwrote {output}  (repository_table includes descriptions, links, tech, tags, top committers)")
 
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("analysis_root")
+    ap.add_argument("--groups", help="JSON file {landscape name: [name regex or plain name, ...]} — your own grouping to measure")
+    ap.add_argument("-o", "--output")
+    ap.add_argument("--min-members", type=int, default=2)
+    ap.add_argument("--depth", type=int, default=1, help="folder depth for the folders proposal")
+    args = ap.parse_args()
+    root = Path(args.analysis_root).resolve()
+    if not root.is_dir():
+        print(f"error: {root} is not a directory", file=sys.stderr); return 2
+    repos = [r for r in (repo_info(d, root) for d in sorted(discover(root))) if r]
+    if not repos:
+        print(f"error: no repository analyses under {root}", file=sys.stderr); return 2
+    groups = None
+    if args.groups:
+        try:
+            groups = json.loads(Path(args.groups).read_text())
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"error: cannot read --groups: {e}", file=sys.stderr); return 2
+    warnings = []
+    lconf = load_landscape_config(root, warnings)
+    repos, thresholds = apply_thresholds(repos, lconf, warnings)
+    existing_subs, names = lint_landscape(repos, root, warnings)
+    total_loc = sum(r["main_loc"] for r in repos) or 1
+    last = max((r["latest_commit"] for r in repos), default="")
+    proposals = Proposals(repos, total_loc, args.min_members)
+    propose_all(proposals, repos, last, args.depth, args.min_members)
+    if groups is not None:
+        measure_user_grouping(groups, proposals, names, warnings)
+    existing_vl = (lconf.get("virtualLandscapes") or {}).get("landscapes") or []
+    if existing_vl:
+        proposals.add_tree("existing", lconf["virtualLandscapes"], "the virtualLandscapes already in config.json, measured", warnings, lconf["virtualLandscapes"])
+    out = {"analysis_root": str(root), "repositories": len(repos), "total_main_loc": total_loc, "latest_commit": last,
+           "landscape_thresholds": thresholds,
+           "existing_folder_sublandscapes": existing_subs,
+           "repository_table": [{k: v for k, v in r.items() if k not in ("extensions",)} for r in repos],
+           "proposals": proposals.items, "warnings": warnings}
+    if args.output:
+        Path(args.output).write_text(json.dumps(out, indent=2))
+    print_proposals(out, repos, root, args.output)
+    return 0
 
 if __name__ == "__main__":
     sys.exit(main())

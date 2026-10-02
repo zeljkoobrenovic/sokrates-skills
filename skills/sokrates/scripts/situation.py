@@ -331,6 +331,9 @@ def landscape_steps(s, tools):
         steps.append(step("sokrates-people-config", "no landscape config-people.json — identities are merged per address only", "python3 <people-config>/scripts/build_people_config.py --landscape ."))
     if s["repositories"] >= 5 and s["virtual_landscapes"] == 0:
         steps.append(step("sokrates-virtual-landscapes", f"{s['repositories']} repositories and no virtual landscapes — group them by naming convention, technology, team or activity"))
+    if s["repositories"] >= 2:
+        steps.append(step("sokrates-improve", f"across {s['repositories']} repositories: the most complex units, costliest duplicates and most urgent findings ranked together say which repository to improve first",
+                          "python3 <sokrates-improve>/scripts/select_targets.py --landscape ."))
     if s["repositories_with_findings"] >= 2:
         steps.append(step("landscape-synthesis-scan", f"{s['repositories_with_findings']} repositories carry AI findings — the portfolio story (concentration, recurring findings, coverage gaps, priorities) is one scan away",
                           "python3 <landscape-synthesis-scan>/scripts/landscape_digest.py ."))

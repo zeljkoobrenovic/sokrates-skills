@@ -12,7 +12,7 @@ What moves which number, and what does not (renaming variables does not remove d
 ## Workflow
 
 1. **Have an analysis.** The repository needs `_sokrates/reports/data/data.zip`. If it is missing or older than the code (compare its date with `git log -1`), run `sokrates analyze` in the repository root first (Docker, JAR or alias - see sokrates.dev). AI findings are optional: when `_sokrates/reports/ai-insights/*.json` exist, their recommendations become targets too.
-2. **Select targets** - deterministic, from the data, never from a guess:
+2. **Select targets** - deterministic, from the data, never from a guess. For a whole landscape ("which repository should we improve first?"), `select_targets.py --landscape <root>` ranks the targets of every repository analysis under the root together, each naming its `repo` and `analysis` folder; pick the repository, then continue below in its checkout (an analysis kept without source needs `sokrates analyzeGitRepo -url …`, which reuses its config, or a clone). For one repository:
    ```bash
    python3 <this-skill-path>/scripts/select_targets.py [--sokrates _sokrates] [--kind units|duplicates|hotspots|findings|all] [--top 10] [--json <scratch>/targets.json]
    ```

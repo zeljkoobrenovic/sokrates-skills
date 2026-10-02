@@ -14,6 +14,14 @@ ordered by priority — the biggest severity for the smallest change first — u
 Usage:
   python3 select_targets.py [--sokrates _sokrates] [--kind all|units|duplicates|hotspots|findings]
                             [--top 10] [--json out.json]
+  python3 select_targets.py --landscape <root> [--kind ...] [--top 10] [--json out.json]
+
+With --landscape, every repository analysis under the root (the layout analyzeLandscape /
+analyzeGitRepo leave: config.json next to reports/, or a checkout with _sokrates/) is ranked together:
+the same targets, each carrying the repository (`repo`) and its analysis folder (`analysis`), so a
+portfolio owner sees the most complex units, the costliest duplicates and the most urgent findings
+across the estate and knows which repository to open first. The improvement itself still happens in
+that repository's checkout (an analysis kept without source needs `analyzeGitRepo -url` or a clone).
 """
 
 import argparse
@@ -139,38 +147,100 @@ def finding_targets(data, top, order="priority"):
     return out
 
 
+def find_analyses(root, max_depth=4):
+    """Repository analyses under a landscape root: a folder with reports/data/data.zip (analyzeGitRepo layout) or a
+    checkout with _sokrates/reports/data/data.zip; never inside _sokrates_landscape. Returns (name, sokrates folder)."""
+    import os
+    found = []
+    root = Path(root)
+    for dirpath, dirs, files in os.walk(root):
+        rel = Path(dirpath).relative_to(root)
+        if "_sokrates_landscape" in rel.parts or ".git" in rel.parts or len(rel.parts) > max_depth + 3:
+            dirs[:] = []
+            continue
+        if Path(dirpath).name == "data" and "data.zip" in files and Path(dirpath).parent.name == "reports":
+            sokrates = Path(dirpath).parent.parent
+            if sokrates != root:
+                config = sokrates / "config.json"
+                name = None
+                try:
+                    name = (json.loads(config.read_text(errors="replace")).get("metadata") or {}).get("name")
+                except (OSError, ValueError):
+                    pass
+                found.append((name or (sokrates.parent.name if sokrates.name == "_sokrates" else sokrates.name), sokrates))
+            dirs[:] = []
+    return sorted(found, key=lambda t: t[0].lower())
+
+
+def collect(data, main_paths, kinds, top, order):
+    result = {}
+    for kind in kinds:
+        if kind == "units":
+            result[kind] = unit_targets(data, main_paths, top)
+        elif kind == "duplicates":
+            result[kind] = duplicate_targets(data, main_paths, top)
+        elif kind == "hotspots":
+            result[kind] = hotspot_targets(data, main_paths, top)
+        else:
+            result[kind] = finding_targets(data, top, order)
+    return result
+
+
+def landscape_rank(root, kinds, top, order):
+    """The per-repository shortlists merged and re-ranked across the landscape; each target names its repository."""
+    merged = {kind: [] for kind in kinds}
+    repositories = []
+    for name, sokrates in find_analyses(root):
+        try:
+            data = SokratesData(sokrates)
+        except FileNotFoundError:
+            continue
+        repositories.append(name)
+        for kind, targets in collect(data, data.main_paths(), kinds, top, order).items():
+            for t in targets:
+                t["repo"] = name
+                t["analysis"] = str(sokrates)
+                merged[kind].append(t)
+    keys = {"units": lambda t: (-t["mcCabe"], -t["loc"]), "duplicates": lambda t: (-t["duplicatedLines"], -t["copies"]),
+            "hotspots": lambda t: -t["score"],
+            "findings": lambda t: (severity_rank(t["severity"]) + EFFORT_RANK[t["effort"]], severity_rank(t["severity"]), t["repo"], t["id"])
+            if order == "priority" else (severity_rank(t["severity"]), EFFORT_RANK[t["effort"]], t["repo"], t["id"])}
+    for kind in merged:
+        merged[kind].sort(key=keys[kind])
+        merged[kind] = merged[kind][:top]
+    return merged, repositories
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--sokrates", default="_sokrates", help="the repository's _sokrates folder (default: _sokrates)")
+    parser.add_argument("--landscape", help="rank across every repository analysis under this landscape root instead")
     parser.add_argument("--kind", default="all", choices=["all", "units", "duplicates", "hotspots", "findings"])
     parser.add_argument("--top", type=int, default=10)
     parser.add_argument("--order", default="priority", choices=["priority", "severity"],
                         help="findings: priority (default) = the biggest severity for the smallest change first; severity = strictly by severity")
     parser.add_argument("--json", help="also write the shortlist as JSON")
     args = parser.parse_args()
-    try:
-        data = SokratesData(args.sokrates)
-    except FileNotFoundError as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        return 1
-    main_paths = data.main_paths()
     kinds = ["units", "duplicates", "hotspots", "findings"] if args.kind == "all" else [args.kind]
-    result = {}
-    for kind in kinds:
-        if kind == "units":
-            result[kind] = unit_targets(data, main_paths, args.top)
-        elif kind == "duplicates":
-            result[kind] = duplicate_targets(data, main_paths, args.top)
-        elif kind == "hotspots":
-            result[kind] = hotspot_targets(data, main_paths, args.top)
-        else:
-            result[kind] = finding_targets(data, args.top, args.order)
+    if args.landscape:
+        result, repositories = landscape_rank(args.landscape, kinds, args.top, args.order)
+        if not repositories:
+            print(f"ERROR: no repository analyses under {args.landscape}", file=sys.stderr)
+            return 1
+        print(f"Landscape {args.landscape}: {len(repositories)} repositories ranked together")
+    else:
+        try:
+            data = SokratesData(args.sokrates)
+        except FileNotFoundError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 1
+        result = collect(data, data.main_paths(), kinds, args.top, args.order)
     for kind, targets in result.items():
         print(f"\n== {kind} ({len(targets)})")
         if not targets:
             print("   none" + (" (no reports/ai-insights findings with a recommendation)" if kind == "findings" else ""))
         for i, t in enumerate(targets, 1):
-            print(f"{i:3d}. {t['id']}")
+            print(f"{i:3d}. {t['id']}" + (f"   [{t['repo']}]" if t.get("repo") else ""))
             print(f"     {t['why']}")
             if t["kind"] == "duplicate":
                 for place in t["places"][:4]:

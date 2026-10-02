@@ -101,21 +101,45 @@ def collect_from_repositories(root):
     return {"repositories": repositories, "findings": findings}
 
 
-def count_repositories(root):
-    """Every repository analysis under the root (with or without findings), like the landscape counts them."""
-    found = 0
+def repositories_under(root):
+    """Every repository analysis under the root (with or without findings), like the landscape counts them: name -> folder."""
+    found = {}
     for dirpath, dirs, files in os.walk(root):
         rel = Path(dirpath).relative_to(root)
         if "_sokrates_landscape" in rel.parts or ".git" in rel.parts or len(rel.parts) > 6:
             dirs[:] = []
             continue
         if Path(dirpath).name == "data" and "data.zip" in files and Path(dirpath).parent.name == "reports":
-            found += 1
+            analysis = Path(dirpath).parent.parent
+            if analysis.name == "_sokrates":
+                analysis = analysis.parent
+            found[repository_name(analysis)] = analysis
             dirs[:] = []
     return found
 
 
-def digest(doc, top, repositories_total=None):
+def scan_attempts(repositories):
+    """What the -ai / -postAnalysis hook recorded per repository (post-analysis.json next to the analysis): a failed
+    attempt explains a coverage gap, a successful one without findings means the agent wrote nothing."""
+    attempts = {}
+    for name, folder in repositories.items():
+        for candidate in (folder / "post-analysis.json", folder / "_sokrates" / "post-analysis.json"):
+            if candidate.is_file():
+                try:
+                    state = json.loads(candidate.read_text(errors="replace"))
+                except (OSError, ValueError):
+                    continue
+                if isinstance(state, dict):
+                    attempts[name] = {"ranOn": state.get("ranOn", ""), "exitCode": state.get("exitCode"), "command": str(state.get("command", ""))[:80]}
+                break
+    return attempts
+
+
+def count_repositories(root):
+    return len(repositories_under(root))
+
+
+def digest(doc, top, repositories_total=None, attempts=None, all_names=None):
     repos = doc.get("repositories") or []
     findings = [f for f in doc.get("findings") or [] if isinstance(f, dict)]
     by_severity = Counter(severity_of(f.get("severity")) for f in findings)
@@ -140,6 +164,9 @@ def digest(doc, top, repositories_total=None):
     for scanner in scanners_present:
         lacking = sorted(r.get("name", "") for r in repos if scanner not in [s.get("scanner") for s in r.get("scanners") or []])
         coverage[scanner] = {"ran_on": len(repos) - len(lacking), "missing_in": lacking}
+    with_findings = {r.get("name", "") for r in repos}
+    unscanned = sorted(n for n in (all_names or []) if n not in with_findings)
+    failed = sorted(n for n, a in (attempts or {}).items() if a.get("exitCode") not in (0, None))
     top_findings = sorted((f for f in findings if severity_of(f.get("severity")) != "info"),
                           key=lambda f: (SEVERITY_ORDER[severity_of(f.get("severity"))], f.get("repo", ""), f.get("id", "")))[:top]
     return {
@@ -149,6 +176,9 @@ def digest(doc, top, repositories_total=None):
         "repositories_ranked": repositories_ranked,
         "recurring": recurring,
         "scanner_coverage": coverage,
+        "repositories_without_findings": unscanned,
+        "scan_attempts": attempts or {},
+        "failed_scans": failed,
         "top_findings": [{k: f.get(k, "") for k in ("repo", "scanner", "id", "severity", "confidence", "title", "recommendation", "url")} for f in top_findings],
     }
 
@@ -174,7 +204,8 @@ def main():
     if not doc.get("repositories"):
         print(f"error: no AI findings in {source} — run the scanners on the repositories first (sokrates analyzeLandscape -ai <agent>)", file=sys.stderr)
         return 1
-    result = digest(doc, args.top, repositories_total)
+    repositories = repositories_under(target) if target.is_dir() else {}
+    result = digest(doc, args.top, repositories_total, scan_attempts(repositories), list(repositories))
     t = result["totals"]
     print(f"Landscape AI findings — {source}")
     print(f"  {t['repositories_with_findings']} of {t['repositories_total']} repositories have findings: {t['findings']} findings, {t['attention']} above info "
@@ -187,6 +218,12 @@ def main():
     for r in result["recurring"][:args.top]:
         print(f"  {r['count']:3d}x  {r['severity']:<8} {r['id']}  — {r['title'][:70]}")
         print(f"        in: {', '.join(r['repositories'][:8])}" + (f" … +{len(r['repositories']) - 8}" if len(r["repositories"]) > 8 else ""))
+    if result["repositories_without_findings"]:
+        names = result["repositories_without_findings"]
+        print(f"\nRepositories without findings: {len(names)}: {', '.join(names[:8])}" + (" …" if len(names) > 8 else ""))
+        for n in result["failed_scans"]:
+            a = result["scan_attempts"][n]
+            print(f"  {n}: the post-analysis hook failed (exit {a['exitCode']}, {a['ranOn']})")
     gaps = {s: c for s, c in result["scanner_coverage"].items() if c["missing_in"]}
     print(f"\nScanner coverage gaps: {len(gaps)}")
     for s, c in gaps.items():

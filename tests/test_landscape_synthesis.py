@@ -84,3 +84,19 @@ class LandscapeDigestTest(FixtureTest):
         doc = read_json(out)
         self.assertEqual(doc["situation"]["repositories_with_findings"], 2)
         self.assertIn("landscape-synthesis-scan", [st["skill"] for st in doc["steps"]])
+
+
+class ScanAttemptsTest(FixtureTest):
+
+    def test_failed_hook_runs_explain_missing_findings(self):
+        root = LandscapeDigestTest.scanned_landscape(self)
+        (root / "acme" / "beta" / "reports" / "ai-insights").rename(root / "acme" / "beta" / "reports" / "ai-insights-off")
+        write_json(root / "acme" / "beta" / "post-analysis.json", {"command": "claude -p ...", "head": "abc", "ranOn": "2025-09-03", "exitCode": 1})
+        out = self.tmp / "digest.json"
+        result = run("landscape_digest", root, "-o", out)
+        self.assert_ok(result)
+        doc = read_json(out)
+        self.assertEqual(doc["repositories_without_findings"], ["Beta"])
+        self.assertEqual(doc["failed_scans"], ["Beta"])
+        self.assertEqual(doc["scan_attempts"]["Beta"]["exitCode"], 1)
+        self.assertIn("Beta: the post-analysis hook failed (exit 1, 2025-09-03)", result.stdout)

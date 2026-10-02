@@ -3,7 +3,7 @@ import importlib.util
 import json
 import sys
 
-from tests.support import ALPHA, ALPHA_SOKRATES, FixtureTest, SCRIPTS, read_json, run, write_json
+from tests.support import ALPHA, ALPHA_SOKRATES, LANDSCAPE, FixtureTest, SCRIPTS, read_json, run, write_json
 
 UNIT = "unit:src/app/service.py#def fetch_orders()"
 
@@ -217,3 +217,27 @@ class EffortAndPriorityTest(FixtureTest):
         self.assertEqual(ids[2], "finding:reliability-scan/retries/fixed-sleep-retry")
         self.assert_ok(run("select_targets", "--sokrates", sokrates, "--kind", "findings", "--order", "severity", "--json", out))
         self.assertEqual(read_json(out)["findings"][0]["id"], "finding:security-scan/infrastructure/public-cache-bucket", "strict severity order on request")
+
+
+class LandscapeRankingTest(FixtureTest):
+    """select_targets.py --landscape ranks the targets of every repository analysis under a landscape root together."""
+
+    def test_targets_across_the_landscape_name_their_repository(self):
+        out = self.tmp / "targets.json"
+        result = run("select_targets", "--landscape", LANDSCAPE, "--json", out)
+        self.assert_ok(result)
+        self.assertIn("2 repositories ranked together", result.stdout)
+        doc = read_json(out)
+        units = doc["units"]
+        self.assertEqual((units[0]["repo"], units[0]["mcCabe"]), ("Alpha", 19))
+        self.assertIn("Beta", [u["repo"] for u in units], "Beta's calculator is in the merged ranking")
+        self.assertTrue(units[0]["analysis"].endswith("acme/alpha"))
+        self.assertEqual(doc["duplicates"][0]["repo"], "Alpha")
+        self.assertIn("[Alpha]", result.stdout)
+
+    def test_no_analyses_is_an_error(self):
+        empty = self.tmp / "empty"
+        empty.mkdir()
+        result = run("select_targets", "--landscape", empty)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("no repository analyses", result.stderr)

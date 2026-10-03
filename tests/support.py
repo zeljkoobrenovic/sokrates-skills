@@ -37,6 +37,7 @@ SCRIPTS = {
     "select_targets": SKILLS / "improve/sokrates-improve/scripts/select_targets.py",
     "measure": SKILLS / "improve/sokrates-improve/scripts/measure.py",
     "diff_outputs": SKILLS / "improve/sokrates-improve/scripts/diff_outputs.py",
+    "check_imports": SKILLS / "improve/sokrates-improve/scripts/check_imports.py",
     "preview_config": SKILLS / "config/sokrates-repo-config/scripts/preview_config.py",
     "propose_decompositions": SKILLS / "config/sokrates-decompositions/scripts/propose_decompositions.py",
     "propose_concerns": SKILLS / "config/sokrates-features-of-interest/scripts/propose_concerns.py",

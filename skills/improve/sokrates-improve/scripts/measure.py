@@ -6,8 +6,8 @@
             `sokrates generateReports`) take a second snapshot with the same --target, or with
             --like before.json to reuse the target definition (a duplicate:<index> changes index
             between runs; --like keeps the files it referred to).
-  compare   before.json after.json [--markdown]
-            the before/after table and the verdict: improved / unchanged / worse / not found, or for a
+  compare   before.json after.json [--markdown | --for-commit]
+            the before/after table and the verdict (--for-commit: the same numbers as a block to paste into the commit message): improved / unchanged / worse / not found, or for a
             finding whose cited code changed without a re-check yet: needs re-check.
             Exit code 0 = improved, 1 = unchanged or worse, 2 = target not found after the change,
             3 = needs re-check (run scan-core's recheck_findings.py --prompt, then the scoped agent re-check).
@@ -106,7 +106,21 @@ def measure_hotspot(data, path):
     return {"found": True, "loc": loc, "units": len(units),
             "maxMcCabe": max([int(u.get("mcCabeIndex", 0)) for u in units] or [0]),
             "longestUnit": max([int(u.get("linesOfCode", 0)) for u in units] or [0]),
-            "commits90": h["commits90"] if h else None}
+            "commits90": h["commits90"] if h else None,
+            "folderFiles": folder_files(data, path)}
+
+
+def folder_files(data, path):
+    """The main files in the hotspot's folder (path, lines), so a split can be seen: the new files are where the lines went."""
+    folder = path.rpartition("/")[0]
+    return [{"path": f.get("relativePath"), "loc": int(f.get("linesOfCode", 0))}
+            for f in data.json("files.json", []) if isinstance(f, dict) and str(f.get("relativePath", "")).rpartition("/")[0] == folder]
+
+
+def new_files(before_measured, after_measured):
+    """Files of the hotspot's folder that exist after the change and did not before."""
+    before_paths = {f["path"] for f in before_measured.get("folderFiles", [])}
+    return [f for f in after_measured.get("folderFiles", []) if f["path"] not in before_paths]
 
 
 def measure_finding(data, finding_id):
@@ -209,6 +223,29 @@ def new_helpers(before_measured, after_measured):
     return [u for u in after_measured.get("fileUnits", []) if (u["name"], u.get("parameters")) not in before_units]
 
 
+def commit_lines(kind, target, result, b, a, split_files):
+    """The numbers for a commit message, ready to paste: one summary line and the before -> after pairs."""
+    name = target.partition(":")[2].rpartition("#")[2].partition("@")[0] if kind == "unit" else target.partition(":")[2].rpartition("/")[2]
+    if kind == "unit":
+        summary = f"{name}: McCabe {b.get('mcCabe')} -> {a.get('mcCabe')}, lines {b.get('loc')} -> {a.get('loc')}"
+        table = [f"| {name} | {b.get('mcCabe')} -> {a.get('mcCabe')} | {b.get('loc')} -> {a.get('loc')} |"]
+        header = "| unit | McCabe | lines |\n| --- | ---: | ---: |"
+    elif kind == "hotspot":
+        extra = f" (+{' +'.join(str(f['loc']) for f in split_files)} new)" if split_files else ""
+        summary = f"{name}: {b.get('loc')} -> {a.get('loc')} lines{extra}, longest unit {b.get('longestUnit')} -> {a.get('longestUnit')}, max McCabe {b.get('maxMcCabe')} -> {a.get('maxMcCabe')}"
+        table = [f"| {name} | {b.get('loc')} -> {a.get('loc')}{extra} | {b.get('units')} -> {a.get('units')} |"]
+        header = "| file | lines | units |\n| --- | ---: | ---: |"
+    elif kind == "duplicate":
+        summary = f"duplicated lines {b.get('duplicatedLines')} -> {a.get('duplicatedLines')} in {len(b.get('files', []))} file(s)"
+        table = [f"| {target} | {b.get('duplicatedLines')} -> {a.get('duplicatedLines')} | {b.get('duplicateBlocks')} -> {a.get('duplicateBlocks')} |"]
+        header = "| duplicate | lines | blocks |\n| --- | ---: | ---: |"
+    else:
+        summary = f"{target}: {b.get('severity')} {'present' if b.get('present') else 'absent'} -> {a.get('severity')} {'present' if a.get('present') else 'absent'}"
+        table = [f"| {target} | {b.get('severity')} -> {a.get('severity')} | {b.get('evidence')} -> {a.get('evidence')} |"]
+        header = "| finding | severity | evidence |\n| --- | ---: | ---: |"
+    return f"{summary} ({result})\n\n{header}\n" + "\n".join(table)
+
+
 def compare(args):
     before, after = json.loads(Path(args.before).read_text()), json.loads(Path(args.after).read_text())
     kind = before["spec"]["kind"]
@@ -225,9 +262,16 @@ def compare(args):
         rows.append(("new helpers in the file", "-", f"{len(helpers)} ({', '.join(h['name'] for h in helpers[:6])}{', …' if len(helpers) > 6 else ''})"))
         rows.append(("mcCabe incl. new helpers", b.get("mcCabe", "-"), a.get("mcCabe", 0) + moved_mccabe))
         rows.append(("loc incl. new helpers", b.get("loc", "-"), a.get("loc", 0) + sum(h["loc"] for h in helpers)))
+    split_files = new_files(b, a) if kind == "hotspot" else []
+    if split_files:
+        names = ", ".join(f"{f['path'].rpartition('/')[2]} ({f['loc']})" for f in split_files[:6]) + (", …" if len(split_files) > 6 else "")
+        rows.append(("new files in the folder", "-", f"{len(split_files)}: {names}"))
+        rows.append(("loc incl. new files", b.get("loc", "-"), a.get("loc", 0) + sum(f["loc"] for f in split_files)))
     for k in ["mainLinesOfCode", "duplicatedLines", "unitsMcCabeOver25", "unitsMcCabeOver10", "unitsOver100Lines"]:
         rows.append((f"total {k}", before["totals"].get(k), after["totals"].get(k)))
-    if args.markdown:
+    if args.for_commit:
+        print(commit_lines(kind, before["target"], result, b, a, split_files if kind == "hotspot" else []))
+    elif args.markdown:
         print(f"**Target:** `{before['target']}` — **{result}**\n")
         print("| metric | before | after |\n| --- | ---: | ---: |")
         for k, x, y in rows:
@@ -242,6 +286,11 @@ def compare(args):
         print("\nThe unit got shorter but not simpler: Sokrates counts every if / else if / loop / case / catch / && / || / ?: as a decision,"
               " so ternaries and boolean operators that flatten nesting still count as branches. Replace them with guard clauses,"
               " a lookup table or a helper that owns the decision.", file=sys.stderr)
+    if split_files and result == "improved":
+        lost, appeared = b.get("loc", 0) - a.get("loc", 0), sum(f["loc"] for f in split_files)
+        if appeared > lost * 1.1 + 20:
+            print(f"\nNote: the file lost {lost} lines but {appeared} appeared in {len(split_files)} new file(s): more code was written than moved"
+                  " - check for duplicated code or copied import lists (check_imports.py) before calling it a split.", file=sys.stderr)
     if helpers and result == "improved":
         moved = sum(h["mcCabe"] - 1 for h in helpers)
         dropped = b.get("mcCabe", 0) - a.get("mcCabe", 0)
@@ -273,6 +322,7 @@ def main():
     c.add_argument("before")
     c.add_argument("after")
     c.add_argument("--markdown", action="store_true")
+    c.add_argument("--for-commit", action="store_true", help="print the numbers as a commit-message block (paste it, never type numbers)")
     args = parser.parse_args()
     if args.command == "snapshot":
         if not args.target and not args.like:

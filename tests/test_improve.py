@@ -463,3 +463,18 @@ class CheckImportsTest(FixtureTest):
         self.assertNotIn("List as L", result.stdout)
         self.assertIn("3 unused import(s) in 3 file(s)", result.stdout)
         self.assertEqual(run("check_imports", clean).returncode, 0)
+
+    def test_comment_markers_inside_strings_do_not_hide_code(self):
+        java = self.tmp / "Paths.java"
+        java.write_text('import java.util.List;\nimport java.io.File;\nimport java.util.Map;\n\nclass Paths {\n    String glob = "**/*.java"; // a /* in a string\n'
+                        '    String url = "https://example.com"; List<File> files; /* real comment with Map */\n}\n')
+        py = self.tmp / "tool.py"
+        py.write_text('import os\nimport json\nimport sys\n\nTAG = "# not a comment"\nprint(os.name, json.dumps({}))  # sys only here\n"""a docstring is a string: a name in it counts as used"""\n')
+        result = run("check_imports", java, py)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("Paths.java: unused import java.util.Map", result.stdout, "the Map is only in a comment")
+        self.assertNotIn("java.util.List", result.stdout, "code after a string holding // or /* still counts")
+        self.assertNotIn("java.io.File", result.stdout)
+        self.assertNotIn("import json", result.stdout, "code after a string holding # still counts")
+        self.assertIn("tool.py: unused import sys", result.stdout, "a name only in a comment is unused")
+        self.assertIn("2 unused import(s) in 2 file(s)", result.stdout)

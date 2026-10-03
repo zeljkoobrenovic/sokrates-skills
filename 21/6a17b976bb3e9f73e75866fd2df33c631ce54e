@@ -1,0 +1,33 @@
+skills/improve/sokrates-improve/references/proving-behaviour.md
+  s_40c0e74316fcc6::t_0470de89f76100 1-39
+skills/improve/sokrates-improve/scripts/select_targets.py
+  s_40c0e74316fcc6::t_fd195aafc85e54 6,59,61
+skills/improve/sokrates-improve/scripts/diff_outputs.py
+  s_40c0e74316fcc6::t_611e17cc1942d9 1-167
+skills/improve/sokrates-improve/scripts/measure.py
+  s_40c0e74316fcc6::t_abe6fe34df7916 15-18,50-76,79-87,124-130,149-151,168,206-211,222-227,241-251
+tests/support.py
+  s_40c0e74316fcc6::t_7b4f5758eda649 39
+skills/improve/sokrates-improve/SKILL.md
+  s_40c0e74316fcc6::t_50ae17226af9d0 31-35,41
+skills/improve/sokrates-improve/references/what-moves-the-numbers.md
+  s_40c0e74316fcc6::t_31a497e00236c4 16-17,24
+tests/test_improve.py
+  s_40c0e74316fcc6::t_a0346a5e1033fc 51,86-89,247-384
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "216a17b976bb3e9f73e75866fd2df33c631ce54e",
+  "prompts": {},
+  "sessions": {
+    "s_40c0e74316fcc6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a859e40-f6c6-4dfa-8fdb-6c295588cf73",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

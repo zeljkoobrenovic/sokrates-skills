@@ -13,13 +13,15 @@ A unit is a function, method or procedure as the language analyzer finds it (`un
 McCabe counts decision points: each `if`, `else if`, loop, `case`, `catch`, `&&`, `||`, ternary adds one. What lowers it for a unit:
 
 - extracting a block of branches into its own function (the complexity moves with it - the total stays, the maximum per unit drops, which is the point);
+  `measure.py compare` shows this: next to the unit's own numbers it lists the helpers that are new in the file and the unit's McCabe and size including them, so a reviewer sees whether decisions were removed or redistributed;
+- not ternaries or boolean operators in place of nested `if`s: `?:`, `&&` and `||` count as decisions exactly like `if` (Java, C-style languages: ` if `, ` while `, ` for `, ` case `, ` catch `, `&&`, `||`, ` ? `), so flattening nesting that way leaves the number where it was or raises it;
 - replacing a chain of `if`/`else if` on one value with a lookup table or polymorphism;
 - early returns that remove nesting only help when they remove branches, not when they only re-indent;
 - deleting dead branches.
 
 What does not: renaming, reordering, comments, splitting a long straight-line function without branches (that lowers unit *size*, which may be the goal for a `unit:` target chosen by size).
 
-Matching after a change: units are matched by file and name, not by line numbers (those shift); a leading folder on the exported path (it depends on how Sokrates was invoked) is tolerated. A renamed unit is reported as "not found"; mention the rename in the report and re-run `select_targets.py` to see the new names. `units.json` holds at most 10,000 units, so in a very large analysis a small unit can fall out of the export - that is also a sign the scope is too wide.
+Matching after a change: units are matched by file and name, not by line numbers (those shift), and overloads by their parameter count (`select_targets.py` ids end in `@<start line>`, which the first snapshot turns into the parameter count `--like` reuses); a leading folder on the exported path (it depends on how Sokrates was invoked) is tolerated. A renamed unit is reported as "not found"; mention the rename in the report and re-run `select_targets.py` to see the new names. `units.json` holds at most 10,000 units, so in a very large analysis a small unit can fall out of the export - that is also a sign the scope is too wide.
 
 ## Same scope, or no comparison
 

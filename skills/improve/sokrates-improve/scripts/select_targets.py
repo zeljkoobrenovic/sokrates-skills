@@ -3,7 +3,7 @@
 
 Deterministic shortlist for the sokrates-improve skill; the agent picks one target and changes the
 code, measure.py proves the effect. Kinds:
-  units       the most complex / longest units in main code           -> unit:<file>#<name>
+  units       the most complex / longest units in main code           -> unit:<file>#<name>@<start line>
   duplicates  the duplicated blocks costing the most lines             -> duplicate:<index>
   hotspots    main files that are big and change often                 -> hotspot:<path>
   findings    AI scanner findings above info that carry a recommendation -> finding:<id>
@@ -56,8 +56,9 @@ def unit_targets(data, main, top):
     units.sort(key=lambda u: (-int(u.get("mcCabeIndex", 0)), -int(u.get("linesOfCode", 0))))
     out = []
     for u in units[:top]:
-        out.append(with_effort({"id": f"unit:{u['relativeFileName']}#{u.get('shortName', '')}", "kind": "unit",
+        out.append(with_effort({"id": f"unit:{u['relativeFileName']}#{u.get('shortName', '')}@{u.get('startLine')}", "kind": "unit",
                     "file": u["relativeFileName"], "name": u.get("shortName", ""), "lines": f"{u.get('startLine')}-{u.get('endLine')}",
+                    "parameters": u.get("numberOfParameters"),
                     "mcCabe": int(u.get("mcCabeIndex", 0)), "loc": int(u.get("linesOfCode", 0)),
                     "why": f"McCabe {u.get('mcCabeIndex', 0)}, {u.get('linesOfCode', 0)} lines",
                     "action": "extract branches into helpers, replace condition chains with a table or polymorphism, split by responsibility"},

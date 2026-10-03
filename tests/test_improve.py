@@ -48,7 +48,7 @@ class SelectTargetsTest(FixtureTest):
         result = run("select_targets", "--sokrates", ALPHA_SOKRATES, "--json", out)
         self.assert_ok(result)
         doc = read_json(out)
-        self.assertEqual(doc["units"][0]["id"], UNIT)
+        self.assertEqual(doc["units"][0]["id"], UNIT + "@23", "the id names the overload by its start line")
         self.assertEqual((doc["units"][0]["mcCabe"], doc["units"][0]["loc"]), (19, 48))
         self.assertEqual(doc["duplicates"][0]["id"], "duplicate:0")
         self.assertEqual((doc["duplicates"][0]["blockSize"], doc["duplicates"][0]["copies"], doc["duplicates"][0]["duplicatedLines"]), (13, 2, 13))
@@ -83,7 +83,10 @@ class MeasureTest(FixtureTest):
         result, out = self.snapshot(UNIT, "before.json")
         self.assert_ok(result)
         doc = read_json(out)
-        self.assertEqual(doc["measured"], {"found": True, "mcCabe": 19, "loc": 48, "lines": "23-72", "unitsInFile": 3})
+        measured = {k: v for k, v in doc["measured"].items() if k != "fileUnits"}
+        self.assertEqual(measured, {"found": True, "mcCabe": 19, "loc": 48, "lines": "23-72", "unitsInFile": 3})
+        self.assertEqual([u["name"] for u in doc["measured"]["fileUnits"]][:1], ["def fetch_orders()"])
+        self.assertEqual(doc["spec"]["parameters"], 5)
         self.assertEqual(doc["totals"]["mainLinesOfCode"], 131)
         self.assertEqual(doc["totals"]["duplicatedLines"], 13)
         self.assertEqual(doc["totals"]["unitsMcCabeOver10"], 1)
@@ -241,3 +244,141 @@ class LandscapeRankingTest(FixtureTest):
         result = run("select_targets", "--landscape", empty)
         self.assertEqual(result.returncode, 1)
         self.assertIn("no repository analyses", result.stderr)
+
+
+class OverloadsAndHelpersTest(FixtureTest):
+    """measure.py: overloads are told apart by line and parameter count; new helpers show in the compare table."""
+
+    def write_analysis(self, units):
+        import zipfile
+        sokrates = self.tmp / "_sokrates"
+        (sokrates / "reports" / "data").mkdir(parents=True)
+        with zipfile.ZipFile(sokrates / "reports" / "data" / "data.zip", "w") as z:
+            z.writestr("units.json", json.dumps(units))
+            z.writestr("metrics.json", json.dumps({"metrics": [{"id": "LINES_OF_CODE_MAIN", "value": 100}]}))
+            z.writestr("duplicates.json", json.dumps({"duplicates": []}))
+            z.writestr("mainFilesPaths.json", json.dumps(["src/Service.java"]))
+        return sokrates
+
+    @staticmethod
+    def unit(name, start, parameters, mccabe, loc):
+        return {"relativeFileName": "src/Service.java", "shortName": name, "startLine": start, "endLine": start + loc,
+                "numberOfParameters": parameters, "mcCabeIndex": mccabe, "linesOfCode": loc}
+
+    def test_bare_name_warns_and_line_picks_the_overload(self):
+        sokrates = self.write_analysis([self.unit("public void load()", 10, 1, 3, 5), self.unit("public void load()", 40, 3, 15, 60)])
+        out = self.tmp / "bare.json"
+        result = run("measure", "snapshot", "--sokrates", sokrates, "--target", "unit:src/Service.java#public void load()", "-o", out)
+        self.assert_ok(result)
+        self.assertIn("2 units named", result.stderr)
+        self.assertIn("@40", result.stderr)
+        self.assertEqual(read_json(out)["measured"]["mcCabe"], 15, "the most complex overload is measured")
+        out = self.tmp / "line.json"
+        self.assert_ok(run("measure", "snapshot", "--sokrates", sokrates, "--target", "unit:src/Service.java#public void load()@10", "-o", out))
+        doc = read_json(out)
+        self.assertEqual((doc["measured"]["mcCabe"], doc["spec"]["parameters"]), (3, 1))
+        result = run("measure", "snapshot", "--sokrates", sokrates, "--target", "unit:src/Service.java#public void load()@ten", "-o", out)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("start line", result.stderr)
+
+    def test_like_follows_the_overload_by_parameter_count_after_the_lines_shift(self):
+        before_data = self.write_analysis([self.unit("public void load()", 10, 1, 3, 5), self.unit("public void load()", 40, 3, 15, 60)])
+        before = self.tmp / "before.json"
+        self.assert_ok(run("measure", "snapshot", "--sokrates", before_data, "--target", "unit:src/Service.java#public void load()@40", "-o", before))
+        # after the change the 3-parameter overload starts 30 lines later, is simpler, and two helpers appeared
+        import shutil
+        shutil.rmtree(before_data)
+        after_data = self.write_analysis([self.unit("public void load()", 10, 1, 3, 5), self.unit("public void load()", 70, 3, 6, 20),
+                                          self.unit("private void loadRows()", 95, 2, 6, 25), self.unit("private String label()", 125, 1, 5, 12)])
+        after = self.tmp / "after.json"
+        self.assert_ok(run("measure", "snapshot", "--sokrates", after_data, "--like", before, "-o", after))
+        self.assertEqual(read_json(after)["measured"]["lines"], "70-90", "the same overload, found by its parameter count")
+        result = run("measure", "compare", before, after, "--markdown")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("| mcCabe | 15 | 6 |", result.stdout)
+        self.assertIn("| new helpers in the file | - | 2 (private void loadRows(), private String label()) |", result.stdout)
+        self.assertIn("| mcCabe incl. new helpers | 15 | 15 |", result.stdout, "the 9 lost decisions moved into the helpers (5 + 4)")
+        self.assertIn("| loc incl. new helpers | 60 | 57 |", result.stdout)
+        self.assertIn("moved into 2 new helper(s)", result.stderr)
+
+    def test_shorter_but_not_simpler_gets_the_decision_hint(self):
+        before_data = self.write_analysis([self.unit("public void load()", 10, 2, 9, 41)])
+        before = self.tmp / "before.json"
+        self.assert_ok(run("measure", "snapshot", "--sokrates", before_data, "--target", "unit:src/Service.java#public void load()", "-o", before))
+        import shutil
+        shutil.rmtree(before_data)
+        after_data = self.write_analysis([self.unit("public void load()", 10, 2, 10, 33)])
+        after = self.tmp / "after.json"
+        self.assert_ok(run("measure", "snapshot", "--sokrates", after_data, "--like", before, "-o", after))
+        result = run("measure", "compare", before, after)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("worse", result.stdout)
+        self.assertIn("&& / || / ?: as a decision", result.stderr)
+
+
+class DiffOutputsTest(FixtureTest):
+    """diff_outputs.py: two output folders are equivalent when only timestamps, timings and key order differ."""
+
+    @staticmethod
+    def archive_page(entries):
+        import base64, io, zipfile
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as z:
+            for name, content in entries.items():
+                z.writestr(name, content)
+        return f'<html><script>var SOKRATES_ARCHIVE = "{base64.b64encode(buffer.getvalue()).decode()}";</script><p>generated on 2026-10-03 12:00</p></html>'
+
+    def write(self, folder, files):
+        import zipfile
+        for name, content in files.items():
+            path = self.tmp / folder / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if name.endswith(".zip"):
+                with zipfile.ZipFile(path, "w") as z:
+                    for entry, data in content.items():
+                        z.writestr(entry, data)
+            else:
+                path.write_text(content)
+        return self.tmp / folder
+
+    def test_equivalent_outputs(self):
+        before = self.write("before", {"index.html": "<p>generated on 2026-10-02 09:00</p><i>2026-10-02 09:00</i>",
+                                       "data/data.zip": {"analysisResults.json": '{"a": 1, "analysisStartTimeMs": 5, "b": [1, 2]}', "executionTimes.json": "[1]", "text/x.txt": "ok 2026-10-02 09:00:01"},
+                                       "visuals/chart.html": self.archive_page({"main.json": '{"x": 1}'})})
+        after = self.write("after", {"index.html": "<p>generated on 2026-10-03 17:30</p><i>2026-10-03 17:30</i>",
+                                     "data/data.zip": {"analysisResults.json": '{"b": [1, 2], "a": 1, "analysisStartTimeMs": 9}', "executionTimes.json": "[2]", "text/x.txt": "ok 2026-10-03 17:30:02"},
+                                     "visuals/chart.html": self.archive_page({"main.json": '{"x": 1}'})})
+        result = run("diff_outputs", before, after)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("0 of 3 files differ", result.stdout)
+
+    def test_timing_metrics_and_nested_pages_are_noise(self):
+        inner = self.archive_page({"analysisResults.json": '{"metricsList": {"metrics": [{"id": "TOTAL_ANALYSIS_TIME_IN_MILLIS", "value": 129}, {"id": "LINES_OF_CODE_MAIN", "value": 5}]}}'})
+        before = self.write("before", {"html/Metrics.html": "<td><b>TOTAL_ANALYSIS_TIME_IN_MILLIS</b></td><td>129</td><td>LINES</td><td>5</td>",
+                                       "data/data.zip": {"analysisResults.json": '{"metricsList": {"metrics": [{"id": "TOTAL_ANALYSIS_TIME_IN_MILLIS", "value": 129}]}}', "data-preview.html": inner}})
+        inner2 = self.archive_page({"analysisResults.json": '{"metricsList": {"metrics": [{"id": "TOTAL_ANALYSIS_TIME_IN_MILLIS", "value": 126}, {"id": "LINES_OF_CODE_MAIN", "value": 5}]}}'})
+        after = self.write("after", {"html/Metrics.html": "<td><b>TOTAL_ANALYSIS_TIME_IN_MILLIS</b></td><td>126</td><td>LINES</td><td>5</td>",
+                                     "data/data.zip": {"analysisResults.json": '{"metricsList": {"metrics": [{"id": "TOTAL_ANALYSIS_TIME_IN_MILLIS", "value": 126}]}}', "data-preview.html": inner2}})
+        result = run("diff_outputs", before, after)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        after2 = self.write("after2", {"html/Metrics.html": "<td><b>TOTAL_ANALYSIS_TIME_IN_MILLIS</b></td><td>126</td><td>LINES</td><td>6</td>",
+                                       "data/data.zip": {"analysisResults.json": '{"metricsList": {"metrics": [{"id": "TOTAL_ANALYSIS_TIME_IN_MILLIS", "value": 126}]}}', "data-preview.html": inner2}})
+        result = run("diff_outputs", before, after2)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("DIFFERS: html/Metrics.html [page]", result.stdout, "a real metric change is still reported")
+
+    def test_real_differences_are_named_by_file_and_entry(self):
+        before = self.write("before", {"index.html": "<p>12 files</p>", "data/data.zip": {"files.json": '[{"path": "a"}]', "extra.txt": "x"},
+                                       "visuals/chart.html": self.archive_page({"main.json": '{"x": 1}', "test.json": '{"y": 2}'}), "only-before.txt": "gone"})
+        after = self.write("after", {"index.html": "<p>13 files</p>", "data/data.zip": {"files.json": '[{"path": "b"}]'},
+                                     "visuals/chart.html": self.archive_page({"main.json": '{"x": 2}', "test.json": '{"y": 2}'})})
+        result = run("diff_outputs", before, after)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("DIFFERS: index.html [page]", result.stdout)
+        self.assertIn("DIFFERS: data/data.zip [extra.txt (only before), files.json]", result.stdout)
+        self.assertIn("DIFFERS: visuals/chart.html [archive:main.json]", result.stdout)
+        self.assertIn("DIFFERS: only-before.txt [only before]", result.stdout)
+        self.assertIn("4 of 4 files differ", result.stdout)
+        result = run("diff_outputs", before, after, "--ignore", "only-before.txt", "--ignore", "extra.txt")
+        self.assertNotIn("only-before", result.stdout)
+        self.assertNotIn("extra.txt", result.stdout)

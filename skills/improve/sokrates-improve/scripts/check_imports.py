@@ -20,10 +20,29 @@ PY_IMPORT = re.compile(r"^(?:from\s+[\w.]+\s+import\s+(.+)|import\s+(.+))$", re.
 
 
 def strip_comments(text, suffix):
-    if suffix == ".java":
-        text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
-        return re.sub(r"//[^\n]*", "", text)
-    return re.sub(r"#[^\n]*", "", text)
+    """The code without its comments, string literals kept as is: a `/*`, `//` or `#` inside a string is not a comment."""
+    out = []
+    i, n = 0, len(text)
+    line_comment, block_open, block_close = ("//", "/*", "*/") if suffix == ".java" else ("#", None, None)
+    while i < n:
+        c = text[i]
+        if c in "\"'":
+            quote = text[i:i + 3] if suffix == ".py" and text[i:i + 3] in ('"""', "\'\'\'") else c
+            j = i + len(quote)
+            while j < n and text[j:j + len(quote)] != quote:
+                j += 2 if text[j] == "\\" else 1
+            out.append(text[i:j + len(quote)])
+            i = j + len(quote)
+        elif text.startswith(line_comment, i):
+            while i < n and text[i] != "\n":
+                i += 1
+        elif block_open and text.startswith(block_open, i):
+            end = text.find(block_close, i + 2)
+            i = n if end < 0 else end + 2
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
 
 
 def used(name, body):

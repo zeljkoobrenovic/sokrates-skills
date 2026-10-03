@@ -107,20 +107,32 @@ def measure_hotspot(data, path):
             "maxMcCabe": max([int(u.get("mcCabeIndex", 0)) for u in units] or [0]),
             "longestUnit": max([int(u.get("linesOfCode", 0)) for u in units] or [0]),
             "commits90": h["commits90"] if h else None,
+            "unitNames": sorted({u.get("shortName", "") for u in units}),
             "folderFiles": folder_files(data, path)}
 
 
 def folder_files(data, path):
-    """The main files in the hotspot's folder (path, lines), so a split can be seen: the new files are where the lines went."""
+    """The main files in the hotspot's folder (path, lines, unit names), so a split can be seen: a new file holding
+    units that left the hotspot is where its lines went."""
     folder = path.rpartition("/")[0]
-    return [{"path": f.get("relativePath"), "loc": int(f.get("linesOfCode", 0))}
+    names_by_file = {}
+    for u in data.units():
+        names_by_file.setdefault(u.get("relativeFileName"), set()).add(u.get("shortName", ""))
+    return [{"path": f.get("relativePath"), "loc": int(f.get("linesOfCode", 0)), "unitNames": sorted(names_by_file.get(f.get("relativePath"), set()))}
             for f in data.json("files.json", []) if isinstance(f, dict) and str(f.get("relativePath", "")).rpartition("/")[0] == folder]
 
 
 def new_files(before_measured, after_measured):
-    """Files of the hotspot's folder that exist after the change and did not before."""
+    """Files of the hotspot's folder that exist after the change and did not before, split into the ones that hold a
+    unit the hotspot lost (its own split) and the rest (another change in the same folder). Returns (attributed, other).
+    Snapshots taken before unit names were recorded attribute every new file."""
     before_paths = {f["path"] for f in before_measured.get("folderFiles", [])}
-    return [f for f in after_measured.get("folderFiles", []) if f["path"] not in before_paths]
+    added = [f for f in after_measured.get("folderFiles", []) if f["path"] not in before_paths]
+    if "unitNames" not in before_measured:
+        return added, []
+    departed = set(before_measured.get("unitNames", [])) - set(after_measured.get("unitNames", []))
+    attributed = [f for f in added if departed & set(f.get("unitNames", []))]
+    return attributed, [f for f in added if f not in attributed]
 
 
 def measure_finding(data, finding_id):
@@ -262,10 +274,10 @@ def compare(args):
         rows.append(("new helpers in the file", "-", f"{len(helpers)} ({', '.join(h['name'] for h in helpers[:6])}{', …' if len(helpers) > 6 else ''})"))
         rows.append(("mcCabe incl. new helpers", b.get("mcCabe", "-"), a.get("mcCabe", 0) + moved_mccabe))
         rows.append(("loc incl. new helpers", b.get("loc", "-"), a.get("loc", 0) + sum(h["loc"] for h in helpers)))
-    split_files = new_files(b, a) if kind == "hotspot" else []
+    split_files, other_new_files = new_files(b, a) if kind == "hotspot" else ([], [])
     if split_files:
         names = ", ".join(f"{f['path'].rpartition('/')[2]} ({f['loc']})" for f in split_files[:6]) + (", …" if len(split_files) > 6 else "")
-        rows.append(("new files in the folder", "-", f"{len(split_files)}: {names}"))
+        rows.append(("new files holding this file's former units", "-", f"{len(split_files)}: {names}"))
         rows.append(("loc incl. new files", b.get("loc", "-"), a.get("loc", 0) + sum(f["loc"] for f in split_files)))
     for k in ["mainLinesOfCode", "duplicatedLines", "unitsMcCabeOver25", "unitsMcCabeOver10", "unitsOver100Lines"]:
         rows.append((f"total {k}", before["totals"].get(k), after["totals"].get(k)))
@@ -286,6 +298,9 @@ def compare(args):
         print("\nThe unit got shorter but not simpler: Sokrates counts every if / else if / loop / case / catch / && / || / ?: as a decision,"
               " so ternaries and boolean operators that flatten nesting still count as branches. Replace them with guard clauses,"
               " a lookup table or a helper that owns the decision.", file=sys.stderr)
+    if other_new_files:
+        names = ", ".join(f"{f['path'].rpartition('/')[2]} ({f['loc']})" for f in other_new_files[:6]) + (", …" if len(other_new_files) > 6 else "")
+        print(f"\nAlso new in the folder, holding none of this file's former units (another change, not counted here): {names}", file=sys.stderr)
     if split_files and result == "improved":
         lost, appeared = b.get("loc", 0) - a.get("loc", 0), sum(f["loc"] for f in split_files)
         if appeared > lost * 1.1 + 20:

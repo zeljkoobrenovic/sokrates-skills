@@ -1,0 +1,25 @@
+skills/improve/sokrates-improve/SKILL.md
+  s_40c0e74316fcc6::t_f0e5e9fbd4c366 28
+skills/improve/sokrates-improve/references/what-moves-the-numbers.md
+  s_40c0e74316fcc6::t_0a3d6dab1ffc98 51
+skills/improve/sokrates-improve/scripts/measure.py
+  s_40c0e74316fcc6::t_9975a06174c5aa 110,115-116,118-121,126-128,130-135,277,280,301-303
+tests/test_improve.py
+  s_40c0e74316fcc6::t_998c8fc8eb3a69 405-411,415-420,425-428,430-431,437-438
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "702519c8ea35d18f64d525600a4a5b8091a48142",
+  "prompts": {},
+  "sessions": {
+    "s_40c0e74316fcc6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a859e40-f6c6-4dfa-8fdb-6c295588cf73",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}

@@ -48,7 +48,7 @@ A good file split, in the order a reviewer checks it:
 - **the origin keeps the orchestration** - it creates the new class (lazily when the fields it needs are set later) and calls it where the block used to run, in the same order;
 - **serialized shapes stay** - a getter that fed JSON keeps feeding it: a delegating getter with the same annotations, or a nested object marked unwrapped, keeps the file's properties flat and the consumers unchanged; a shared static helper stays reachable from both sides;
 - **only the imports it uses** - an extracted class that copies its origin's import list carries dozens of dead lines; `check_imports.py` flags them;
-- **lines left, not doubled** - `measure.py compare` lists the new files of the folder and the hotspot's lines including them: a move keeps the sum, a copy raises it.
+- **lines left, not doubled** - `measure.py compare` lists the new files of the folder that hold units the hotspot lost (a new file with none of them is another change in the same folder and is only mentioned) and the hotspot's lines including them: a move keeps the sum, a copy raises it.
 
 What is not a split: a second file with half the methods that calls the first for every field; a class that exists to hold one method; data tables moved without their consumer when the consumer is the only thing that reads them.
 

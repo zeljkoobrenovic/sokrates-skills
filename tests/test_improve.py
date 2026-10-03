@@ -402,27 +402,40 @@ class FileSplitsTest(FixtureTest):
             z.writestr("mainFilesPaths.json", json.dumps(list(files)))
         return sokrates
 
-    def test_split_rows_and_the_copy_warning(self):
-        before_data = self.write_analysis({"src/report/Exporter.java": 760, "src/report/Other.java": 100})
+    @staticmethod
+    def units_of(path, *names):
+        return [{"relativeFileName": path, "shortName": n, "startLine": 1, "endLine": 2, "numberOfParameters": 0, "mcCabeIndex": 1, "linesOfCode": 2} for n in names]
+
+    def test_split_rows_attribute_new_files_by_the_units_that_left(self):
+        exporter_units = self.units_of("src/report/Exporter.java", "void addActivityTab()", "void addData()", "void addOverview()")
+        before_data = self.write_analysis({"src/report/Exporter.java": 760, "src/report/Other.java": 100}, exporter_units)
         before = self.tmp / "before.json"
         self.assert_ok(run("measure", "snapshot", "--sokrates", before_data, "--target", "hotspot:src/report/Exporter.java", "-o", before))
         self.assertEqual([f["path"] for f in read_json(before)["measured"]["folderFiles"]], ["src/report/Exporter.java", "src/report/Other.java"])
-        after_data = self.write_analysis({"src/report/Exporter.java": 520, "src/report/Other.java": 100, "src/report/ActivityTab.java": 160, "src/report/DataTab.java": 100})
+        self.assertEqual(read_json(before)["measured"]["unitNames"], ["void addActivityTab()", "void addData()", "void addOverview()"])
+        # two new files hold the units that left the exporter; a third new file (a neighbour's change) holds none of them
+        after_units = (self.units_of("src/report/Exporter.java", "void addOverview()") + self.units_of("src/report/ActivityTab.java", "void addActivityTab()")
+                       + self.units_of("src/report/DataTab.java", "void addData()") + self.units_of("src/report/OtherPages.java", "void savePages()"))
+        after_data = self.write_analysis({"src/report/Exporter.java": 520, "src/report/Other.java": 100, "src/report/ActivityTab.java": 160,
+                                          "src/report/DataTab.java": 100, "src/report/OtherPages.java": 90}, after_units)
         after = self.tmp / "after.json"
         self.assert_ok(run("measure", "snapshot", "--sokrates", after_data, "--like", before, "-o", after))
         result = run("measure", "compare", before, after, "--markdown")
         self.assertEqual(result.returncode, 0, result.stdout)
-        self.assertIn("| new files in the folder | - | 2: ActivityTab.java (160), DataTab.java (100) |", result.stdout)
-        self.assertIn("| loc incl. new files | 760 | 780 |", result.stdout)
+        self.assertIn("| new files holding this file's former units | - | 2: ActivityTab.java (160), DataTab.java (100) |", result.stdout)
+        self.assertIn("| loc incl. new files | 760 | 780 |", result.stdout, "the neighbour's file is not counted")
+        self.assertIn("Also new in the folder, holding none of this file's former units", result.stderr)
+        self.assertIn("OtherPages.java (90)", result.stderr)
         self.assertNotIn("more code was written than moved", result.stderr, "20 lines of class headers are a move")
-        copied = self.write_analysis({"src/report/Exporter.java": 520, "src/report/Other.java": 100, "src/report/ActivityTab.java": 400, "src/report/DataTab.java": 100})
+        copied_units = after_units[:3]
+        copied = self.write_analysis({"src/report/Exporter.java": 520, "src/report/Other.java": 100, "src/report/ActivityTab.java": 400, "src/report/DataTab.java": 100}, copied_units)
         after2 = self.tmp / "after2.json"
         self.assert_ok(run("measure", "snapshot", "--sokrates", copied, "--like", before, "-o", after2))
         result = run("measure", "compare", before, after2)
         self.assertIn("more code was written than moved", result.stderr)
         result = run("measure", "compare", before, after, "--for-commit")
-        self.assertIn("Exporter.java: 760 -> 520 lines (+160 +100 new), longest unit 0 -> 0, max McCabe 0 -> 0 (improved)", result.stdout)
-        self.assertIn("| Exporter.java | 760 -> 520 (+160 +100 new) | 0 -> 0 |", result.stdout)
+        self.assertIn("Exporter.java: 760 -> 520 lines (+160 +100 new), longest unit 2 -> 2, max McCabe 1 -> 1 (improved)", result.stdout)
+        self.assertIn("| Exporter.java | 760 -> 520 (+160 +100 new) | 3 -> 1 |", result.stdout)
 
     def test_for_commit_on_a_unit(self):
         result, before = self.snapshot_alpha("before.json")

@@ -41,6 +41,17 @@ Duplication inside generated code is a scoping problem: classify the folder as `
 
 A hotspot is a file that is both large and frequently changed: `text/mainFilesWithHistory.txt` gives per file the lines of code, the number of commits (overall, 30 and 90 days), contributors and churn; `units.json` gives its largest and most complex units. The score used by `select_targets.py` is lines x commits in the last 90 days (falling back to all-time commits), weighted by the file's maximum unit complexity. Splitting the file along responsibilities is what helps: later changes then touch a smaller file. Moving code around without reducing the file does not.
 
+A good file split, in the order a reviewer checks it:
+
+- **one block, one responsibility** - a tab of a page, a section of a report, one aggregation, one command group, one table of data; the units of the file show the seams (the methods that only call each other and share the same handful of fields);
+- **dependencies in the constructor** - the new class receives the report, the folder, the results or the configuration it needs when it is created, and a small callback or functional interface for the one thing it must still ask the origin for; it does not take the origin object and reach into it;
+- **the origin keeps the orchestration** - it creates the new class (lazily when the fields it needs are set later) and calls it where the block used to run, in the same order;
+- **serialized shapes stay** - a getter that fed JSON keeps feeding it: a delegating getter with the same annotations, or a nested object marked unwrapped, keeps the file's properties flat and the consumers unchanged; a shared static helper stays reachable from both sides;
+- **only the imports it uses** - an extracted class that copies its origin's import list carries dozens of dead lines; `check_imports.py` flags them;
+- **lines left, not doubled** - `measure.py compare` lists the new files of the folder and the hotspot's lines including them: a move keeps the sum, a copy raises it.
+
+What is not a split: a second file with half the methods that calls the first for every field; a class that exists to hold one method; data tables moved without their consumer when the consumer is the only thing that reads them.
+
 ## AI findings
 
 A finding (`_sokrates/reports/ai-insights/<scanner>.json`) with severity above `info` carries a `recommendation` and evidence (file, line range, snippet). It is resolved when, after the change and a re-run of that scanner, the finding id is no longer reported or its severity went down; `measure.py compare` checks exactly that. The scanner's SKILL.md says how to re-run it; `diff_findings.py` in `sokrates-scan-core` compares whole runs.

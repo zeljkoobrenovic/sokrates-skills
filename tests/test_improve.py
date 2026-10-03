@@ -382,3 +382,84 @@ class DiffOutputsTest(FixtureTest):
         result = run("diff_outputs", before, after, "--ignore", "only-before.txt", "--ignore", "extra.txt")
         self.assertNotIn("only-before", result.stdout)
         self.assertNotIn("extra.txt", result.stdout)
+
+
+class FileSplitsTest(FixtureTest):
+    """measure.py: a hotspot split shows the new files of the folder and the lines including them; --for-commit prints the block to paste."""
+
+    def write_analysis(self, files, units=()):
+        import zipfile
+        sokrates = self.tmp / "_sokrates"
+        if sokrates.exists():
+            import shutil
+            shutil.rmtree(sokrates)
+        (sokrates / "reports" / "data").mkdir(parents=True)
+        with zipfile.ZipFile(sokrates / "reports" / "data" / "data.zip", "w") as z:
+            z.writestr("files.json", json.dumps([{"relativePath": path, "linesOfCode": loc} for path, loc in files.items()]))
+            z.writestr("units.json", json.dumps(list(units)))
+            z.writestr("metrics.json", json.dumps({"metrics": [{"id": "LINES_OF_CODE_MAIN", "value": sum(files.values())}]}))
+            z.writestr("duplicates.json", json.dumps({"duplicates": []}))
+            z.writestr("mainFilesPaths.json", json.dumps(list(files)))
+        return sokrates
+
+    def test_split_rows_and_the_copy_warning(self):
+        before_data = self.write_analysis({"src/report/Exporter.java": 760, "src/report/Other.java": 100})
+        before = self.tmp / "before.json"
+        self.assert_ok(run("measure", "snapshot", "--sokrates", before_data, "--target", "hotspot:src/report/Exporter.java", "-o", before))
+        self.assertEqual([f["path"] for f in read_json(before)["measured"]["folderFiles"]], ["src/report/Exporter.java", "src/report/Other.java"])
+        after_data = self.write_analysis({"src/report/Exporter.java": 520, "src/report/Other.java": 100, "src/report/ActivityTab.java": 160, "src/report/DataTab.java": 100})
+        after = self.tmp / "after.json"
+        self.assert_ok(run("measure", "snapshot", "--sokrates", after_data, "--like", before, "-o", after))
+        result = run("measure", "compare", before, after, "--markdown")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("| new files in the folder | - | 2: ActivityTab.java (160), DataTab.java (100) |", result.stdout)
+        self.assertIn("| loc incl. new files | 760 | 780 |", result.stdout)
+        self.assertNotIn("more code was written than moved", result.stderr, "20 lines of class headers are a move")
+        copied = self.write_analysis({"src/report/Exporter.java": 520, "src/report/Other.java": 100, "src/report/ActivityTab.java": 400, "src/report/DataTab.java": 100})
+        after2 = self.tmp / "after2.json"
+        self.assert_ok(run("measure", "snapshot", "--sokrates", copied, "--like", before, "-o", after2))
+        result = run("measure", "compare", before, after2)
+        self.assertIn("more code was written than moved", result.stderr)
+        result = run("measure", "compare", before, after, "--for-commit")
+        self.assertIn("Exporter.java: 760 -> 520 lines (+160 +100 new), longest unit 0 -> 0, max McCabe 0 -> 0 (improved)", result.stdout)
+        self.assertIn("| Exporter.java | 760 -> 520 (+160 +100 new) | 0 -> 0 |", result.stdout)
+
+    def test_for_commit_on_a_unit(self):
+        result, before = self.snapshot_alpha("before.json")
+        self.assert_ok(result)
+        base = read_json(before)
+        after = self.tmp / "after.json"
+        write_json(after, {**base, "measured": {**base["measured"], "mcCabe": 6, "loc": 21, "lines": "23-45"}, "analysisAt": "later"})
+        result = run("measure", "compare", before, after, "--for-commit")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("def fetch_orders(): McCabe 19 -> 6, lines 48 -> 21 (improved)", result.stdout)
+        self.assertIn("| def fetch_orders() | 19 -> 6 | 48 -> 21 |", result.stdout)
+
+    def snapshot_alpha(self, name):
+        out = self.tmp / name
+        return run("measure", "snapshot", "--sokrates", ALPHA_SOKRATES, "--target", UNIT, "-o", out), out
+
+
+class CheckImportsTest(FixtureTest):
+    """check_imports.py: imports whose simple name the file never uses are flagged, per file, with exit code 1."""
+
+    def test_java_and_python(self):
+        java = self.tmp / "Report.java"
+        java.write_text("package a;\n\nimport java.util.List;\nimport java.util.Map;\nimport java.io.File;\nimport static org.junit.Assert.*;\nimport org.apache.commons.lang3.StringUtils;\n\n"
+                        "// a Map in a comment does not count\nclass Report {\n    List<File> files;\n    String s = StringUtils.trim(\"x\");\n}\n")
+        py = self.tmp / "tool.py"
+        py.write_text("import os\nimport sys, json\nfrom pathlib import Path, PurePath\nfrom typing import List as L\n\n# sys in a comment\nprint(os.getcwd(), json.dumps({}), Path('.'), L)\n")
+        clean = self.tmp / "Clean.java"
+        clean.write_text("import java.util.List;\nclass Clean { List<String> x; }\n")
+        result = run("check_imports", java, py, clean)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("Report.java: unused import java.util.Map", result.stdout)
+        self.assertNotIn("java.util.List", result.stdout)
+        self.assertNotIn("StringUtils", result.stdout)
+        self.assertNotIn("org.junit", result.stdout, "a wildcard import is not judged")
+        self.assertIn("tool.py: unused import sys", result.stdout)
+        self.assertIn("tool.py: unused from … import PurePath", result.stdout)
+        self.assertNotIn("import os", result.stdout)
+        self.assertNotIn("List as L", result.stdout)
+        self.assertIn("3 unused import(s) in 3 file(s)", result.stdout)
+        self.assertEqual(run("check_imports", clean).returncode, 0)

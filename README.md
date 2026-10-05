@@ -125,12 +125,14 @@ Typical sequence in a project:
 2. refine the configuration with the config skills ("check the Sokrates configuration", "define meaningful components", "which features of interest should Sokrates track?", "merge duplicate contributors"), then `sokrates generateReports` again
 3. run the scanners ("run a full scan") — results in `_sokrates/reports/ai-insights/index.html`
 4. optionally illustrate the summaries: `GEMINI_API_KEY=... python3 skills/illustrators/generate_summary_visuals.py <project>/_sokrates/reports/ai-insights`
-5. embed the explorer in the main Sokrates report, once, then regenerate to see the new tab:
+5. regenerate the Sokrates report (`sokrates generateReports`, or `sokrates analyze`): it renders the findings itself, as "AI Insights" and "AI Deep Dives" groups in its sidebar (one page per scanner, plus an overview and the attention items), in the report's style and theme. `ai-insights/index.html` stays the standalone alternative. Sokrates builds from before October 2026 do not render the findings; there, embed the standalone explorer as a tab once:
 
 ```bash
 java -jar sokrates.jar addCustomTab -label "AI Insights*" -iframeLink "../ai-insights/index.html"
 java -jar sokrates.jar generateReports
 ```
+
+(Newer builds leave such a tab out while they render the findings themselves, so it does not show them twice.)
 
 Requirements: Python 3.9+ (standard library only) for the scripts; a Sokrates analysis (`sokrates init` → `sokrates generateReports`) for the scanners; `git-history.txt` (`sokrates extractGitHistory`) for history-based skills.
 

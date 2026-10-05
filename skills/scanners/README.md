@@ -52,7 +52,7 @@ Ask for what you need: "run a basic scan" (orientation), "run a security deep di
 
 ## Usage
 
-Point an AI tool with these skills at a project containing a `_sokrates` analysis and ask, e.g., "run a tech stack scan". Output lands in `<project>/_sokrates/reports/ai-insights/` — open `index.html` there to browse.
+Point an AI tool with these skills at a project containing a `_sokrates` analysis and ask, e.g., "run a tech stack scan". Output lands in `<project>/_sokrates/reports/ai-insights/` — open `index.html` there to browse, or regenerate the Sokrates report, which renders the findings in its own sidebar (AI Insights / AI Deep Dives).
 
 To make the skills available in Claude Code, link or copy them into a skills location, e.g.:
 

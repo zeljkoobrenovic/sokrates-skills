@@ -1,0 +1,29 @@
+README.md
+  s_5026482126c219::t_3b4b7d7eceaf4d 128,135-136
+skills/config/sokrates-repo-config/SKILL.md
+  s_5026482126c219::t_813e596107fefe 28
+skills/config/sokrates-repo-config/references/config-reference.md
+  s_5026482126c219::t_d573e8816b9401 152
+skills/scanners/README.md
+  s_5026482126c219::t_ee25a5097c105c 55
+skills/scanners/sokrates-scan-core/SKILL.md
+  s_5026482126c219::t_a208e2d1c2b363 53
+skills/scanners/sokrates-scan-core/templates/icons/README.md
+  s_5026482126c219::t_e5764aeb66443d 7-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f186951d4672ae8dd3c63ce266716c0757c08f9b",
+  "prompts": {},
+  "sessions": {
+    "s_5026482126c219": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "02d24a13-bc18-4f57-8e09-809e545be12d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Zeljko Obrenovic <zeljkoobrenovic@yahoo.com>"
+    }
+  }
+}
